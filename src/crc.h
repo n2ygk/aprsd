@@ -7,8 +7,13 @@
 #ifndef CRC__H
 #define CRC__H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>           /* For size_t                 */
 #include "sniptype.h"         /* For BYTE, WORD, DWORD      */
+
 
 /*
 **  File: ARCCRC16.C
@@ -53,6 +58,7 @@ unsigned checksum(void *buffer, size_t len, unsigned int seed);
 
 void checkexe(char *fname);
 
-
-
+#ifdef __cplusplus
+}
+#endif
 #endif /* CRC__H */

@@ -7,6 +7,9 @@
 #ifndef SNIPTYPE__H
 #define SNIPTYPE__H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <stdlib.h>                             /* For free()           */
 #include <string.h>                             /* For NULL & strlen()  */
 
@@ -33,5 +36,9 @@ typedef enum {Error_ = -1, Success_, False_ = 0, True_} Boolean_T;
 #define LAST_CHAR(s) (((char *)s)[strlen(s) - 1])
 #define TOBOOL(x) (!(!(x)))
 #define FREE(p) (free(p),(p)=NULL)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SNIPTYPE__H */

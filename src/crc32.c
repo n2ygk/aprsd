@@ -2,12 +2,15 @@
 
 /* Crc - 32 BIT ANSI X3.66 CRC checksum files */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#define _PTHREADS
-#define _REENTRANT
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+
 #include <stdio.h>
 #include "crc.h"
 
@@ -193,4 +196,7 @@ main(int argc, char *argv[])
       return(errors != 0);
 }
 
+#ifdef _cplusplus
+}
+#endif
 #endif /* TEST */
