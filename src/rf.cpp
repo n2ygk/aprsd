@@ -45,10 +45,7 @@
 
 #include "rf.h"
 #include "serial.h"
-
-#ifdef SOCKETS
 #include "sockets.h"
-#endif
 
 #include "constant.h"
 #include "utils.h"
@@ -121,12 +118,12 @@ int rfOpen (char *szPort)
 
     if (AsyncPort)
         result = AsyncOpen(szPort);
-#ifdef SOCKETS
+#ifdef WITH_AX25
     else
         result = SocketOpen(szPort, AprsPath);
 #else
     else {
-        cerr << "Sockets not supported in this executable" << endl;
+        cerr << "AX.25 sockets are not supported by this executable" << endl;
         result = 1;
     }
 #endif
@@ -166,12 +163,13 @@ int rfClose(void)
 
     if (AsyncPort)
         return(AsyncClose());
-#ifdef SOCKETS
+#ifdef WITH_AX25
     else
         return(SocketClose());
-#endif
+#else
     else
         return(0);      // quite compiler
+#endif
 }
 
 //-------------------------------------------------------------------
@@ -215,7 +213,7 @@ void* rfReadCom (void *vp)
 
         if (AsyncPort)
             lineTimeout = AsyncReadWrite(buf);
-#ifdef SOCKETS
+#ifdef WITH_AX25
         else
             lineTimeout = SocketReadWrite(buf);
 #endif
@@ -311,11 +309,12 @@ int rfSendFiletoTNC (char *szName)
 {
     if (AsyncPort)
         return(AsyncSendFiletoTNC(szName));
-#ifdef SOCKETS
+#ifdef WITH_AX25
     else
         return(0); // Not applicable for sockets
-#endif
+#else
     else
         return(0);                      // quite compiler
+#endif
 }
 
