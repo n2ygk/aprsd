@@ -3432,14 +3432,26 @@ void segvHandler(int signum)  //For debugging seg. faults
 }
 #endif
 //----------------------------------------------------------------------
-/* Thread to process http request for server status data */
+
+
+/*  Thread to process http request for server status data */
+
+/*  Reworked 14-July-2001 by wa4dsy. 
+    The original version sent out strings to the client
+    as they were created. This version builds the entire
+    html page in memory then sends it out 
+    to the user in a single loop near the end of the function.
+    This allows for the detection of send errors and retrys
+    without locking the various mutexs for long periods of time. 
+
+*/
  void *HTTPServerThread(void *p)
 {
     char buf[BUFSIZE];
     SessionParams *psp = (SessionParams*)p;
     int sock = psp->Socket;
     delete psp;
-    int  i;
+    int  i,idx;
     char  szError[MAX];
     int n, rc,data;
     int err,nTokens;
@@ -3450,6 +3462,13 @@ void segvHandler(int signum)  //For debugging seg. faults
     double serverRate = 0;
     double inetRate = 0;
     string inetRateX, serverRateX;
+    
+#define HSIZE 600                           //Create space for 600 strings to hold the html page
+    char **html2send = new char*[HSIZE];    //Hopefully that will be enough!
+    for(i=0; i<HSIZE; i++){
+        html2send[i] = NULL;                //NULL all the pointers
+    }
+    idx = 0;
 
     if (sock < 0)
         pthread_exit(0);
@@ -3525,8 +3544,10 @@ void segvHandler(int signum)  //For debugging seg. faults
         close(sock);
         pthread_exit(0);
     }
+  
 
 #define HTMLSIZE 5000
+
     if(pthread_mutex_lock(pmtxCount) != 0)
         cerr << "Unable to lock pmtxCount - HTTPStats2.\n" << flush;
 
@@ -3546,7 +3567,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "\n<HTML>"
         << "<HEAD><TITLE>" << szServerCall << " Server Status Report</TITLE></HEAD>"
         << "<BODY ALINK=#0000FF VLINK=#800080 ALINK=#FF0000 BGCOLOR=\"#606060\"><CENTER>"
-        << "<TABLE BORDER=2 BGCOLOR=\"#D0D0D0\">"
+        << "<P><TABLE BORDER=2 BGCOLOR=\"#D0D0D0\">"
         << "<TR BGCOLOR=\"#FFD700\">"
         << "<TH COLSPAN=2>" << szServerCall << " " << MyLocation << "</TH>"
         << "</TR>"
@@ -3565,8 +3586,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>History items</TD><TD>" << ItemCount  << "</TD></TR>\n"
         << "<TR><TD>TAprsString Objects</TD><TD>" << TAprsString::getObjCount() << "</TD></TR>\n"
         << "<TR><TD>Frame Count</TD><TD>" << frame_cnt << "</TD></TR>\n"
-        << (logBadPackets ? "<TR><TD><a href=\"http://first.aprs.net/aprsd/badpacket.log\">Frame Errors</a></TD><TD>" :
-                "<TR><TD>Frame Errors</TD><TD>") << error_cnt << "</TD></TR>\n"
+        << "<TR><TD><a href=\"http://first.aprs.net/aprsd/badpacket.log\">Frame Errors</a></TD><TD>" << error_cnt << "</TD></TR>\n"
         << "<TR><TD>Items in InetQ</TD><TD>" << sendQueue.getItemsQueued() << "</TD></TR>\n"
         << "<TR><TD>InetQ overflows</TD><TD>" << sendQueue.overrun << "</TD></TR>\n"
         << "<TR><TD>TncQ overflows</TD><TD>" << tncQueue.overrun << "</TD></TR>\n"
@@ -3577,7 +3597,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>?IGATE? Querys</TD><TD>" << queryCounter << "</TD></TR>\n"
         << "<TR><TD>Server Version</TD><TD>" << VERS << "</TD></TR>\n"
         << "<TR><TD>Sysop email</TD><TD><A HREF=\"mailto:" << MyEmail << "\">" << MyEmail << "</A></TD></TR>\n"
-        << "</TABLE><P>"
+        << "</TABLE></P>"
         << ends;
 
     
@@ -3585,24 +3605,33 @@ void segvHandler(int signum)  //For debugging seg. faults
     if(pthread_mutex_unlock(pmtxCount) != 0)
         cerr << "Unable to unlock pmtxCount - HTTPStats2.\n" << flush;
 
-    rc = send(sock,htmlbuf,strlen(htmlbuf),0);  //Send this part of the page now
+     
+    html2send[idx] = new char[strlen(htmlbuf)+1];  //Create space for server status report string
+    strcpy(html2send[idx],htmlbuf);                //copy data
+    idx++;                                         //increment index 
     
-
     // Now send the Igate connection report.
 
-    string igateheader =
+    char igateheader[] =
 
-               "</TABLE><P><TABLE BORDER=2 BGCOLOR=\"#C0C0C0\"><TR BGCOLOR=\"#FFD700\">"
+               "<P><TABLE BORDER=2 BGCOLOR=\"#C0C0C0\"><TR BGCOLOR=\"#FFD700\">"
                "<TH COLSPAN=10>Igate Connections</TH></TR>"
                "<TR><TH>Domain Name</TH><TH>Port</TH><TH>Type</TH><TH>Status</TH><TH>Igate Pgm</TH>"
                "<TH>Last active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes<BR> Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>" ;
 
-    rc = send(sock,igateheader.c_str(), igateheader.length(), 0);
-
+    
+    html2send[idx] = new char[strlen(igateheader)+1];
+    strcpy(html2send[idx],igateheader);
+    idx++;
+    
     if(pthread_mutex_lock(pmtxCount) != 0)
         cerr << "Unable to lock pmtxCount - HTTPStats3.\n" << flush;
 
+    
     for (i=0; i< nIGATES;i++) {
+
+        
+
         if (cpIGATE[i].RemoteSocket != -1) {
             char timeStr[32];
             strElapsedTime(cpIGATE[i].starttime,timeStr);           // Compute elapsed time of connection
@@ -3664,26 +3693,42 @@ void segvHandler(int signum)  //For debugging seg. faults
                 << "</TR>\n"
                 << ends;
 
-            rc = send(sock,htmlbuf,strlen(htmlbuf),0);
+           
+
+           
+            
+            if(idx < HSIZE){
+                html2send[idx] = new char[strlen(htmlbuf)+1];
+                strcpy(html2send[idx],htmlbuf);
+                idx++;
+            }
+
+                        
         }
     }
+    
     if(pthread_mutex_unlock(pmtxCount) != 0)
         cerr << "Unable to unlock pmtxCount - HTTPStats3.\n" << flush;
 
-    string userheader =
-        "</TABLE><P><TABLE  BORDER=2 BGCOLOR=\"#C0C0C0\">"       // Start of user list table
+    char userheader[] =
+        "</TABLE></P><P><TABLE  BORDER=2 BGCOLOR=\"#C0C0C0\">"       // Start of user list table
         "<TR BGCOLOR=\"#FFD700\"><TH COLSPAN=10>Users</TH></TR>\n"
         "<TR><TH>IP Address</TH><TH>Port</TH><TH>Call</TH><TH>Vrfy</TH>"
         "<TH>Program Vers</TH><TH>Last Active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes <BR>Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>\n" ;
 
-    rc = send(sock, userheader.c_str(), userheader.length(), 0);
-
+    //Copy userheader into the html2send array
+    if(idx < HSIZE){
+        html2send[idx] = new char[strlen(userheader)+1];
+        strcpy(html2send[idx], userheader);
+        idx++;
+    }
+    
     if(pthread_mutex_lock(pmtxAddDelSess) != 0)		// comment this out to allow viewing if mutex is locked
         cerr << "Unable to lock pmtxAddDelSess HTTPStats4- .\n" << flush;
-
+                
     if(pthread_mutex_lock(pmtxCount) != 0)
         cerr << "Unable to lock pmtxCount - HTTPStats4.\n" << flush;
-
+    
     string TszPeer;
     string TserverPort;
     string TuserCall;
@@ -3694,8 +3739,13 @@ void segvHandler(int signum)  //For debugging seg. faults
     int bytesout = 0;
     int bytesin = 0;
     int npid = -1;
-    for (i=0;i<MaxClients;i++) {        // Create a table with user information
+
+    
+    for (i=0;i<MaxClients;i++) {        // Create a html table with user information
+        
         if ((sessions[i].Socket != -1) && (sessions[i].ServerPort != -1)) {
+
+            
             char timeStr[32];
             strElapsedTime(sessions[i].starttime, timeStr);      // Compute elapsed time
             char lastActiveTime[32];
@@ -3748,25 +3798,68 @@ void segvHandler(int signum)  //For debugging seg. faults
                      << "<TD>" << npid << "</TD>"
                      << "</TR>" << endl
                      << ends ;
-            rc = send(sock, htmlbuf, strlen(htmlbuf), 0);
-        }
-    }
+
+            //Copy each user status line into html2send array
+            if(idx < HSIZE){ 
+                html2send[idx] = new char[strlen(htmlbuf)+1];
+                strcpy(html2send[idx],htmlbuf);
+                idx++;
+            }
+
+                        
+        }   //End of if()
+
+        
+    }   //End of for()
+    
     if(pthread_mutex_unlock(pmtxCount) != 0)
         cerr << "Unable to unlock pmtxCount - HTTPStats4.\n" << flush;
 
     if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
         cerr << "Unable to unlock pmtxAddDelSess - HTTPStats4.\n" << flush;
+    
+    char endpage[] = "</TABLE></P></CENTER></BODY></HTML>";
 
-    string endpage = "</TABLE></CENTER></BODY></HTML>";
-    rc = send(sock, endpage.c_str(), endpage.length(), 0);
+    if(idx < HSIZE){
+        html2send[idx] = new char[strlen(endpage)+1];
+        strcpy(html2send[idx],endpage);
+        idx++;
+    }
+
+    //Now read all the  char strings from html2send to the tcpip socket.
+    char* cp;
+    int ecnt = 0;
+    rc = 0;
+    i = 0;
+    while((rc != -1) && (i < idx)){             //Loop until  rc shows an error or done
+       cp = html2send[i++];                     //Get a char string pointer 
+       rc = 0;
+       ecnt = 0;
+
+       do{
+            rc = send(sock, cp, strlen(cp), 0);  //Send the string
+            if(rc == -1){                        //check for send error
+                 sleep(1);                       //if error then sleep for a second
+                 ecnt++;                         //...and bump the error counter.
+            }
+       }while((rc == -1) && (ecnt < 5));         //Retry for 5 secs max.
+       
+    }
 
     close(sock);
 
-    if (htmlbuf != NULL)
-        delete[] htmlbuf;
+    //Free up all the memory we allocated
+   
+    if(htmlbuf)     delete[] htmlbuf;
+
+    for(i=0; i<idx; i++){
+        if(html2send[i]) delete[] html2send[i];
+    }
+    delete[] html2send;
 
     pthread_exit(0);
 }
+
 
 //----------------------------------------------------------------------
 // Send the posits of selected users (in posit_rfcall array) to
