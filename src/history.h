@@ -28,18 +28,18 @@
 
 
 void CreateHistoryList();
-bool AddHistoryItem(aprsString *hp);
-void DeleteHistoryItem(aprsString *hp);
+bool AddHistoryItem(TAprsString *hp);
+void DeleteHistoryItem(TAprsString *hp);
 int DeleteOldItems(int x);
-int DeleteItem(aprsString* ref);
-bool DupCheck(aprsString* ref, time_t t);
+int DeleteItem(TAprsString* ref);
+bool DupCheck(TAprsString* ref, time_t t);
 int SendHistory(int session,int em);
 int SaveHistory(char *name);
 int ReadHistory(char *name);
 bool StationLocal(const char *cp, int em);
-aprsString* getPosit(const string& call, int em);
+TAprsString* getPosit(const string& call, int em);
 bool timestamp(long sn, time_t t);
 
 
-#endif
+#endif  // __HISTORY_H
 

@@ -79,7 +79,7 @@ cpQueue::~cpQueue(void)
     if (dyn) {
         while (read_p != write_p)
             if (base_p[read_p].qcp != NULL)
-                delete (aprsString*)base_p[read_p++].qcp ;
+                delete (TAprsString*)base_p[read_p++].qcp ;
     }
 
     delete Q_mutex;
@@ -102,9 +102,9 @@ int cpQueue::write(char *cp, int n)
     int idx = write_p;
 
     if (base_p[idx].rdy == FALSE) {     // Be sure not to overwrite old stuff
-        base_p[idx].qcp = (void*)cp; //put char* on queue
-        base_p[idx].qcmd = n;		  //put int (cmd) on queue
-        base_p[idx].rdy = TRUE;      //Set the ready flag
+        base_p[idx].qcp = (void*)cp;    // put char* on queue
+        base_p[idx].qcmd = n;           // put int (cmd) on queue
+        base_p[idx].rdy = TRUE;         // Set the ready flag
         idx++;
         itemsQueued++;
 
@@ -132,7 +132,7 @@ int cpQueue::write(unsigned char *cp, int n)
 }
 
 
-int cpQueue::write(aprsString* cs, int n)
+int cpQueue::write(TAprsString* cs, int n)
 {
     int rc = 0;
 
@@ -168,7 +168,7 @@ int cpQueue::write(aprsString* cs, int n)
 }
 
 
-int cpQueue::write(aprsString* cs)
+int cpQueue::write(TAprsString* cs)
 {
     return(write(cs,cs->sourceSock));
 }
@@ -180,7 +180,7 @@ void* cpQueue::read(int *ip)
     inRead = 1;
 
     pthread_mutex_lock(Q_mutex);
-    void* cp = base_p[read_p].qcp ;     // Read the aprsString*
+    void* cp = base_p[read_p].qcp ;     // Read the TAprsString*
 
     if(ip)
         *ip = base_p[read_p].qcmd ;     // read the optional integer command
@@ -231,5 +231,4 @@ int cpQueue::getItemsQueued(void)
 }
 
 
-/*---------------------------------------------------------------------*/
 

@@ -27,7 +27,7 @@
 //instead of History structures.
 
 /*
-    This code maintains a linked list of aprsString objects called the
+    This code maintains a linked list of TAprsString objects called the
     "History List".  It is used to detect and remove duplicate packets
     from the APRS stream, provide a 30 minute history of activity to
     new users when they log on and determine if the destination of a
@@ -60,23 +60,21 @@
 
 
 
-struct histRec                   //This is for the History Array
-         {  int count;
-            time_t timestamp;
-            int EchoMask;
-            int type;
-            int reformatted;
-            char *data;
-         } ;
+struct histRec {                        // This is for the History Array
+    int count;
+    time_t timestamp;
+    int EchoMask;
+    int type;
+    int reformatted;
+    char *data;
+};
 
 
-
-aprsString *pHead, *pTail;
+TAprsString *pHead, *pTail;
 
 int ItemCount;
 pthread_mutex_t*	pmtxHistory;
 pthread_mutex_t*  pmtxDupCheck;
-
 
 extern const int srcTNC;
 extern int ttlDefault;
@@ -88,548 +86,534 @@ int dumpAborts = 0;
 //---------------------------------------------------------------------
 void CreateHistoryList()
 {
-    pmtxHistory 	= new pthread_mutex_t;
+    pmtxHistory = new pthread_mutex_t;
     pthread_mutex_init(pmtxHistory,NULL);
     pmtxDupCheck = new pthread_mutex_t;
     pthread_mutex_init(pmtxDupCheck,NULL);
     pHead = NULL;
-	 pTail = NULL;
-	 ItemCount = 0;
+    pTail = NULL;
+    ItemCount = 0;
 }
+
 
 //---------------------------------------------------------------------
-//Adds aprs packet to history list 
-
-bool AddHistoryItem(aprsString *hp)
+//Adds aprs packet to history list
+bool AddHistoryItem(TAprsString *hp)
 {
+    if (hp == NULL)
+        return(1);
 
-   
-   if (hp == NULL) return 1;
-   
-   
-   pthread_mutex_lock(pmtxHistory);
-   
-	if (pTail == NULL)		 //Starting from empty list
-		{
-			pTail = hp;
-			pHead = hp;
-			hp->next = NULL;
-			hp->last = NULL;
-			ItemCount++;
-		}
-		else                       //List has at least one item in it.
+    pthread_mutex_lock(pmtxHistory);
 
-		{  
-                  
-         DeleteItem(hp);  //Delete any previously stored items with same call and type
-
-                       
-         if(ItemCount == 0)  //List is empty, put in first item
-                  {  pTail = hp;
-			            pHead = hp;
-			            hp->next = NULL;
-			            hp->last = NULL;
-                  } else               //list not empty...
-                     {  
-                        pTail->next = hp;		//link the last item to us				    
-                        hp->last = pTail;    //link us to last item
-			               hp->next = NULL;     //link us to next item which is NULL
-                        pTail = hp;          //link pTail to us
-                     }
-                     
-                     
+    if (pTail == NULL) {                // Starting from empty list
+        pTail = hp;
+        pHead = hp;
+        hp->next = NULL;
+        hp->last = NULL;
         ItemCount++;
-              
-               
-         
-      }
+    } else {                            // List has at least one item in it.
+        DeleteItem(hp);                 // Delete any previously stored items with same call and type
 
-	pthread_mutex_unlock(pmtxHistory);
-	return 0;
+        if (ItemCount == 0) {           // List is empty, put in first item
+            pTail = hp;
+            pHead = hp;
+            hp->next = NULL;
+            hp->last = NULL;
+        } else {                        // list not empty...
+            pTail->next = hp;           // link the last item to us
+            hp->last = pTail;           // link us to last item
+            hp->next = NULL;            // link us to next item which is NULL
+            pTail = hp;                 // link pTail to us
+        }
+
+        ItemCount++;
+    }
+
+    pthread_mutex_unlock(pmtxHistory);
+    return(0);
 }
+
 //---------------------------------------------------------------------
 //Don't call this from anywhere except DeleteOldItems().
-void DeleteHistoryItem(aprsString *hp)
+void DeleteHistoryItem(TAprsString *hp)
 {
+    if (hp == NULL)
+        return;
 
-   if(hp == NULL) return;
-  	aprsString *li = hp->last;
-	aprsString *ni = hp->next;
-	
-	if (hp != NULL)
-		{  if (li != NULL) li->next = ni;
-			if (ni != NULL) ni->last = li;
-			if (hp == pHead) pHead = ni;
-			if (hp == pTail)  pTail  = li;
+    TAprsString *li = hp->last;
+    TAprsString *ni = hp->next;
 
-         
-         delete hp;				//Delete the aprsString object
-			ItemCount--;          //Reduce ItemCount by 1
-	   }
-	
-   return;
+    if (hp != NULL) {
+        if (li != NULL)
+            li->next = ni;
 
+        if (ni != NULL)
+            ni->last = li;
+
+        if (hp == pHead)
+            pHead = ni;
+
+        if (hp == pTail)
+            pTail  = li;
+
+        delete hp;                      // Delete the TAprsString object
+        ItemCount--;                    // Reduce ItemCount by 1
+    }
+
+    return;
 }
+
 
 //-----------------------------------------------------------------------
 //Call this once per 5 minutes
 //This reduces the ttl field by x then deletes items when the ttl field is zero or less.
-int DeleteOldItems(int x)	
-{	int delCount = 0;
+int DeleteOldItems(int x)
+{
+    int delCount = 0;
 
+    if ((pHead == NULL) || (pHead == pTail))
+        return(0);                      // empty list
 
-	if ((pHead == NULL) || (pHead == pTail)) return 0;  //empty list
+    pthread_mutex_lock(pmtxHistory);
 
-	pthread_mutex_lock(pmtxHistory);
+    TAprsString *hp = pHead;
+    TAprsString *pNext;
 
-	aprsString *hp = pHead;
-	aprsString *pNext;
+    while (hp) {
+        hp->ttl = hp->ttl - x;          // update time to live
+        pNext = hp->next;
 
-	while(hp)
-		{	
-		   hp->ttl = hp->ttl - x; //update time to live
-			pNext = hp->next;
-			if (hp->ttl <= 0 )
-					{   DeleteHistoryItem(hp);
-						 delCount++;
-					}
-			
-			hp = pNext;
-		}
-	
- 	pthread_mutex_unlock(pmtxHistory);
-	return delCount;
+        if (hp->ttl <= 0 ) {
+            DeleteHistoryItem(hp);
+            delCount++;
+        }
+
+        hp = pNext;
+    }
+
+    pthread_mutex_unlock(pmtxHistory);
+    return(delCount);
 }
-	
+
+
 //-------------------------------------------------------------------------
-//Deletes an aprsString object matching the ax25Source call sign and packet type
-// of the "ref" aprsString.  The destination (destTNC or destINET) must also match.
-// pmtxHistory mutex must be locked when calling this.
-int DeleteItem(aprsString* ref)	
-{	int delCount = 0;
+//  Deletes an TAprsString object matching the ax25Source call sign and packet type
+//  of the "ref" TAprsString.  The destination (destTNC or destINET) must also match.
+//  pmtxHistory mutex must be locked when calling this.
+int DeleteItem(TAprsString* ref)
+{
+    int delCount = 0;
 
+    if ((pHead == NULL) || (pHead == pTail) || (ref == NULL))
+        return(0);
 
-	if ((pHead == NULL) || (pHead == pTail) || (ref == NULL)) return 0;
+    TAprsString *hp = pHead;
+    TAprsString *pNext;
 
-  
-   
-	aprsString *hp = pHead;
-	aprsString *pNext;
+    while (hp != NULL) {
+        pNext = hp->next;
+        if ((hp->aprsType == ref->aprsType )
+                && (hp->dest == ref->dest)) {
 
-	while(hp != NULL)
-		{	
-		   
-			pNext = hp->next;
-			if ((hp->aprsType == ref->aprsType )
-               && (hp->dest == ref->dest))
-            {  if(hp->ax25Source.compare(ref->ax25Source) == 0)
-              
-					{   //cerr << "deleteing " << hp->getChar() << flush;
-                   DeleteHistoryItem(hp);
-						 delCount++ ;
-					}
+            if(hp->ax25Source.compare(ref->ax25Source) == 0) {
+                //cerr << "deleteing " << hp->getChar() << flush;
+                DeleteHistoryItem(hp);
+                delCount++ ;
             }
-		  
-			hp = pNext;
-		}
-	
-  	return delCount;
+        }
+
+        hp = pNext;
+    }
+    return(delCount);
 }
 
 //-------------------------------------------------------------------------
-/* Check history list for a packet whose data matches that of "*ref"
-   that was transmitted less or equal to "t" seconds ago.  Returns TRUE
-   if duplicate exists.  Scanning stops when a packet older than "t" seconds
-   is found.
-*/
-bool DupCheck(aprsString* ref, time_t t)   /* Now obsolete and not used in version 2.1.2, June 2000 */
-{	int x = -1;
-	bool z;
-   time_t tNow,age;
+//  Check history list for a packet whose data matches that of "*ref"
+//  that was transmitted less or equal to "t" seconds ago.  Returns TRUE
+//  if duplicate exists.  Scanning stops when a packet older than "t" seconds
+//  is found.
+//
+//  Now obsolete and not used in version 2.1.2, June 2000
+bool DupCheck(TAprsString* ref, time_t t)
+{
+    int x = -1;
+    bool z;
+    time_t tNow,age;
 
-   if (ref->allowdup) return FALSE;
-	
-	if ((pTail == NULL) || (pHead == NULL)) return FALSE;  //Empty list
-   
-   
-   pthread_mutex_lock(pmtxDupCheck);        //Grab semaphore
+    if (ref->allowdup)
+        return FALSE;
 
-   time(&tNow);                             //get current time
+    if ((pTail == NULL) || (pHead == NULL))
+        return FALSE;                   // Empty list
 
-	aprsString *hp = pTail;       //Point hp to last item in list
-	age = tNow - hp->timestamp;
+    pthread_mutex_lock(pmtxDupCheck);   // Grab semaphore
 
-   
-   
-   while((hp != NULL) && (x != 0) && (age <= t))
-		{ 
-        
+    time(&tNow);                        // get current time
+    TAprsString *hp = pTail;             // Point hp to last item in list
+    age = tNow - hp->timestamp;
+
+    while ((hp != NULL) && (x != 0) && (age <= t)) {
         age = tNow - hp->timestamp;
-        if((ref->ax25Source.compare(hp->ax25Source) == 0)
-             && (ref->dest == hp->dest))  //check for matching call signs  and destination (TNC or Internet)
-            {   
-              if(ref->data.compare(hp->data) == 0) x = 0;  //and matching data
-            }
-        
-			hp = hp->last;									//Go back in time through list
-                                              //Usually less than 10 entrys need checking for 30 sec.
-		}
 
-  if (x == 0) z = TRUE; else z = FALSE;
-  pthread_mutex_unlock(pmtxDupCheck);
-  return z;
+        if ((ref->ax25Source.compare(hp->ax25Source) == 0)
+                && (ref->dest == hp->dest))  { //check for matching call signs  and destination (TNC or Internet)
+
+            if (ref->data.compare(hp->data) == 0)
+                x = 0;                  // and matching data
+        }
+
+        hp = hp->last;                  // Go back in time through list
+                                        // Usually less than 10 entrys need checking for 30 sec.
+    }
+
+    if (x == 0)
+        z = TRUE;
+    else
+        z = FALSE;
+
+    pthread_mutex_unlock(pmtxDupCheck);
+    return(z);
  }
 
 //--------------------------------------------------------------------------
-
-//Scan history list for source callsign which exactly matches *cp .
-//If callsign is present and GATE* is not in the path and hops are 3 or less then return TRUE
-//The code to scan for "GATE* and hops have been moved to aprsString.queryLocal() .
-
+//  Scan history list for source callsign which exactly matches *cp .
+//  If callsign is present and GATE* is not in the path and hops are 3 or less then return TRUE
+//  The code to scan for "GATE* and hops have been moved to TAprsString.queryLocal() .
+//
 bool StationLocal(const char *cp, int em)
 {
-   
-	bool z = FALSE;
-   
-	
-   if ((pTail == NULL) || (pHead == NULL)) return FALSE;  //Empty list
+    bool z = FALSE;
 
-   pthread_mutex_lock(pmtxHistory);	 // grab mutex semaphore
-    //cout << cp << " " << em << endl; //debug
-	if (ItemCount == 0)                        //if no data then...
-      {  pthread_mutex_unlock(pmtxHistory);   // ...release mutex semaphore
-         return FALSE;                        // ...return FALSE
-   }
+    if ((pTail == NULL) || (pHead == NULL))
+        return(z);                      // Empty list
 
-   
-	aprsString *hp = pTail;                      //point to end of history list
+    pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
+    //cout << cp << " " << em << endl;  // debug
+    if (ItemCount == 0) {               // if no data then...
+        pthread_mutex_unlock(pmtxHistory);  // ...release mutex semaphore
+        return(z);                      // ...return FALSE
+    }
 
-   while ((z == FALSE) && (hp != NULL))    //Loop while no match and not at beginning of list
-      {  
-      
-       if(hp->EchoMask & em)
-          {
-            if(hp->ax25Source.compare(cp) == 0)      //Find the source call sign
-                              z = hp->queryLocal(); //then see if it's local
-          }
+    TAprsString *hp = pTail;             // point to end of history list
 
-          hp = hp->last;
+    while ((z == FALSE) && (hp != NULL)) {  // Loop while no match and not at beginning of list
+        if (hp->EchoMask & em) {
+            if (hp->ax25Source.compare(cp) == 0)    // Find the source call sign
+                z = hp->queryLocal();   // then see if it's local
+        }
 
-       }
+        hp = hp->last;
+    }
 
-   pthread_mutex_unlock(pmtxHistory);   //release mutex semaphore
-   return z;                            //return TRUE or FALSE
-
+    pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
+    return(z);                          // return TRUE or FALSE
 }
+
 
 //------------------------------------------------------------------------
-//Returns a new aprsString of the posit packet whose ax25 source call
-//matches the "call" arg and echomask bit matches a bit in "em".
-//Memory allocated for the returned aprsString  must be deleted by the caller.
-aprsString* getPosit(const string& call, int em)
+//  Returns a new TAprsString of the posit packet whose ax25 source call
+//  matches the "call" arg and echomask bit matches a bit in "em".
+//  Memory allocated for the returned TAprsString  must be deleted by the caller.
+TAprsString* getPosit(const string& call, int em)
 {
-   
-   if ((pTail == NULL) || (pHead == NULL)) return NULL ;  //Empty list
+    if ((pTail == NULL) || (pHead == NULL))
+        return NULL ;                   // Empty list
 
+    TAprsString* posit = NULL;
 
+    pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
 
-   aprsString* posit = NULL;
-
-   pthread_mutex_lock(pmtxHistory);	 // grab mutex semaphore
-    
-    if (ItemCount == 0)                        //if no data then...
-       {  pthread_mutex_unlock(pmtxHistory);   // ...release mutex semaphore
-          return NULL;                        // ...return NULL
+    if (ItemCount == 0) {               // if no data then...
+        pthread_mutex_unlock(pmtxHistory);  // ...release mutex semaphore
+        return NULL;                    // ...return NULL
     }
- 
-    
-    aprsString *hp = pTail;                      //point to end of history list
 
-    while ((posit == NULL) && (hp != NULL))    //Loop while no match and not at beginning of list
-       {  
-       
-        if(hp->EchoMask & em)
-            { 
-             if((hp->ax25Source.compare(call) == 0)    //Find the source call sign
-                  && ((hp->aprsType == APRSPOS) || hp->aprsType == NMEA))   //of a posit packet   
-                   { 
-                     posit = new aprsString(*hp);    //make a copy of the packet
-                     
-                   }
+    TAprsString *hp = pTail;             // point to end of history list
+
+    while ((posit == NULL) && (hp != NULL)) {   // Loop while no match and not at beginning of list
+        if (hp->EchoMask & em) {
+            if ((hp->ax25Source.compare(call) == 0)                             // Find the source call sign
+                    && ((hp->aprsType == APRSPOS) || hp->aprsType == NMEA)) {   // of a posit packet
+
+                posit = new TAprsString(*hp);        // make a copy of the packet
             }
- 
-           hp = hp->last;
- 
         }
- 
-    pthread_mutex_unlock(pmtxHistory);   //release mutex semaphore
-    return posit;
 
-      
+        hp = hp->last;
+    }
+
+    pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
+    return(posit);
 }
-//-------------------------------------------------------------------------
 
-/* timestamp the timeRF variable in an aprsString object in the history list
-   given the objects serial number.  Return TRUE if object exists. */
+
+//-------------------------------------------------------------------------
+//  timestamp the timeRF variable in an TAprsString object in the history list
+//  given the objects serial number.  Return TRUE if object exists.
+//
 bool timestamp(long sn, time_t t)
 {
-   bool x = FALSE;
+    bool x = FALSE;
 
-   if ((pTail == NULL) || (pHead == NULL)) return FALSE ;  //Empty list
+    if ((pTail == NULL) || (pHead == NULL))
+        return FALSE;                   // Empty list
 
+    pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
 
+    if (ItemCount == 0) {               // if no data then...
+        pthread_mutex_unlock(pmtxHistory);  // ...release mutex semaphore
+        return FALSE;                       // ...return FALSE
+    }
 
-  
+    TAprsString *hp = pTail;             // point to end of history list
 
-  pthread_mutex_lock(pmtxHistory);	 // grab mutex semaphore
-   
-   if (ItemCount == 0)                        //if no data then...
-      {  pthread_mutex_unlock(pmtxHistory);   // ...release mutex semaphore
-         return FALSE;                        // ...return FALSE
-   }
+    while ((x == FALSE) && (hp != NULL)) {      // Loop while no match and not at beginning of list
+        if (hp->ID == sn) {
+            hp->timeRF = t;             // time stamp it.
+            x = TRUE;                   // indicate we did it.
+        }
+        hp = hp->last;
+    }
 
-
-   aprsString *hp = pTail;                      //point to end of history list
-
-   while ((x == FALSE) && (hp != NULL))    //Loop while no match and not at beginning of list
-      {  
-      
-       if(hp->ID == sn)
-           { 
-              hp->timeRF = t;       //time stamp it.
-              x = TRUE;             //indicate we did it.
-
-           }
-
-          hp = hp->last;
-
-       }
-
-   pthread_mutex_unlock(pmtxHistory);   //release mutex semaphore
-   
-    return x;
+    pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
+    return(x);
 }
 
-//--------------------------------------------------------------------------
-/* Deletes the history array and it's data created above */
 
+//--------------------------------------------------------------------------
+//  Deletes the history array and it's data created above
+//
 void deleteHistoryArray(histRec* hr)
 {
-   int i;
+    int i;
 
-   if(hr){
-      int arraySize = hr[0].count;
+    if (hr) {
+        int arraySize = hr[0].count;
 
-      for(i = 0;i<arraySize;i++)
-      { if(hr[i].data != NULL) delete hr[i].data;
-      
-      }
-      delete hr;
-   }
-
+        for (i = 0;i<arraySize;i++) {
+            if (hr[i].data != NULL)
+                delete hr[i].data;
+        }
+        delete hr;
+    }
 }
 
 
 //-------------------------------------------------------------------------
-/* This reads the history list into an array to facilitate sending
-the data to logged on clients without locking the History linked list
-for long periods of time.
+//  This reads the history list into an array to facilitate sending
+//  the data to logged on clients without locking the History linked list
+//  for long periods of time.
+//
+//  Note: Must be called with pmtxHistory locked !
+//
 
-Note: Must be called with pmtxHistory locked !
-*/
+histRec* createHistoryArray(TAprsString* hp)
+{
+    int i;
 
-histRec* createHistoryArray(aprsString* hp)
-{  int i;
-   
-   if(hp == NULL) return NULL;
+    if (hp == NULL)
+        return NULL;
 
-   histRec* hr = new histRec[ItemCount];    //allocate memory for array
+    histRec* hr = new histRec[ItemCount];   // allocate memory for array
 
-   if (hr == NULL) return NULL;
+    if (hr == NULL)
+        return NULL;
 
-   for(i=0;i<ItemCount;i++) hr[i].data = NULL;
+    for (i=0;i<ItemCount;i++)
+        hr[i].data = NULL;
 
-   for(i=0;i<ItemCount;i++)
-      {  hr[i].count = ItemCount - i;
-         hr[i].timestamp = hp->timestamp;
-         hr[i].EchoMask = hp->EchoMask;
-         hr[i].type = hp->aprsType;
-         hr[i].reformatted = hp->reformatted;
-         hr[i].data = strdup(hp->getChar());    //Allocate memory and copy data
-         if(hr[i].data == NULL){
-            deleteHistoryArray(hr);   //Abort if malloc fails
+    for (i=0;i<ItemCount;i++) {
+        hr[i].count = ItemCount - i;
+        hr[i].timestamp = hp->timestamp;
+        hr[i].EchoMask = hp->EchoMask;
+        hr[i].type = hp->aprsType;
+        hr[i].reformatted = hp->reformatted;
+        hr[i].data = strdup(hp->getChar());     // Allocate memory and copy data
+
+        if (hr[i].data == NULL) {
+            deleteHistoryArray(hr);     // Abort if malloc fails
             return NULL;
-         }
-         if (hp->next == NULL) break;
-			hp = hp->next;					
-      }
+        }
 
+        if (hp->next == NULL)
+            break;
 
-   
-   return hr;
+        hp = hp->next;
+    }
+    return(hr);
 }
 
 //--------------------------------------------------------------------------
-//Send the history items to the user when he connects
-//returns number of history items sent or -1 if an error in sending occured
+//  Send the history items to the user when he connects
+//  returns number of history items sent or -1 if an error in sending occured
+//
 int SendHistory(int session, int em)
 {
-	
-	int 	rc,count, i=0;
-   int retrys;
+    int rc,count, i=0;
+    int retrys;
 
+    if (pHead == NULL)
+        return(0);                      // Nothing to send
 
-	if (pHead == NULL) return 0;			//Nothing to send
+    pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
 
-   pthread_mutex_lock(pmtxHistory);	 // grab mutex semaphore
+    TAprsString *hp = pHead;             // Start at the beginning of list
+    histRec* hr = createHistoryArray(hp);   // copy it to an array
+    pthread_mutex_unlock(pmtxHistory);  // release semaphore
 
-	aprsString *hp = pHead;					  //Start at the beginning of list
-   histRec* hr = createHistoryArray(hp); //copy it to an array
-	pthread_mutex_unlock(pmtxHistory);    //release semaphore
-   if (hr == NULL) return 0;
-   int n = hr[0].count;                // n has total number of items
-	count = 0;
-   float throttle = 30;    //Initial rate  about 250kbaud
-   for(i=0;i < n; i++)
-		{	
-         if ((hr[i].EchoMask & em) 
-               && (hr[i].reformatted == FALSE))     //filter data intended for this users port
-         {  count++;                //Count how many items we actually send
-	     	   size_t dlen  = strlen(hr[i].data);
+    if (hr == NULL)
+        return 0;
+
+    int n = hr[0].count;                // n has total number of items
+    count = 0;
+    float throttle = 30;                // Initial rate  about 250kbaud
+
+    for (i=0;i < n; i++) {
+        if ((hr[i].EchoMask & em)
+                && (hr[i].reformatted == FALSE)) {      // filter data intended for this users port
+            count++;                    // Count how many items we actually send
+            size_t dlen  = strlen(hr[i].data);
             retrys = 0;
 
             do {
-             
-		       rc = send(session,(const void*)hr[i].data,dlen,0); //Send history list item to client
-             
-             usleep((int)throttle * dlen);   //pace ourself
+                rc = send(session,(const void*)hr[i].data,dlen,0);  // Send history list item to client
+                usleep((int)throttle * dlen);       // pace ourself
 
-             if(rc < 0) {
-                sleep(1 );     //Pause output 1 second if resource unavailable
-                if(retrys == 0) {throttle = throttle * 2;} //cut our speed in half
-                if(throttle > 3333) throttle = 3333;        //Don't go slower than 2400 baud
-                retrys++;
-             }else
-                if(throttle > 30) throttle = throttle * 0.98; //Speed up 2% 
+                if(rc < 0) {
+                    sleep(1 );          // Pause output 1 second if resource unavailable
 
-             
-            }while((errno == EAGAIN) && (rc < 0) && ( retrys <= 180));  //Keep trying for 3 minutes
-			   if(rc < 0)
-	          {	cerr <<  "send() error in SendHistory() errno= " << errno << " retrys= " << retrys
-							<< " \n[" << strerror(errno) <<  "]" << endl;
-					deleteHistoryArray(hr);
-               pthread_mutex_lock(pmtxHistory);	 // grab mutex semaphore
-               dumpAborts++;
-               pthread_mutex_unlock(pmtxHistory);	 // release mutex semaphore
-               return -1;
-				 }
+                    if (retrys == 0)
+                        throttle = throttle * 2; //cut our speed in half
 
-         }
-		  			
-		}
+                    if (throttle > 3333)
+                        throttle = 3333;    // Don't go slower than 2400 baud
 
-      deleteHistoryArray(hr);
- 	  	return count;
+                    retrys++;
+                } else
+                    if (throttle > 30)
+                        throttle = throttle * 0.98;     // Speed up 2%
+
+            } while((errno == EAGAIN) && (rc < 0) && ( retrys <= 180));  //Keep trying for 3 minutes
+
+            if (rc < 0) {
+                cerr <<  "send() error in SendHistory() errno= " << errno << " retrys= " << retrys
+                    << " \n[" << strerror(errno) <<  "]" << endl;
+
+                deleteHistoryArray(hr);
+                pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
+                dumpAborts++;
+                pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
+                return(-1);
+            }
+        }
+    }
+
+    deleteHistoryArray(hr);
+    return(count);
 }
+
 //---------------------------------------------------------------------
-//Save history list to disk
+//  Save history list to disk
+//
 int SaveHistory(char *name)
 {
-	
-	int icount = 0;
-	if (pHead == NULL) return 0;
-   pthread_mutex_lock(pmtxHistory);
+    int icount = 0;
 
-   ofstream hf(name);			  // Open the output file
+    if (pHead == NULL)
+        return 0;
 
-	if (hf.good())						  //if no open errors go ahead and write data
-		{
-			aprsString *hp = pHead;
-	
-			for(;;)
-				{
-             if(hp->EchoMask){           //Save only items which have a bit set in EchoMask
-					hf << hp->ttl  << " "
-                  << hp->timestamp << " "
-                  << hp->EchoMask << " "
-                  << hp->aprsType << " "
-                  << hp->getChar() ;  //write to file
-					if (!hf.good())
-						{	cerr << "Error writing " << SAVE_HISTORY << endl;
-							break;
-						}
-					icount++;
-             }
-					if (hp->next == NULL) break;
-					hp = hp->next;											//go to next item in list
-				}
-         hf.close();
-		}
+    pthread_mutex_lock(pmtxHistory);
 
-	pthread_mutex_unlock(pmtxHistory);
-   return icount;
+    ofstream hf(name);                  // Open the output file
+
+    if (hf.good()) {                    // if no open errors go ahead and write data
+        TAprsString *hp = pHead;
+
+        for (;;) {
+            if (hp->EchoMask) {         // Save only items which have a bit set in EchoMask
+                hf << hp->ttl  << " "
+                    << hp->timestamp << " "
+                    << hp->EchoMask << " "
+                    << hp->aprsType << " "
+                    << hp->getChar() ;  //write to file
+
+                if (!hf.good()) {
+                    cerr << "Error writing " << SAVE_HISTORY << endl;
+                    break;
+                }
+                icount++;
+            }
+
+            if (hp->next == NULL)
+                break;
+
+            hp = hp->next;              // go to next item in list
+        }
+        hf.close();
+    }
+
+    pthread_mutex_unlock(pmtxHistory);
+    return icount;
 }
-//---------------------------------------------------------------------
 
+
+//---------------------------------------------------------------------
 int ReadHistory(char *name)
 {
-	int icount = 0;
-   int expiredCount = 0;
-	int ttl,EchoMask,aprsType;
-   char *data = new char[256];
-   time_t now,timestamp;
+    int icount = 0;
+    int expiredCount = 0;
+    int ttl,EchoMask,aprsType;
+    char *data = new char[256];
+    time_t now,timestamp;
 
-   ifstream hf(name);			  	// Create ifstream instance "hf" and open the input file
+    ifstream hf(name);                  // Create ifstream instance "hf" and open the input file
 
-   if (hf.good())						  		//if no open errors go ahead and read data
-		{
-         now = time(NULL);
-			while(hf.good() )
-				{
-					hf >> ttl  >> timestamp >> EchoMask >> aprsType;  
-              	hf.get();							// skip 1 space
-				   hf.get(data,252,'\r');			// read the rest of the line as a char string
-               int i = strlen(data);
-               
-               data[i++] = '\r';
-               data[i++] = '\n';
-               data[i++] = '\0';
-               
-					
-               aprsString *hist = new aprsString(data);
-               
-               hist->EchoMask = EchoMask;
-               hist->timestamp = timestamp;
-                
-               ttl = ttl - ((now - timestamp) / 60); //Adjust timep-to-live field
-               if (ttl < 0) ttl = 0;
-               hist->ttl = ttl;
-               hist->aprsType = aprsType;
+    if (hf.good()) {                    // if no open errors go ahead and read data
+        now = time(NULL);
+        while (hf.good()) {
+            hf >> ttl  >> timestamp >> EchoMask >> aprsType;
+            hf.get();                   // skip 1 space
+            hf.get(data,252,'\r');      // read the rest of the line as a char string
+            int i = strlen(data);
 
-               //Now add to list only items which have NOT expired
-               if(ttl > 0)
-                  { AddHistoryItem(hist);  
-                    icount++;
-                  }else
-                     {  delete hist;
-                        expiredCount++;
-                     }
-               
-				}
-         hf.close();
-		}
+            data[i++] = '\r';
+            data[i++] = '\n';
+            data[i++] = '\0';
 
+            TAprsString *hist = new TAprsString(data);
 
-   delete data;
-   cout << "Read " << icount+expiredCount << "  items from " 
-         << name  << endl;
+            hist->EchoMask = EchoMask;
+            hist->timestamp = timestamp;
 
-   if(expiredCount)
-      cout  << "Ignored " << expiredCount
+            ttl = ttl - ((now - timestamp) / 60); //Adjust timep-to-live field
+            if (ttl < 0)
+                ttl = 0;
+
+            hist->ttl = ttl;
+            hist->aprsType = aprsType;
+
+            //Now add to list only items which have NOT expired
+            if (ttl > 0) {
+                AddHistoryItem(hist);
+                icount++;
+            } else {
+                delete hist;
+                expiredCount++;
+            }
+        }
+
+        hf.close();
+    }
+
+    delete data;
+    cout << "Read " << icount+expiredCount << "  items from " << name  << endl;
+
+    if (expiredCount)
+        cout << "Ignored " << expiredCount
             << " expired items in "
             << name << endl;
 
-   return icount;
-  }
- 
-//-------------------------------------------------------------------------------------
+    return(icount);
+}
+
+// eof: history.cpp

@@ -56,18 +56,15 @@
 #include "history.h"
 #include "queryResp.h"
 
-int WriteLog (const char *cp, char *LogFile);
-
-struct pidList
-{
+struct pidList {
     pid_t main;
     pid_t SerialInp;
     pid_t TncQueue;
     pid_t InetQueue;
 };
 
-extern ULONG WatchDog, tickcount, TotalConnects, TotalTncChars, TotalLines,
-    MaxConnects;
+extern ULONG WatchDog, tickcount, TotalConnects, TotalTncChars, TotalLines;
+extern ULONG MaxConnects;
 extern bool ShutDownServer;
 extern cpQueue sendQueue;
 extern cpQueue charQueue;
@@ -90,21 +87,21 @@ extern const int sendHISTORY;
 extern char *szServerCall;
 
 pthread_t tidReadCom;
-extern char *MyCall;
+extern string MyCall;
 pthread_mutex_t *pmtxWriteTNC;
 
 char tx_buffer[260];
 int txrdy;
 
 int CloseAsync, threadAck;
-bool TncSysopMode;                /*Set true when sysop wants direct TNC access */
+bool TncSysopMode;                      // Set true when sysop wants direct TNC access
 
 int AsyncPort;
 char* AprsPath;
 
 //--------------------------------------------------------------------
 // Set APRS path (before the port is opened)
-
+//
 void rfSetPath (char* path)
 {
     AprsPath = strdup(path);
@@ -117,14 +114,10 @@ void rfSetPath (char* path)
 int rfOpen (char *szPort)
 {
     int result;
-
     AsyncPort = (szPort[0] == '/');
     TncSysopMode = FALSE;
     txrdy = 0;
-
     APIRET rc;
-    ULONG ulAction;
-    char ch;
 
     if (AsyncPort)
         result = AsyncOpen(szPort);
@@ -139,7 +132,7 @@ int rfOpen (char *szPort)
 #endif
 
     if (result != 0)
-        return result;
+        return(result);
 
     pmtxWriteTNC = new pthread_mutex_t;
     pthread_mutex_init (pmtxWriteTNC, NULL);
@@ -147,75 +140,71 @@ int rfOpen (char *szPort)
     CloseAsync = FALSE;
     threadAck = FALSE;
 
-    /* Now start the serial port reader thread */
+    // Now start the serial port reader thread
 
     rc = pthread_create (&tidReadCom, NULL, rfReadCom, NULL);
     if (rc) {
         cerr << "Error: ReadCom thread creation failed. Error code = " << rc
             << endl;
+
         CloseAsync = TRUE;
     }
-
-    return 0;
-
+    return(0);
 }
 
 //--------------------------------------------------------------------
 // Close the RF ports
-
-int rfClose (void)
+//
+int rfClose(void)
 {
-
-    CloseAsync = TRUE;                //Tell the read thread to quit
+    CloseAsync = TRUE;                  // Tell the read thread to quit
     while (threadAck == FALSE)
-        usleep (1000);                //wait till it does
+        usleep (1000);                  // wait till it does
 
     pthread_mutex_destroy(pmtxWriteTNC);
     delete pmtxWriteTNC;
 
     if (AsyncPort)
-        return AsyncClose();
+        return(AsyncClose());
 #ifdef SOCKETS
     else
-        return SocketClose();
+        return(SocketClose());
 #endif
 
 }
 
 //-------------------------------------------------------------------
 // Write NULL terminated string to serial port */
-
+//
 int rfWrite (char *cp)
 {
     int rc;
 
-    pthread_mutex_lock (pmtxWriteTNC);
-    strncpy (tx_buffer, cp, 256);
+    rc = pthread_mutex_lock(pmtxWriteTNC);
+    strncpy(tx_buffer, cp, 256);
 
     txrdy = 1;
     while (txrdy)
-        usleep (10000);                //The rfReadCom thread will clear txrdy when it takes data
+        usleep(10000);                  // The rfReadCom thread will clear txrdy when it takes data
 
-    pthread_mutex_unlock (pmtxWriteTNC);
-
-    return rc;
-
+    rc = pthread_mutex_unlock(pmtxWriteTNC);
+    return(rc);
 }
 
 //--------------------------------------------------------------------
 // This is the RF port read thread.
 // It also handles buffered writes to the port.
-
+//
 void* rfReadCom (void *vp)
 {
-    USHORT i, j, n;
-    APIRET rc;
+    USHORT i;
+    // APIRET rc;
     char buf[BUFSIZE];
-    unsigned char c;
-    FILE *rxc = (FILE *) vp;
-    size_t BytesRead;
-    bool lineTimeout;
-    aprsString *abuff;
+    // unsigned char c;
+    // FILE *rxc = (FILE *) vp;
+    // size_t BytesRead;
+    bool lineTimeout = FALSE;
+    TAprsString *abuff;
 
     i = 0;
 
@@ -245,30 +234,30 @@ void* rfReadCom (void *vp)
             buf[i++] = '\0';
 
             if ((i > 0) && (!TncSysopMode) && (configComplete)) {
-                abuff = new aprsString ((char *) buf, SRC_TNC, srcTNC, "TNC", "*");
+                abuff = new TAprsString ((char *) buf, SRC_TNC, srcTNC, "TNC", "*");
 
                 if (abuff != NULL) {        //don't let a null pointer get past here!
 
-                    if (abuff->aprsType == APRSQUERY) { /* non-directed query ? */
-                        queryResp (SRC_TNC, abuff);  /* yes, send our response */
+                    if (abuff->aprsType == APRSQUERY) {     // non-directed query ?
+                        queryResp(SRC_TNC, abuff);         // yes, send our response
                     }
 
                     if ((abuff->aprsType == APRSMSG)
-                        && (abuff->msgType == APRSMSGQUERY)) { /* is this a directed query message? */
+                        && (abuff->msgType == APRSMSGQUERY)) {  // is this a directed query message?
 
-                        if ((stricmp (szServerCall, abuff->stsmDest.c_str ()) == 0)
-                            || (stricmp ("aprsd", abuff->stsmDest.c_str ()) == 0)
-                            || (stricmp ("igate", abuff->stsmDest.c_str ()) == 0)) {        /* Is query for us? */
-                            queryResp (SRC_TNC, abuff);        /*Yes, respond. */
+                        if ((stricmp(szServerCall, abuff->stsmDest.c_str()) == 0)
+                            || (stricmp("aprsd", abuff->stsmDest.c_str()) == 0)
+                            || (stricmp("igate", abuff->stsmDest.c_str()) == 0)) {    // Is query for us?
+                            queryResp (SRC_TNC, abuff);         // Yes, respond.
                         }
 
                     }
 
-                    if (logAllRF || abuff->ax25Source.compare (MyCall) == 0)
+                    if (logAllRF || abuff->ax25Source.compare(MyCall) == 0)
                         WriteLog (abuff->c_str (), RFLOG);        //Log our own packets that were digipeated
 
                     if ((abuff->reformatted)
-                        || ((abuff->ax25Source.compare (MyCall) == 0)
+                        || ((abuff->ax25Source.compare(MyCall) == 0)
                             && (igateMyCall == FALSE))) {
                         delete abuff;        //don't igate packets which have been igated to RF...
                         abuff = NULL;        // ... and/or originated from our own TNC
@@ -277,13 +266,13 @@ void* rfReadCom (void *vp)
 
                         if (abuff->aprsType == APRSMSG)        //find matching posit for 3rd party msg
                         {
-                            aprsString *posit =
-                                getPosit (abuff->ax25Source,
+                            TAprsString *posit =
+                                getPosit(abuff->ax25Source,
                                           srcIGATE | srcUSERVALID | srcTNC);
 
                             if (posit != NULL) {
                                 posit->EchoMask = src3RDPARTY;
-                                sendQueue.write (posit);        //send matching posit only to msg port
+                                sendQueue.write(posit);        //send matching posit only to msg port
 
                             }
                         }
@@ -291,12 +280,10 @@ void* rfReadCom (void *vp)
 
                         if (abuff->aprsType == APRSMIC_E)        //Reformat if it's a Mic-E packet
                         {
-                            reformatAndSendMicE (abuff, sendQueue);
+                            reformatAndSendMicE(abuff, sendQueue);
                         } else
-                            sendQueue.write (abuff, 0);        // Now put it in the Internet send queue.            
-                        // *** abuff must be freed by Queue reader ***.  
-
-
+                            sendQueue.write(abuff, 0);        // Now put it in the Internet send queue.
+                        // *** abuff must be freed by Queue reader ***.
 
                     }
                 }
@@ -321,13 +308,11 @@ void* rfReadCom (void *vp)
 
 int rfSendFiletoTNC (char *szName)
 {
-
     if (AsyncPort)
-        return AsyncSendFiletoTNC(szName);
+        return(AsyncSendFiletoTNC(szName));
 #ifdef SOCKETS
     else
-        return 0; // Not applicable for sockets
+        return(0); // Not applicable for sockets
 #endif
-
 }
 

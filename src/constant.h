@@ -26,7 +26,8 @@
 #define __CONSTANT_H
 
 /* update the next 3 lines with each version change */
-#define SIGNON "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://aprsd.sourceforge.net \r\n"
+//#define SIGNON "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://aprsd.sourceforge.net \r\n"
+const char SIGNON[] = "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://aprsd.sourceforge.net \r\n";
 #define VERS PACKAGE " " VERSION
 #define PGVERS APRSDTOCALL
 /*--------------------------------------------------*/

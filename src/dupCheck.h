@@ -26,34 +26,26 @@
 #ifndef __DUPCHECK_H
 #define __DUPCHECK_H
 
-
-using namespace std;
-
 #include <string>
 #include "constant.h"
 #include "aprsString.h"
+using namespace std;
+
 
 class dupCheck
-{  
- 
-  
-public:                        
-   
-   dupCheck();
-   ~dupCheck();
-
-
-   bool check(aprsString* s, int t);
-   void clear(void);
-  
+{
 private:
-   pthread_mutex_t* pmtxdupCheck;  // mutex semaphore pointer
-   
-   time_t*  hashtime;
-   INT16*   hashhash;
-   
+    pthread_mutex_t* pmtxdupCheck;      // mutex semaphore pointer
 
+    time_t*  hashtime;
+    INT16*   hashhash;
 
-} ;
+public:
+    dupCheck();
+    ~dupCheck();
 
-#endif
+    bool check(TAprsString* s, int t);
+    void clear(void);
+};
+
+#endif  // __DUPCHECK_H

@@ -25,10 +25,11 @@
 #ifndef __QUERYRESP_H
 #define __QUERYRESP_H
 
-void queryResp(int session, const aprsString* pkt) ;
+void queryResp(int session, const TAprsString* pkt) ;
 void getHostIP(char* szHostIP);
 
-#endif
+#endif  // __QUERYRESP_H
+
 
 
 

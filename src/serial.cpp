@@ -58,7 +58,7 @@ speed_t newSpeed, originalOSpeed, originalISpeed;
 
 extern ULONG TotalTncChars;
 extern cpQueue charQueue;
-extern char* MyCall;
+extern string MyCall;
 
 //---------------------------------------------------------------------
 // Sets various parameters on a COM port for use with TNC
@@ -76,21 +76,19 @@ int AsyncSetupPort (int fIn, int fOut)
     newSettings.c_oflag = 0;
     newSettings.c_iflag = IGNBRK | IGNPAR;
 
-    cfsetispeed (&newSettings, B9600);
-    cfsetospeed (&newSettings, B9600);
+    cfsetispeed (&newSettings, B1200);
+    cfsetospeed (&newSettings, B1200);
 
     if (tcsetattr (fIn, TCSANOW, &newSettings) != 0) {
-	cerr << " Error: Could not set input serial port attrbutes\n";
-	return -1;
+        cerr << " Error: Could not set input serial port attrbutes\n";
+        return -1;
     }
 
     if (tcsetattr (fOut, TCSANOW, &newSettings) != 0) {
-	cerr << " Error: Could not set output serial port attrbutes\n";
-	return -1;
+        cerr << " Error: Could not set output serial port attrbutes\n";
+        return -1;
     }
-
     return 0;
-
 }
 
 //--------------------------------------------------------------------
@@ -102,26 +100,24 @@ int AsyncOpen (char *szPort)
 
     ttySwrite = open (szPort, O_WRONLY | O_NOCTTY);
     if (ttySwrite == -1) {
-	cerr << "Error: Could not open serial port in WRITE mode: "
-	    << szPort << " [" << sys_errlist[errno] << "]" << endl;
-	return -1;
+        cerr << "Error: Could not open serial port in WRITE mode: "
+            << szPort << " [" << sys_errlist[errno] << "]" << endl;
+        return -1;
     }
 
     ttySread = open (szPort, O_RDONLY | O_NOCTTY);
 
     if (ttySread == -1) {
-	cerr << "Error: Could not open serial port in READ mode: "
-	    << szPort << " [" << sys_errlist[errno] << "]" << endl;
-	return -1;
+        cerr << "Error: Could not open serial port in READ mode: "
+            << szPort << " [" << sys_errlist[errno] << "]" << endl;
+        return -1;
     }
 
     if ((rc = AsyncSetupPort (ttySread, ttySwrite)) != 0) {
-	cerr << "Error in setting up COM port rc=" << rc << endl << flush;
-	return -2;
+        cerr << "Error in setting up COM port rc=" << rc << endl << flush;
+        return -2;
     }
-
     return 0;
-
 }
 
 //--------------------------------------------------------------------
@@ -129,20 +125,14 @@ int AsyncOpen (char *szPort)
 
 int AsyncClose (void)
 {
+    if (tcsetattr (ttySread, TCSANOW, &originalSettings) != 0)
+        cerr << " Error: Could not reset input serial port attrbutes\n";
 
-    if (tcsetattr (ttySread, TCSANOW, &originalSettings) != 0) {
-	cerr << " Error: Could not reset input serial port attrbutes\n";
-
-    }
-
-    if (tcsetattr (ttySwrite, TCSANOW, &originalSettings) != 0) {
-	cerr << " Error: Could not reset input serial port attrbutes\n";
-
-    }
+    if (tcsetattr (ttySwrite, TCSANOW, &originalSettings) != 0)
+        cerr << " Error: Could not reset input serial port attrbutes\n";
 
     close (ttySwrite);
-    return close (ttySread);	//close COM port
-
+    return(close(ttySread));            // close COM port
 }
 
 //--------------------------------------------------------------------
@@ -168,19 +158,17 @@ bool AsyncReadWrite (char* buf)
             write (ttySwrite, tx_buffer, len);       //Send TX data to TNC
             txrdy = 0;      //Indicate we sent it.
         }
-             
-        BytesRead = read (ttySread, &c, 1);	//Non-blocking read.  100ms timeout.
 
-        if (BytesRead == 0)	//Serial input timeout
-        {
+        BytesRead = read (ttySread, &c, 1); //Non-blocking read.  100ms timeout.
+
+        if (BytesRead == 0) {           // Serial input timeout
             if (i > 0)
-                lineTimeout = TRUE;	// We have some data but none has arrived lately.
-
+                lineTimeout = TRUE;     // We have some data but none has arrived lately.
         }
 
         TotalTncChars += BytesRead;
 
-        if (BytesRead > 0) {	//Actual serial data from TNC has arrived
+        if (BytesRead > 0) {            // Actual serial data from TNC has arrived
             if (i < (BUFSIZE - 4))
                 buf[i++] = c;
             else
@@ -188,7 +176,7 @@ bool AsyncReadWrite (char* buf)
 
             if (TncSysopMode) {
                 i = 1;
-                charQueue.write ((char *) c, (int) c);	//single char mode...
+                charQueue.write ((char *)c, (int)c);  // single char mode...
             }
 
         } else
@@ -220,53 +208,46 @@ int AsyncSendFiletoTNC (char *szName)
 
     ifstream file (szName);
     if (file.is_open () == FALSE) {
-	cerr << "Can't open " << szName << endl << flush;
-	return -1;
+        cerr << "Can't open " << szName << endl << flush;
+        return -1;
     }
 
-    Line[0] = 0x03;		//Control C to get TNC into command mode
+    Line[0] = 0x03;                     // Control C to get TNC into command mode
     Line[1] = '\0';
     rfWrite (Line);
     sleep (1);
 
     while (file.good ()) {
-	file.getline (Line, 256);	//Read each line in file and send to TNC
-	strncat (Line, "\r", 256);
+        file.getline(Line, 256);       // Read each line in file and send to TNC
+        strncat(Line, "\r", 256);
 
-	if ((Line[0] != '*') && (Line[0] != '#') && (strlen (Line) >= 2))	//Reject comments
-	{
-	    string sLine(Line);
-	    string token[maxToken];
-	    nTokens = split(sLine, token, maxToken, RXwhite);  //Parse line into tokens
-	    upcase(token[0]);
-	    upcase(token[1]);
+        if ((Line[0] != '*') && (Line[0] != '#') && (strlen (Line) >= 2)) { //Reject comments
+            string sLine(Line);
+            string token[maxToken];
+            nTokens = split(sLine, token, maxToken, RXwhite);  //Parse line into tokens
+            upcase(token[0]);
+            upcase(token[1]);
 
-            if(token[0].compare("MYCALL") == 0)    //Extract MYCALL from TNC.INIT
-            {
-                MyCall = strdup(token[1].c_str());   //Put it in MyCall
-                if(strlen(MyCall) > 9) 
-                    MyCall[9] = '\0';  //Truncate to 9 chars.
+            if (token[0].compare("MYCALL") == 0) {      // Extract MYCALL from TNC.INIT
+                MyCall = strdup(token[1].c_str());      // Put it in MyCall
+                if (MyCall.length() > 9)
+                    MyCall[9] = '\0';       // Truncate to 9 chars.
             }
 
             if ((token[0].compare("UNPROTO") == 0)
-                 && (nTokens >= 2))    //Insert APDxxx into ax25 dest addr of UNPROTO
-            {
+                    && (nTokens >= 2)) {       // Insert APDxxx into ax25 dest addr of UNPROTO
                 size_t idx2 = sLine.find(token[1],6);
                 sLine.replace(idx2, token[1].length(), PGVERS);
             }
 
             cout << sLine.c_str() << endl;      //print it to the console
             int len = sLine.length();
- 
-	    write (ttySwrite, Line, len);
-	    usleep (500000);	//sleep for 500ms between lines
 
-	}
+            write (ttySwrite, Line, len);
+            usleep (500000);	//sleep for 500ms between lines
+        }
     }
-
     file.close ();
-
     return 0;
-
 }
 
