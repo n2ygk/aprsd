@@ -31,10 +31,12 @@
 #include "config.h"
 #endif
 
+#include <string>
 
 /* update the next 3 lines with each version change */
 //#define SIGNON "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://aprsd.sourceforge.net \r\n"
-const char SIGNON[] = "# " PACKAGE " " VERSION " (c) 2001-2002, aprsd Dev Team http://sourceforge.net/projects/aprsd/ \r\n";
+//const char SIGNON[] = "# " PACKAGE " " VERSION " (c) 2001-2002, aprsd Dev Team http://sourceforge.net/projects/aprsd/ \r\n";
+extern string SIGNON;
 #define VERS PACKAGE " " VERSION
 #define PGVERS APRSDTOCALL
 /*--------------------------------------------------*/

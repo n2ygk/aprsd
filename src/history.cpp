@@ -505,15 +505,15 @@ int SendHistory(int session, int em)
 
             do {
                 rc = send(session, (const void*)hr[i].data, dlen, 0);  // Send history list item to client
-                usleep(((int)throttle * dlen)*10);       // pace ourself
+                usleep(((int)throttle * dlen) * 10);       // pace ourself
                 bytesSent += dlen;              // used for average size calculations
                 if (rc < 0) {
-                    if (errno == EAGAIN)	// only sleep on overrun
-                    usleep(1000000);          // Pause output 1 second if resource unavailable
+                    if (errno == EAGAIN)        // only sleep on overrun
+                        usleep(1000000);        // Pause output 1 second if resource unavailable
 
                     if (retrys > lastretry) {   // original version would only throttle down once.
                         lastretry = retrys;
-                        throttle = throttle * 2; //cut our speed in half
+                        throttle = (throttle * 2); //cut our speed in half
                     }
 
                     if (throttle > 3300) {
@@ -526,9 +526,9 @@ int SendHistory(int session, int em)
                         throttle = throttle * 0.98;     // Speed up 2%
                     }
 
-            } while((errno == EAGAIN) && (rc < 0) && ( retrys <= 180));  //Keep trying for 3 minutes
+            } while((errno == EAGAIN) && (rc < 0) && ( retrys <= 90));  //Keep trying for 1.5 minutes
 
-            if (rc < 0) {
+            if ((rc < 0) || (retrys >= 90)) {
                 cerr <<  "send() error in SendHistory() errno= " << errno << " retrys= " << retrys
                     << " \n[" << strerror(errno) <<  "]" << endl;
 
@@ -536,15 +536,12 @@ int SendHistory(int session, int em)
                 deleteHistoryArray(hr);
                 dumpAborts++;
                 historyLock.release();
-
                 return(-1);
             }
         }
     }
-    //pthread_mutex_lock(&pmtxHistory);
     historyLock.get();
     deleteHistoryArray(hr);
-    //pthread_mutex_unlock(&pmtxHistory);
     historyLock.release();
 
     return(count);
