@@ -57,8 +57,11 @@ static const int APRSERROR = -1;
 static const int MAXWORDS = 8;
 
 
-class aprsString: public string
+class TAprsString: public string
 {
+private:
+    void constructorSetUp(const char *cp, int s, int e);
+    void AEAtoTAPR(string& s, string& rs);
 
 public:
     static int NN;                      // Tells how many objects exist
@@ -72,8 +75,8 @@ public:
     int ttl;                            // time to live (minutes)
     INT32 hash;                         // 32 bit hash code of this packet
     time_t timeRF;                      // time this was sent on RF (0 = never)
-    aprsString* next;                   // Only used if this is part of a linked list
-    aprsString* last;                   // ditto..
+    TAprsString* next;                  // Only used if this is part of a linked list
+    TAprsString* last;                  // ditto..
     int localSource;                    // TRUE = source station is local
     int aprsType;
     int sourceSock;                     // tcpip socket this came from
@@ -104,12 +107,13 @@ public:
     string srcHeader;                   // Source IP and user call header. format example: #192.168.1.1:N0CALL#
     bool AEA;
 
-    aprsString(const char *cp, int s,int e);
-    aprsString(const char *cp, int s,int e, const char* szPeer, const char *userCall);
-    aprsString(const char *cp);
-    aprsString(string& as);
-    aprsString(aprsString& as);
-    ~aprsString(void);
+    TAprsString(const char *cp, int s,int e);
+    TAprsString(string& as, int s, int e);
+    TAprsString(const char *cp, int s,int e, const char* szPeer, const char *userCall);
+    TAprsString(const char *cp);
+    TAprsString(string& as);
+    TAprsString(TAprsString& as);
+    ~TAprsString(void);
 
     void print(ostream& os);
     string getAX25Source(void);
@@ -120,19 +124,14 @@ public:
     bool queryPath(char* cp);           // Tells if char string cp is in the ax25 path
     bool changePath(const char* newPath, const char* oldPath); //Change one path element
     bool queryLocal(void);              // returns true if source call is local
-    void stsmReformat(string& MyCall /*char *call*/);
-    void mic_e_Reformat(aprsString** posit, aprsString** telemetry);
+    void stsmReformat(string& MyCall);
+    void mic_e_Reformat(TAprsString** posit, TAprsString** telemetry);
     void printN(void);
     void addInstance(void);
     void removeInstance(void);
     INT32 gethash(void);
 
     static int getObjCount(void);
-
-private:
-    void constructorSetUp(const char *cp, int s, int e);
-    void AEAtoTAPR(string& s, string& rs);
-
-} ;
+};
 
 #endif  // __APRSSTRING_H
