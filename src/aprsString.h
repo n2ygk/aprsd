@@ -94,6 +94,8 @@ public:
     string stsmDest;                    // Station to Station Message destination
     string path;                        // Raw ax25 path  (up to but not including the colon)
     string data;                        // Raw ax25 data (all following first colon)
+    string msgdata;
+    string msgid;
     string ax25Path[MAXPATH];
     string words[MAXWORDS];
     string user;

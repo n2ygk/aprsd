@@ -125,6 +125,7 @@ TAprsString::TAprsString(TAprsString& as) : string(as)
     peer = as.peer;
     raw = as.raw;
     srcHeader = as.srcHeader;
+    msgdata = "";
 
     for (int i=0;i<MAXWORDS;i++)
         ax25Path[i] = as.ax25Path[i];
@@ -185,6 +186,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
         acknum = "";
         query = "";
         lastPositTx = 0;
+        msgdata = "";
 
         if (pmtxCounters == NULL) {     // Create mutex semaphore to protect counters if it doesn't exist...
             pmtxCounters = new pthread_mutex_t; // ...This semaphore is common to all instances of TAprsString.
@@ -192,13 +194,14 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 cerr << "Unable to initialize pmtxCounters.\n" << flush;
         }
 
-	if(pthread_mutex_lock(pmtxCounters) != 0)
-	    cerr << "Unable to lock pmtxCounters - ConstructorSetup.\n" << flush;
+        if(pthread_mutex_lock(pmtxCounters) != 0)
+            cerr << "Unable to lock pmtxCounters - ConstructorSetup.\n" << flush;
+
         objCount++;
         ID = objCount;                  // set unique ID number for this new object
         NN++;
-	if(pthread_mutex_unlock(pmtxCounters) != 0)
-	    cerr << "Unable to unlock pmtxCounters - ConstructorSetup.\n" << flush;
+        if(pthread_mutex_unlock(pmtxCounters) != 0)
+            cerr << "Unable to unlock pmtxCounters - ConstructorSetup.\n" << flush;
 
         timestamp = time(NULL);
 
@@ -266,7 +269,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 //cout << "AEA " << *this << endl << flush;
                 size_type savepIdx = pIdx;
                 string rs;
-                AEAtoTAPR(*this,rs);
+                AEAtoTAPR(*this, rs);
 
                 // Replace AEA path with TAPR path
                 pIdx = rs.find(":");
@@ -295,12 +298,12 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 ax25Source = ax25Path[0];           //AX25 Source
 
                 if (int nfind = ax25Source.find_first_of('}') <= ax25Source.length()) {
-                    cerr << "Found } in source at position: " << nfind << endl;
+                    //cerr << "Found } in source at position: " << nfind << endl;
                     ax25Source.erase(nfind);
                 }
 
                 if (int nfind = ax25Source.find_first_of('*') <= ax25Source.length()) {
-                    cerr << "Found * in source at position: " << nfind << endl;
+                    //cerr << "Found * in source at position: " << nfind << endl;
                     ax25Source.erase(nfind);
                 }
 
@@ -327,34 +330,65 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             }
 
             switch (data[0]) {
-                case ':' :              // station to station message, new 1998 format
-                                        // example of string in "data" :N0CLU    :ack1
-                    stsmDest = data.substr(1,MAXPKT);
+                case ':' :
+                    // Message Packet
+                    // Spec:
+                    // :Addressee (9bytes):Message Text (69 bytes)[{msg ID (1-5bytes)] <-optional
+                    // Message Text contain any printable data except "|~{"
+                    //
+                    //msgdata = "";
+
+                    stsmDest = data.substr(1, MAXPKT);
                     idx = stsmDest.find(":");
                     if (idx == npos)
                         break;
 
-                    stsmDest = stsmDest.substr(0,idx);
+                    // Get the adressee
+                    stsmDest = stsmDest.substr(0, idx);
                     if (stsmDest.length() != 9)
                         break;
 
                     idx = stsmDest.find_first_of(RXwhite);
                     if (idx != npos)
-                        stsmDest = stsmDest.substr(0,idx);
+                        stsmDest = stsmDest.substr(0, idx);
 
+                    // Get the data portion
+                    msgdata = data.substr(11, data.length());
+
+                    // Get the msg id; if available
+                    // Ensure everthing is within spec
+                    unsigned int x;
+                    x = msgdata.find_last_of('{');
+                    if (x <= msgdata.length()) {
+                        msgid = msgdata.substr(x, msgdata.length());
+                        msgdata = msgdata.substr(0, x);
+                        if (msgdata.length() > 69)
+                            msgdata.resize(69);
+                    } else {
+                        msgid = "";
+                        if (msgdata.length() > 69)
+                            msgdata.resize(69);
+                    }
+
+                    if (msgid.length() > 6)
+                        msgid.resize(6);
+
+                    // put it all back together again
+                    data = ":" + stsmDest + ":" + msgdata;
+                    data += msgid;
                     aprsType = APRSMSG;
                     EchoMask |= src3RDPARTY;
                     msgType = APRSMSGTEXT;
                     if (data.length() >= 15)
-                        if (data.substr(10,4) == string(":ack"))
+                        if (data.substr(10, 4) == string(":ack"))
                             msgType = APRSMSGACK ;
 
-                    if (data.substr(10,2) == string(":?")) {
-                        qidx = data.find('?',12);
+                    if (data.substr(10, 2) == string(":?")) {
+                        qidx = data.find('?', 12);
                         if (qidx != string::npos) {
-                            query = data.substr(12,qidx-12);
+                            query = data.substr(12, qidx - 12);
                             msgType = APRSMSGQUERY;
-                            qidx = data.find('{',qidx);
+                            qidx = data.find('{', qidx);
 
                             if (qidx != string::npos) {
                                 acknum = data.substr(qidx);
@@ -363,6 +397,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                             //cout << "Query=" << query << " qidx=" << qidx << endl;  // debug
                         }
                     }
+
                     break;
 
                 case '_' :              // weather
@@ -592,12 +627,12 @@ bool TAprsString::queryPath(char* cp)
 
 
 
-void TAprsString::stsmReformat(string& MyCall /*char *mycall*/)
+void TAprsString::stsmReformat(string& MyCall)
 {
     //char *co;
     string(co);
     char out[BUFSIZE];
-    memset(out,0,BUFSIZE);
+    memset(out, 0, BUFSIZE);
     ostrstream os(out, BUFSIZE-1);
 
     co = ":";
@@ -755,10 +790,12 @@ int TAprsString::getObjCount()
 {
     int n;
     if(pthread_mutex_lock(pmtxCounters) != 0)
-    	cerr << "Unable to lock pmtxCounters - getobjects.\n" << flush;
+        cerr << "Unable to lock pmtxCounters - getobjects.\n" << flush;
+
     n = NN;
     if(pthread_mutex_unlock(pmtxCounters) != 0)
-    	cerr << "Unable to unlock pmtxCounters - getobjects.\n" << flush;
+        cerr << "Unable to unlock pmtxCounters - getobjects.\n" << flush;
+
     return(n);
 }
 
