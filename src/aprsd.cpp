@@ -432,7 +432,9 @@ SessionParams* AddSession(int s, int echo)
     if (i < MaxClients) {
         rv = &sessions[i];
         initSessionParams(rv,s,echo);
+        pthread_mutex_lock(pmtxCount);
         ConnectedClients++;
+        pthread_mutex_unlock(pmtxCount);
     } else
         rv = NULL;
 
@@ -458,7 +460,9 @@ bool DeleteSession(int s)
             sessions[i].EchoMask = 0;
             sessions[i].pid = 0;
             sessions[i].dead = TRUE;
+            pthread_mutex_lock(pmtxCount);
             ConnectedClients--;
+            pthread_mutex_unlock(pmtxCount);
 
             if ( ConnectedClients < 0)
                 ConnectedClients = 0;
@@ -631,7 +635,9 @@ void SendToAllClients(TAprsString* p)
            DBstring = "SendToAllClients: cp is NULL!";
     }
 
+    pthread_mutex_lock(pmtxCount);
     bytesSent += (n * ccount);
+    pthread_mutex_unlock(pmtxCount);
 
     /*
         gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
@@ -840,18 +846,22 @@ void dequeueTNC(void)
             strncpy(rfbuf,abuff->data.c_str(),256); // copy only data portion to rf buffer
                                                     // and truncate to 256 bytes
             RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
-            rfbuf[256] = '\0';          // Make sure there's a null on the end
+            rfbuf[300] = '\0';          // Make sure there's a null on the end
             strcat(rfbuf,"\r");         // append a CR to the end
             char* cp = new char[300];   // Will be deleted by conQueue reader.
             ostrstream msg(cp,300);
             msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
             conQueue.write(cp,0);
 
+            pthread_mutex_lock(pmtxCount);
             TotalTNCtxChars += strlen(rfbuf);
+            pthread_mutex_unlock(pmtxCount);
 
             if (!tncMute) {
                 if(abuff->reformatted) {
+                    pthread_mutex_lock(pmtxCount);
                     msg_cnt++;
+                    pthread_mutex_lock(pmtxCount);
                     ostrstream umsg(szUserMsg,UMSG_SIZE-1);
                     umsg << abuff->peer << " " << abuff->user
                         << ": "
@@ -2315,7 +2325,6 @@ void *TCPConnectThread(void *p)
                                     timestamp(posit->ID,Time);      // Time stamp the original in hist. list
                                     posit->stsmReformat(MyCall);    // Reformat it for RF delivery
                                     tncQueue.write(posit);          // posit will be deleted elsewhere?
-                                    delete posit;                   // Can't find where they are being deleted N5VFF
                                 } else
                                     delete posit;
                             } /*else  cout << "Can't find matching posit for "
@@ -2539,9 +2548,9 @@ char* getStats()
     upTime = (double) (time_now - serverStartTime) / 3600;
 
     pthread_mutex_lock(pmtxCount);
+
     aprsStreamRate =  (TotalTncChars + TotalIgateChars
                          + TotalUserChars - last_chars) / (time_now - last_time);
-    pthread_mutex_unlock(pmtxCount);
 
     tncStreamRate = (TotalTncChars - last_tnc_chars) / (time_now - last_time);
 
@@ -2576,6 +2585,8 @@ char* getStats()
 
     bytesSent = 0;                      // Reset this
 
+    pthread_mutex_unlock(pmtxCount);
+
     return(cbuf);
 }
 
@@ -2584,6 +2595,7 @@ char* getStats()
 //
 void resetCounters()
 {
+    pthread_mutex_lock(pmtxCount);
     dumpAborts = 0;
     sendQueue.overrun = 0 ;
     tncQueue.overrun = 0 ;
@@ -2593,6 +2605,7 @@ void resetCounters()
     msg_cnt = 0;
     TotalConnects = 0;
     MaxConnects = ConnectedClients;
+    pthread_mutex_unlock(pmtxCount);
 }
 
 
@@ -3143,8 +3156,6 @@ void segvHandler(int signum)  //For debugging seg. faults
 
     pthread_mutex_lock(pmtxCount);
     webCounter++ ;
-    pthread_mutex_unlock(pmtxCount);
-
 
     if (aprsStreamRate > 1024) {
         inetRate = ((double)aprsStreamRate / 1024);
@@ -3169,7 +3180,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         serverRate = (double)serverLoad;
         serverRateX = "Bps";
     }
-
+    pthread_mutex_unlock(pmtxCount);
 
     gmt = new tm;
     time(&localtime);
@@ -3213,6 +3224,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     }
 
 #define HTMLSIZE 5000
+    pthread_mutex_lock(pmtxCount);
     htmlbuf = new char[HTMLSIZE];
     ostrstream stats(htmlbuf,HTMLSIZE-1);
 
@@ -3260,14 +3272,12 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>Sysop email</TD><TD><A HREF=\"mailto:" << MyEmail << "\">" << MyEmail << "</A></TD></TR>\n"
         << "</TABLE><P>"
         << ends;
-
+    pthread_mutex_unlock(pmtxCount);
     rc = send(sock,htmlbuf,strlen(htmlbuf),0);  //Send this part of the page now
 
 
     // Now send the Igate connection report.
 
-
-    //char *igateheader =
     string igateheader =
 
                "</TABLE><P><TABLE BORDER=2 BGCOLOR=\"#C0C0C0\"><TR BGCOLOR=\"#FFD700\">"
@@ -3277,6 +3287,7 @@ void segvHandler(int signum)  //For debugging seg. faults
 
     rc = send(sock,igateheader.c_str(),/*strlen(igateheader)*/igateheader.length(),0);
 
+    pthread_mutex_lock(pmtxCount);
     for (i=0; i< nIGATES;i++) {
         if (cpIGATE[i].RemoteSocket != -1) {
             char timeStr[32];
@@ -3340,19 +3351,19 @@ void segvHandler(int signum)  //For debugging seg. faults
 
             rc = send(sock,htmlbuf,strlen(htmlbuf),0);
         }
+        pthread_mutex_unlock(pmtxCount);
     }
 
-    //char *userheader =
     string userheader =
         "</TABLE><P><TABLE  BORDER=2 BGCOLOR=\"#C0C0C0\">"       // Start of user list table
         "<TR BGCOLOR=\"#FFD700\"><TH COLSPAN=10>Users</TH></TR>\n"
         "<TR><TH>IP Address</TH><TH>Port</TH><TH>Call</TH><TH>Vrfy</TH>"
         "<TH>Program Vers</TH><TH>Last Active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes <BR>Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>\n" ;
 
-    rc = send(sock,userheader.c_str(),/*strlen(userheader)*/userheader.length(),0);
+    rc = send(sock, userheader.c_str(), userheader.length(), 0);
 
     pthread_mutex_lock(pmtxAddDelSess); //Comment out to allow viewing this even if the mutex is locked
-
+    pthread_mutex_lock(pmtxCount);
     string TszPeer;
     string TserverPort;
     string TuserCall;
@@ -3420,10 +3431,11 @@ void segvHandler(int signum)  //For debugging seg. faults
             rc = send(sock, htmlbuf, strlen(htmlbuf), 0);
         }
     }
-    pthread_mutex_unlock(pmtxAddDelSess);  //
+    pthread_mutex_unlock(pmtxCount);
+    pthread_mutex_unlock(pmtxAddDelSess);
 
-    static char* endpage = "</TABLE></CENTER></BODY></HTML>";
-    rc = send(sock,endpage,strlen(endpage),0);
+    string endpage = "</TABLE></CENTER></BODY></HTML>";
+    rc = send(sock, endpage.c_str(), endpage.length(), 0);
 
     close(sock);
 
