@@ -24,7 +24,7 @@
 
 
 
-/* aprsString class implimentation*/
+/* TAprsString class implimentation*/
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -50,10 +50,10 @@
 #include "crc.h"
 
 
-pthread_mutex_t* aprsString::pmtxCounters = NULL;  // mutex semaphore pointer common to all instances of aprsString
+pthread_mutex_t* TAprsString::pmtxCounters = NULL;  // mutex semaphore pointer common to all instances of TAprsString
 
-int aprsString::NN = 0;
-long aprsString::objCount = 0;
+int TAprsString::NN = 0;
+long TAprsString::objCount = 0;
 
 #define pathDelm ">,:"
 extern const int srcTNC, src3RDPARTY;
@@ -61,7 +61,7 @@ extern int ttlDefault;
 extern bool ConvertMicE;
 
 
-aprsString::aprsString(const char* cp, int s, int e, const char* szPeer, const char* userCall) : string(cp)
+TAprsString::TAprsString(const char* cp, int s, int e, const char* szPeer, const char* userCall) : string(cp)
 {
     constructorSetUp(cp,s,e);
     peer = szPeer;
@@ -69,7 +69,7 @@ aprsString::aprsString(const char* cp, int s, int e, const char* szPeer, const c
     srcHeader = "!" + peer + ":" + call + "!";  // Build the source ip header
 }
 
-aprsString::aprsString(const char* cp, int s, int e) : string(cp)
+TAprsString::TAprsString(const char* cp, int s, int e) : string(cp)
 {
     peer = "";
     user = "";
@@ -78,7 +78,16 @@ aprsString::aprsString(const char* cp, int s, int e) : string(cp)
     constructorSetUp(cp,s,e);
 }
 
-aprsString::aprsString(const char* cp) : string(cp)
+TAprsString::TAprsString(string& cp, int s, int e) : string(cp)
+{
+    peer = "";
+    user = "";
+    call = "";
+    srcHeader = "!:!";
+    constructorSetUp(cp.c_str(),s,e);
+}
+
+TAprsString::TAprsString(const char* cp) : string(cp)
 {
     peer = "";
     user = "";
@@ -88,7 +97,7 @@ aprsString::aprsString(const char* cp) : string(cp)
 }
 
 
-aprsString::aprsString(string& cp) : string(cp)
+TAprsString::TAprsString(string& cp) : string(cp)
 {
     peer = "";
     user = "";
@@ -99,7 +108,7 @@ aprsString::aprsString(string& cp) : string(cp)
 
 
 //Copy constructor
-aprsString::aprsString(aprsString& as) : string(as)
+TAprsString::TAprsString(TAprsString& as) : string(as)
 {
     *this = as;
     ax25Source = as.ax25Source;
@@ -143,7 +152,7 @@ aprsString::aprsString(aprsString& as) : string(as)
 }
 
 
-aprsString::~aprsString(void)
+TAprsString::~TAprsString(void)
 {
     pthread_mutex_lock(pmtxCounters);
     NN--;
@@ -153,7 +162,7 @@ aprsString::~aprsString(void)
 
 
 
-void aprsString::constructorSetUp(const char* cp, int s, int e)
+void TAprsString::constructorSetUp(const char* cp, int s, int e)
 {
 
     try {
@@ -174,8 +183,9 @@ void aprsString::constructorSetUp(const char* cp, int s, int e)
         query = "";
 
         if (pmtxCounters == NULL) {     // Create mutex semaphore to protect counters if it doesn't exist...
-            pmtxCounters = new pthread_mutex_t; // ...This semaphore is common to all instances of aprsString.
-            pthread_mutex_init(pmtxCounters,NULL);
+            pmtxCounters = new pthread_mutex_t; // ...This semaphore is common to all instances of TAprsString.
+            if (pthread_mutex_init(pmtxCounters,NULL) == -1) {}
+                //throw custom_pthread_mutex();
         }
 
         pthread_mutex_lock(pmtxCounters);
@@ -206,20 +216,26 @@ void aprsString::constructorSetUp(const char* cp, int s, int e)
 
         if (cp[0] == '#') {
             aprsType = COMMENT;
-            // print();
+            print(cout);
             return;
         }
 
         if ((find("user ") == 0 || find("USER ") == 0)) {   // Must be a logon string
-            int n = split(*this,words,MAXWORDS,RXwhite);
+            int n = split(*this, words, MAXWORDS, RXwhite);
             if (n > 1)
-                user = words[1]; else user = "Telnet";
+                user = words[1];
+            else
+                user = "Telnet";
 
             if (n > 3)
-                pass = words[3]; else pass = "-1";
+                pass = words[3];
+            else
+                pass = "-1";
 
             if (n > 5)
-                pgmName = words[5]; else pgmName = "Telnet";
+                pgmName = words[5];
+            else
+                pgmName = "Telnet";
 
             if (n > 6)
                 pgmVers = words[6];
@@ -258,13 +274,41 @@ void aprsString::constructorSetUp(const char* cp, int s, int e)
             if ((pIdx+1) < length())
                 data = substr(pIdx+1,MAXPKT);  //The data portion of the packet
 
-            pathSize = split(path ,ax25Path,MAXPATH,pathDelm);
+            pathSize = split(path ,ax25Path, MAXPATH, pathDelm);
             if (pathSize >= 2)
                 ax25Dest = ax25Path[1]; // AX25 destination
 
-            if (pathSize >= 1)
+            if (pathSize >= 1) {
                 ax25Source = ax25Path[0];           //AX25 Source
+                //upcase(ax25Source);
 
+                if (ax25Source.length() > 9) {
+                    aprsType = APRSERROR;
+                    //print(cout);
+                    return;
+                }
+
+                if (ax25Source.find("Tickle") <= ax25Source.length()) {
+                    aprsType = APRSERROR;
+                    //print(cout);
+                    return;
+                }
+                if (ax25Source.find("cmd:") <= ax25Source.length()) {
+                    aprsType = APRSERROR;
+                    //print(cout);
+                    return;
+                }
+                if (ax25Source.find("EH?") <= ax25Source.length()) {
+                    aprsType = APRSERROR;
+                    //print(cout);
+                    return;
+                }
+                if (ax25Source.find("?EH") <= ax25Source.length()) {
+                    aprsType = APRSERROR;
+                    //print(cout);
+                    return;
+                }
+            }
             if (data.length() == 0)
                 return;
 
@@ -309,7 +353,7 @@ void aprsString::constructorSetUp(const char* cp, int s, int e)
                                 acknum = data.substr(qidx);
                             }
 
-                            //cout << "Query=" << query << " qidx=" << qidx << endl;
+                            //cout << "Query=" << query << " qidx=" << qidx << endl;  // debug
                         }
                     }
                     break;
@@ -358,9 +402,9 @@ void aprsString::constructorSetUp(const char* cp, int s, int e)
                     {
                         reformatted = TRUE;
                         string temp = data.substr(1,MAXPKT);
-                        aprsString reparse(temp);
+                        TAprsString reparse(temp);
                         aprsType = reparse.aprsType;
-                        // print(cout);
+                        print(cout);    // debug
                         break;
                     }
 
@@ -395,7 +439,7 @@ void aprsString::constructorSetUp(const char* cp, int s, int e)
                                         acknum = data.substr(qidx);
                                     }
 
-                                    //cout << "Query=" << query << " qidx=" << qidx << endl;
+                                    //cout << "Query=" << query << " qidx=" << qidx << endl; // debug
                                 }
                             }
                         }
@@ -422,7 +466,7 @@ void aprsString::constructorSetUp(const char* cp, int s, int e)
 
         ostrstream msg(errormsg,500);
 
-        msg << "Caught exception in aprsString: "
+        msg << "Caught exception in TAprsString: "
             << rEx.what()
             << endl
             << " [" << peer << "] " << raw.c_str()
@@ -439,7 +483,7 @@ void aprsString::constructorSetUp(const char* cp, int s, int e)
 
 
 //-------------------------------------------------------------
-void aprsString::AEAtoTAPR(string& s, string& rs)
+void TAprsString::AEAtoTAPR(string& s, string& rs)
 {
     string pathElem[MAXPATH+2];
     string pathPart, dataPart;
@@ -458,7 +502,7 @@ void aprsString::AEAtoTAPR(string& s, string& rs)
 //--------------------------------------------------------------
 //  This is for debugging only.
 //  It dumps important variables to the console
-void aprsString::print(ostream& os)
+void TAprsString::print(ostream& os)
 {
     os << *this << endl
         << "Serial No. = " << ID << endl
@@ -483,37 +527,37 @@ void aprsString::print(ostream& os)
 
 
 //  returns the string as a char*
-const char* aprsString::getChar(void)
+const char* TAprsString::getChar(void)
 {
     return(c_str());
 }
 
 
-int aprsString::getEchoMask(void)
+int TAprsString::getEchoMask(void)
 {
     return(EchoMask);
 }
 
 
-void aprsString::setEchoMask(int m)
+void TAprsString::setEchoMask(int m)
 {
     EchoMask = m;
 }
 
 
-string aprsString::getAX25Source(void)
+string TAprsString::getAX25Source(void)
 {
     return ax25Path[0];
 }
 
-string aprsString::getAX25Dest(void)
+string TAprsString::getAX25Dest(void)
 {
     return(ax25Path[1]);
 }
 
 
 //---------------------------------------------------------------------------
-bool aprsString::queryLocal(void)
+bool TAprsString::queryLocal(void)
 {
     bool localSource = FALSE;
 
@@ -525,7 +569,7 @@ bool aprsString::queryLocal(void)
 
 //-------------------------------------------------------------------------------
 // Search ax25path for match with *cp
-bool aprsString::queryPath(char* cp)
+bool TAprsString::queryPath(char* cp)
 {
    bool rc = FALSE;
 
@@ -540,7 +584,7 @@ bool aprsString::queryPath(char* cp)
 
 
 
-void aprsString::stsmReformat(string& MyCall /*char *mycall*/)
+void TAprsString::stsmReformat(string& MyCall /*char *mycall*/)
 {
     //char *co;
     string(co);
@@ -565,10 +609,10 @@ void aprsString::stsmReformat(string& MyCall /*char *mycall*/)
 
 //--------------------------------------------------------
 //  Converts mic-e packets to 1 or 2 normal APRS packets
-//  Returns pointers to newly allocated aprsStrings
+//  Returns pointers to newly allocated TAprsStrings
 //  Pointers remain NULL if conversion fails.
 
-void aprsString::mic_e_Reformat(aprsString** posit, aprsString** telemetry)
+void TAprsString::mic_e_Reformat(TAprsString** posit, TAprsString** telemetry)
 {
     unsigned char mic1[512], mic2[512];
     int l1, l2;
@@ -594,7 +638,7 @@ void aprsString::mic_e_Reformat(aprsString** posit, aprsString** telemetry)
             char *buf1 = new char[512];
             ostrstream pbuf(buf1,512);
             pbuf <<  path << ':' << mic1 << "\r\n" << ends;
-            aprsString* Posit = new aprsString(buf1,sourceSock,EchoMask,peer.c_str(),call.c_str());
+            TAprsString* Posit = new TAprsString(buf1,sourceSock,EchoMask,peer.c_str(),call.c_str());
             Posit->raw = string(raw);   // Save a copy of the raw mic_e packet
             Posit->changePath(PGVERS,ax25Dest.c_str());
             delete buf1;
@@ -605,7 +649,7 @@ void aprsString::mic_e_Reformat(aprsString** posit, aprsString** telemetry)
             char *buf2 = new char[512];
             ostrstream tbuf(buf2,512);
             tbuf <<  path << ':' << mic2 << "\r\n" << ends;
-            aprsString* Telemetry = new aprsString(buf2,sourceSock,EchoMask,peer.c_str(),call.c_str());
+            TAprsString* Telemetry = new TAprsString(buf2,sourceSock,EchoMask,peer.c_str(),call.c_str());
             Telemetry->raw = string(raw);   // Save a copy of the raw mic_e packet
             Telemetry->changePath(PGVERS,ax25Dest.c_str());
             delete buf2;
@@ -617,7 +661,7 @@ void aprsString::mic_e_Reformat(aprsString** posit, aprsString** telemetry)
 //---------------------------------------------------------
 //  Find path element oldPath and replace with newPath
 //  Returns TRUE if success.
-bool aprsString::changePath(const char* newPath, const char* oldPath)
+bool TAprsString::changePath(const char* newPath, const char* oldPath)
 {
     bool rc = FALSE;
     int i;
@@ -641,7 +685,7 @@ bool aprsString::changePath(const char* newPath, const char* oldPath)
     return rc;
 }
 
-void aprsString::printN(void)
+void TAprsString::printN(void)
 {
     cout << "N=" << NN << endl;
 }
@@ -650,7 +694,7 @@ void aprsString::printN(void)
 //-----------------------------------------------------------------
 //  This is a hash function used for duplicate packet detection
 
-INT32 aprsString::gethash()
+INT32 TAprsString::gethash()
 {
     int i;
     INT32 crc32 = 0;
@@ -695,8 +739,8 @@ INT32 aprsString::gethash()
 
 
 //-------------------------------------------
-//  Returns the number of aprsString objects that currently exist.
-int aprsString::getObjCount()
+//  Returns the number of TAprsString objects that currently exist.
+int TAprsString::getObjCount()
 {
     int n;
     pthread_mutex_lock(pmtxCounters);
