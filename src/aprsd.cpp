@@ -232,7 +232,7 @@ extern int queryCounter;
 
 bool respondToIgateQueries;
 bool respondToAprsdQueries;
-
+bool broadcastJavaInfo;
 
 //----------------------------
 
@@ -638,7 +638,7 @@ void SendToAllClients(TAprsString* p)
                     if (rc == -1) {
                         if (errno == EAGAIN) {
                             sessions[i].overruns++;
-                            cerr << "Session overrun\n" << flush;
+                            cerr << "Session overrun (" << sessions[i].userCall << ends << endl;
                         }
                         if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
                             sessions[i].EchoMask = 0;   // No more data for you!
@@ -992,7 +992,7 @@ int SendSessionStr(int session, const char *s)
     retrys = 0;
 
     do {
-        rc = send(session,s,strlen(s),0);
+        rc = send(session, s, strlen(s), 0);
         if (rc < 0) {
             reliable_usleep(50000);              // try again 50ms later
             retrys++;
@@ -1018,7 +1018,7 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         cerr << "Unable to lock pmtxSend - endSession.\n" << flush;
 
     DeleteSession(session);             // remove it  from list
-    shutdown(session,2);
+    shutdown(session, 2);
     close(session);                     // Close socket
     if(pthread_mutex_unlock(pmtxSend) != 0)
         cerr << "Unable to unlock pmtxSend - endSession.\n" << flush;
@@ -1033,24 +1033,24 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         conQueue.write(cp, 0);
     }
 
-    strncpy(szLog,szPeer,MAX-1);
-    strcat(szLog," ");
-    strcat(szLog,userCall);
-    strcat(szLog," disconnected ");
+    strncpy(szLog, szPeer, MAX - 1);
+    strcat(szLog, " ");
+    strcat(szLog, userCall);
+    strcat(szLog, " disconnected ");
     time_t endtime = time(NULL);
-    double  dConnecttime = difftime(endtime , starttime);
+    double dConnecttime = difftime(endtime , starttime);
     int iMinute = (int)(dConnecttime / 60);
     iMinute = iMinute % 60;
     int iHour = (int)dConnecttime / 3600;
     int iSecond = (int)dConnecttime % 60;
     char timeStr[32];
-    sprintf(timeStr,"%3d:%02d:%02d",iHour,iMinute,iSecond);
-    strcat(szLog,timeStr)	;
+    sprintf(timeStr, "%3d:%02d:%02d", iHour, iMinute, iSecond);
+    strcat(szLog, timeStr);
 
-    WriteLog(szLog,MAINLOG);
+    WriteLog(szLog, MAINLOG);
 
     {
-        ostrstream msg(infomsg,MAX-1);
+        ostrstream msg(infomsg, MAX - 1);
 
         msg << szServerCall
             << szJAVAMSG
@@ -1063,13 +1063,14 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << " users online.\r\n"
             << ends;
     }
+    if (broadcastJavaInfo)
+        BroadcastString(infomsg);           // Say IP address of disconected client
 
-    //BroadcastString(infomsg);           // Say IP address of disconected client
     if (strlen(userCall) > 0) {
         if(pthread_mutex_lock(pmtxCount) != 0)
             cerr << "Unable to lock pmtxCount - EndSession.\n" << flush;
 
-        ostrstream msg(infomsg,MAX-1);
+        ostrstream msg(infomsg, MAX - 1);
         msg << szServerCall
             << szAPRSDPATH
             << szUSERLISTMSG
@@ -1149,7 +1150,7 @@ void *TCPSessionThread(void *p)
         strncpy(szPeer,inet_ntoa(peer_adr.sin_addr),32);
 
     {
-        ostrstream msg(szError,MAX-1);  // Build an error message in szError
+        ostrstream msg(szError, MAX - 1);  // Build an error message in szError
 
         msg << szServerCall
             << szJAVAMSG
@@ -1161,19 +1162,19 @@ void *TCPSessionThread(void *p)
 
     {
         char *cp = new char[256];
-        ostrstream msg(cp,256);
+        ostrstream msg(cp, 256);
         msg << szPeer << " has connected to port " << serverport << endl << ends;
-        conQueue.write(cp,0);           // queue reader deletes cp
+        conQueue.write(cp, 0);           // queue reader deletes cp
     }
 
     {
-        ostrstream msg(szLog,MAX-1);
+        ostrstream msg(szLog, MAX - 1);
         msg << szPeer
             << " connected on "
             << serverport
             << ends;
 
-        WriteLog(szLog,MAINLOG);
+        WriteLog(szLog, MAINLOG);
     }
 
     data = 1;                           // Set socket for non-blocking
@@ -1274,7 +1275,8 @@ void *TCPSessionThread(void *p)
             << " users online.\r\n"
             << ends;
 
-        //BroadcastString(infomsg);
+        if (broadcastJavaInfo)
+            BroadcastString(infomsg);
     }
 
     if(pthread_mutex_lock(pmtxCount) != 0)
@@ -1323,7 +1325,7 @@ void *TCPSessionThread(void *p)
                 if (errno != EWOULDBLOCK) {
                     BytesRead = 0;      // exit on errors other than EWOULDBLOCK
                     i = 0;
-                    endSession(session,szPeer,userCall,starttime);
+                    endSession(session, szPeer, userCall, starttime);
                 }
 
                 //cerr << "i=" << i << "  chTimer=" << chTimer << "   c=" << c << endl;
@@ -1333,7 +1335,7 @@ void *TCPSessionThread(void *p)
             if (sp->dead) {             // force disconnect if connection is dead
                 BytesRead = 0;
                 i = 0;
-                endSession(session,szPeer,userCall,starttime);
+                endSession(session, szPeer, userCall, starttime);
             }
 
             if (i != -1) {              // Got a real character from the net
@@ -1470,7 +1472,7 @@ void *TCPSessionThread(void *p)
             if (State == BASE) {        // Internet to RF messaging handler
                 bool sentOnRF=false;
 
-                TAprsString atemp(buf,session,srcUSER,szPeer,userCall);
+                TAprsString atemp(buf, session, srcUSER, szPeer, userCall);
 
                 if (atemp.aprsType == APRSQUERY){   // non-directed query ?
                     queryResp(session,&atemp);      // yes, send our response
@@ -1490,10 +1492,14 @@ void *TCPSessionThread(void *p)
                     if ((respondToIgateQueries) && (stricmp(szServerCall.c_str(), atemp.stsmDest.c_str()) == 0)
                             && (stricmp("igate", atemp.stsmDest.c_str()) == 0))  {
                         queryResp(session, &atemp);  // Yes, respond.
+                    } else {
+                        cerr << "Ignored IGATE query from " << atemp.ax25Source << ends << endl;
                     }
                     if ((respondToAprsdQueries) && (stricmp(szServerCall.c_str(), atemp.stsmDest.c_str()) == 0)
                             && (stricmp("aprsd", atemp.stsmDest.c_str()) == 0))  {
                         queryResp(session, &atemp);  // Yes, respond.
+                    } else {
+                        cerr << "Ignored APRSD query from " << atemp.ax25Source << ends << endl;
                     }
                 }
 
@@ -2840,25 +2846,27 @@ void serverQuit(termios* initial_settings)
 
     delete[] pSaveHistory;
 
-    //char *ShutDown = new char[255];
-    //strcpy(ShutDown,szServerCall);
-    //strcat(ShutDown,szJAVAMSG);
-    //strcat(ShutDown,MyLocation);
-    //strcat(ShutDown," ");
-    //strcat(ShutDown,szServerID);
-    //strcat(ShutDown," shutting down.  Bye.\r\n");
-    string ShutDown;
-    ShutDown = szServerCall;
-    ShutDown.append(szJAVAMSG);
-    ShutDown.append(MyLocation);
-    ShutDown.append(" ");
-    ShutDown.append(szServerID);
-    ShutDown.append(" shutting down. Bye.\r\n");
+    if (broadcastJavaInfo) {
+        //char *ShutDown = new char[255];
+        //strcpy(ShutDown,szServerCall);
+        //strcat(ShutDown,szJAVAMSG);
+        //strcat(ShutDown,MyLocation);
+        //strcat(ShutDown," ");
+        //strcat(ShutDown,szServerID);
+        //strcat(ShutDown," shutting down.  Bye.\r\n");
+        string ShutDown;
+        ShutDown = szServerCall;
+        ShutDown.append(szJAVAMSG);
+        ShutDown.append(MyLocation);
+        ShutDown.append(" ");
+        ShutDown.append(szServerID);
+        ShutDown.append(" shutting down. Bye.\r\n");
 
-    TAprsString* abuff = new TAprsString(ShutDown,SRC_INTERNAL,srcTNC);
-    //cout << abuff->c_str() << endl;
-    sendQueue.write(abuff,0);
-    //delete ShutDown;
+        TAprsString* abuff = new TAprsString(ShutDown, SRC_INTERNAL, srcTNC);
+        //cout << abuff->c_str() << endl;
+        sendQueue.write(abuff,0);
+        //delete ShutDown;
+    }
     sleep(1);
 
     if (tncPresent) {
@@ -3283,6 +3291,17 @@ int serverConfig(const string& cf)
                         respondToAprsdQueries = true;
                     else
                         respondToAprsdQueries = false;
+
+                    n = 1;
+                }
+
+                if (cmd.compare("BROADCASTJAVAINFO") == 0) {
+                    upcase(token[1]);
+
+                    if (token[1].compare("YES") == 0)
+                        broadcastJavaInfo = true;
+                    else
+                        broadcastJavaInfo = false;
 
                     n = 1;
                 }
@@ -3824,8 +3843,9 @@ int main(int argc, char *argv[])
     ConvertMicE = false;
     tncMute = false;
     MaxClients = MAXCLIENTS;            // Set default aprsd.conf file will override this
-    respondToIgateQueries = true;
+    respondToIgateQueries = false;
     respondToAprsdQueries = true;
+    broadcastJavaInfo = false;
 
     ackRepeats = 2;                     // Default extra acks to TNC
     ackRepeatTime = 5;                  // Default time between extra acks to TNC in seconds.
