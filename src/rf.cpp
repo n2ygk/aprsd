@@ -118,7 +118,7 @@ int rfOpen (const char *szPort)
 
     if (AsyncPort)
         result = AsyncOpen(szPort);
-#ifdef WITH_AX25
+#ifdef HAVE_LIBAX25
     else
         result = SocketOpen(szPort, AprsPath);
 #else
@@ -164,7 +164,7 @@ int rfClose(void)
 
     if (AsyncPort)
         return(AsyncClose());
-#ifdef WITH_AX25
+#ifdef HAVE_LIBAX25
     else
         return(SocketClose());
 #else
@@ -217,7 +217,7 @@ void* rfReadCom (void *vp)
 
         if (AsyncPort)
             lineTimeout = AsyncReadWrite(buf);
-#ifdef WITH_AX25
+#ifdef HAVE_LIBAX25
         else
             lineTimeout = SocketReadWrite(buf);
 #endif
@@ -313,7 +313,7 @@ int rfSendFiletoTNC (const char *szName)
 {
     if (AsyncPort)
         return(AsyncSendFiletoTNC(szName));
-#ifdef WITH_AX25
+#ifdef HAVE_LIBAX25
     else
         return(0); // Not applicable for sockets
 #else

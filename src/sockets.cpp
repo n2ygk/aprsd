@@ -31,7 +31,7 @@
 #include "config.h"
 #endif
 
-#ifdef WITH_AX25 // if no AX25, do nothing
+#ifdef HAVE_LIBAX25 // if no AX25, do nothing
 #include <sys/poll.h>                   // poll, et el
 #include <net/if.h>
 #include <netinet/if_ether.h>
@@ -319,5 +319,5 @@ char * pax25 (char *buf, const unsigned char *data)
     return (buf);
 }
 
-#endif // WITH_AX25
+#endif // HAVE_LIBAX25
 
