@@ -1,23 +1,26 @@
-/* rf.cpp */
-
-/* 
-    Copyright 1997 by Dale A. Heatherington, WA4DSY
-    Modifications by Hamish Moffatt, VK3SB
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA
-*/
+/*
+ * $Id$
+ *
+ * aprsd, Automatic Packet Reporting System Daemon
+ * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001 aprsd Dev Team
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ * Look at the README for more information on the program.
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -65,13 +68,13 @@ struct pidList
 
 extern ULONG WatchDog, tickcount, TotalConnects, TotalTncChars, TotalLines,
     MaxConnects;
-extern BOOL ShutDownServer;
+extern bool ShutDownServer;
 extern cpQueue sendQueue;
 extern cpQueue charQueue;
 extern const int srcTNC;
-extern BOOL configComplete;
-extern BOOL igateMyCall;
-extern BOOL logAllRF;
+extern bool configComplete;
+extern bool igateMyCall;
+extern bool logAllRF;
 extern pidList pidlist;
 
 extern const int srcTNC;
@@ -94,7 +97,7 @@ char tx_buffer[260];
 int txrdy;
 
 int CloseAsync, threadAck;
-BOOL TncSysopMode;                /*Set true when sysop wants direct TNC access */
+bool TncSysopMode;                /*Set true when sysop wants direct TNC access */
 
 int AsyncPort;
 char* AprsPath;
@@ -211,7 +214,7 @@ void* rfReadCom (void *vp)
     unsigned char c;
     FILE *rxc = (FILE *) vp;
     size_t BytesRead;
-    BOOL lineTimeout;
+    bool lineTimeout;
     aprsString *abuff;
 
     i = 0;

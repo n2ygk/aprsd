@@ -1,21 +1,44 @@
-/* history.h */
+/*
+ * $Id$
+ *
+ * aprsd, Automatic Packet Reporting System Daemon
+ * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001 aprsd Dev Team
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ * Look at the README for more information on the program.
+ */
 
-#ifndef HISTORY_1
-#define HISTORY_1
+
+#ifndef __HISTORY_H
+#define __HISTORY_H
 
 
 void CreateHistoryList();
-BOOL AddHistoryItem(aprsString *hp);
+bool AddHistoryItem(aprsString *hp);
 void DeleteHistoryItem(aprsString *hp);
 int DeleteOldItems(int x);
 int DeleteItem(aprsString* ref);
-BOOL DupCheck(aprsString* ref, time_t t);
+bool DupCheck(aprsString* ref, time_t t);
 int SendHistory(int session,int em);
 int SaveHistory(char *name);
 int ReadHistory(char *name);
-BOOL StationLocal(const char *cp, int em);
+bool StationLocal(const char *cp, int em);
 aprsString* getPosit(const string& call, int em);
-BOOL timestamp(long sn, time_t t);
+bool timestamp(long sn, time_t t);
 
 
 #endif

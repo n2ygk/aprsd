@@ -4,8 +4,8 @@
 **  SNIPTYPE.H - Include file for SNIPPETS data types and commonly used macros
 */
 
-#ifndef SNIPTYPE__H
-#define SNIPTYPE__H
+#ifndef __SNIPTYPE__H
+#define __SNIPTYPE__H
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,23 +1,26 @@
-/* serialp.cpp  */
-
-/* 
-    Copyright 1997 by Dale A. Heatherington, WA4DSY
-    Modifications by Hamish Moffatt, VK3SB, for Linux sockets
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA
-*/
+/*
+ * $Id$
+ *
+ * aprsd, Automatic Packet Reporting System Daemon
+ * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001 aprsd Dev Team
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ * Look at the README for more information on the program.
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -145,14 +148,14 @@ int AsyncClose (void)
 //--------------------------------------------------------------------
 // Read a line from the COM port.
 
-BOOL AsyncReadWrite (char* buf)
+bool AsyncReadWrite (char* buf)
 {
     USHORT i, j;
     APIRET rc;
     unsigned char c;
     size_t BytesRead;
     int count = 0;
-    BOOL lineTimeout;
+    bool lineTimeout;
 
     lineTimeout = FALSE;
 

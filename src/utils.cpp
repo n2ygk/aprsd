@@ -1,23 +1,26 @@
-/* utils.cpp */
-
-/* 
- Copyright 1997 by Dale A. Heatherington, WA4DSY
-
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA
-*/
+/*
+ * $Id$
+ *
+ * aprsd, Automatic Packet Reporting System Daemon
+ * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001 aprsd Dev Team
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ * Look at the README for more information on the program.
+ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -48,7 +51,7 @@ using namespace std;
 int ttlDefault = 30;	  			//Default time to live of a history item (30 minutes)
 int CountDefault = 7;		   //Max of 7 instances of one call sign in history list
 extern cpQueue conQueue;
-extern BOOL ConvertMicE;
+extern bool ConvertMicE;
 
 
 //----------------------------------------------------------------------
@@ -59,7 +62,7 @@ int WriteLog(const char *pch, const char *LogFile)
 	char *p;
 	int rc;
    static pthread_mutex_t*   pmtxLog; //Mutual exclusion semi for WriteLog function
-   static BOOL logInit = FALSE;
+   static bool logInit = FALSE;
 
    char *cp = strdup(pch);   //Make local copy of input string.
 
@@ -137,8 +140,8 @@ void printhex(char *cp, int n)
 //---------------------------------------------------------------------
 //return TRUE if destination of packet matches "ref"
 //This is for filtering out unwanted packets
-BOOL CmpDest(const char *line, const char *ref)
-{	BOOL rv = FALSE;
+bool CmpDest(const char *line, const char *ref)
+{	bool rv = FALSE;
 	char *cp = new char[strlen(ref)+3];
 	strcpy(cp,">");
 	strcat(cp,ref);
@@ -151,8 +154,8 @@ BOOL CmpDest(const char *line, const char *ref)
 
 //Return TRUE if any string in the digi path matches "ref".
 
-BOOL CmpPath(const char *line, const char *ref)
-{	BOOL rv = FALSE;
+bool CmpPath(const char *line, const char *ref)
+{	bool rv = FALSE;
    char *cp = new char[strlen(line)+1];
 	strcpy(cp,line);
    char *path_end = strchr(cp,':');          //find colon
@@ -169,7 +172,7 @@ BOOL CmpPath(const char *line, const char *ref)
 //---------------------------------------------------------------------
 //Returns true if "call" matches first string in "s"
 //"call" must be less than 15 chars long.
-BOOL callsign(char *s, const char *call)
+bool callsign(char *s, const char *call)
 {
 	char cp[17];
 	if (strlen(call) > 14) return FALSE;
@@ -181,7 +184,7 @@ BOOL callsign(char *s, const char *call)
 }
 //---------------------------------------------------------------------
 //Compares two packets and returns TRUE if the source call signs are equal
-BOOL CompareSourceCalls(char *s1, char *s2)
+bool CompareSourceCalls(char *s1, char *s2)
 {
 	char call[12];
 	strncpy(call,s2,10);
@@ -356,9 +359,9 @@ void reformatAndSendMicE(aprsString* inetpacket, cpQueue& sendQueue)
 
 //--------------------------------------------------------------------
 /* Return TRUE if string s is in the list cl. */
-BOOL find_rfcall(const string& s, string **cl)
+bool find_rfcall(const string& s, string **cl)
 {
-   BOOL rc = FALSE;
+   bool rc = FALSE;
    int i = 0, pos;
 
    while((cl[i] != NULL) && (rc == FALSE))

@@ -1,4 +1,26 @@
-/* queryResp.cpp   Generate response message for ?IGATE? queries */
+/*
+ * $Id$
+ *
+ * aprsd, Automatic Packet Reporting System Daemon
+ * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001 aprsd Dev Team
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ * Look at the README for more information on the program.
+ */
 
  
 #ifdef HAVE_CONFIG_H
@@ -34,7 +56,8 @@ void BroadcastString(char *cp);
 extern char* szAPRSDPATH ;
 extern char* szServerCall ;
 extern char* MyLocation ;
-extern char* MyCall;
+//extern char* MyCall;
+extern string MyCall;
 extern char* MyEmail;
 
 extern int msgsn;
@@ -61,7 +84,7 @@ void queryResp(int session, const aprsString* pkt)
    char* cpAck = new char[256];
    ostrstream reply(cp,256);
    ostrstream ack(cpAck,256);
-   BOOL wantAck = FALSE;
+   bool wantAck = FALSE;
 
    for (int i=0;i<4;i++) hip[i] = 0;
 
@@ -79,7 +102,7 @@ void queryResp(int session, const aprsString* pkt)
                                 &h,
                                 &h_err);
 
-      
+
      // pthread_mutex_unlock(pmtxDNS);
 
       if (h != NULL) {
@@ -93,13 +116,13 @@ void queryResp(int session, const aprsString* pkt)
    /*debug*/
    /*
    cout  << "Hostname: " << hostname << endl
-         << "IP: " 
-         << (int)hip[0] << "." 
+         << "IP: "
+         << (int)hip[0] << "."
          << (int)hip[1] << "."
          << (int)hip[2] << "."
-         << (int)hip[3] 
-         <<endl; 
-    */    
+         << (int)hip[3]
+         <<endl;
+    */
 
 
 
@@ -133,13 +156,13 @@ void queryResp(int session, const aprsString* pkt)
       pthread_mutex_unlock(pmtxCount);
 
       reply << szServerCall << szAPRSDPATH << ":"
-      << sourceCall << ":" 
+      << sourceCall << ":"
       << MyCall << " "
       << MyLocation << " "
-      << hostname << " " 
-      << (int)hip[0] << "." 
-      << (int)hip[1] << "." 
-      << (int)hip[2] << "." 
+      << hostname << " "
+      << (int)hip[0] << "."
+      << (int)hip[1] << "."
+      << (int)hip[2] << "."
       << (int)hip[3] << " "
       << MyEmail << " "
       << VERS

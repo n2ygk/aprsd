@@ -1,34 +1,39 @@
-/* history.cpp */
+/*
+ * $Id$
+ *
+ * aprsd, Automatic Packet Reporting System Daemon
+ * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001 aprsd Dev Team
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ * Look at the README for more information on the program.
+ */
 
 
 // July 1998.  Completely revised this code to deal with aprsSting objects
 //instead of History structures.
 
-/*This code maintains a linked list of aprsString objects called the
-  "History List".  It is used to detect and remove duplicate packets
-  from the APRS stream, provide a 30 minute history of activity to
-  new users when they log on and determine if the destination of a
-  3rd party station to station message is "local".
-  */
-
 /*
- Copyright 1997 by Dale A. Heatherington, WA4DSY
-
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA
+    This code maintains a linked list of aprsString objects called the
+    "History List".  It is used to detect and remove duplicate packets
+    from the APRS stream, provide a 30 minute history of activity to
+    new users when they log on and determine if the destination of a
+    3rd party station to station message is "local".
 */
+
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -95,7 +100,7 @@ void CreateHistoryList()
 //---------------------------------------------------------------------
 //Adds aprs packet to history list 
 
-BOOL AddHistoryItem(aprsString *hp)
+bool AddHistoryItem(aprsString *hp)
 {
 
    
@@ -237,9 +242,9 @@ int DeleteItem(aprsString* ref)
    if duplicate exists.  Scanning stops when a packet older than "t" seconds
    is found.
 */
-BOOL DupCheck(aprsString* ref, time_t t)   /* Now obsolete and not used in version 2.1.2, June 2000 */
+bool DupCheck(aprsString* ref, time_t t)   /* Now obsolete and not used in version 2.1.2, June 2000 */
 {	int x = -1;
-	BOOL z;
+	bool z;
    time_t tNow,age;
 
    if (ref->allowdup) return FALSE;
@@ -281,10 +286,10 @@ BOOL DupCheck(aprsString* ref, time_t t)   /* Now obsolete and not used in versi
 //If callsign is present and GATE* is not in the path and hops are 3 or less then return TRUE
 //The code to scan for "GATE* and hops have been moved to aprsString.queryLocal() .
 
-BOOL StationLocal(const char *cp, int em)
+bool StationLocal(const char *cp, int em)
 {
    
-	BOOL z = FALSE;
+	bool z = FALSE;
    
 	
    if ((pTail == NULL) || (pHead == NULL)) return FALSE;  //Empty list
@@ -366,9 +371,9 @@ aprsString* getPosit(const string& call, int em)
 
 /* timestamp the timeRF variable in an aprsString object in the history list
    given the objects serial number.  Return TRUE if object exists. */
-BOOL timestamp(long sn, time_t t)
+bool timestamp(long sn, time_t t)
 {
-   BOOL x = FALSE;
+   bool x = FALSE;
 
    if ((pTail == NULL) || (pHead == NULL)) return FALSE ;  //Empty list
 
