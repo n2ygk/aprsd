@@ -102,7 +102,8 @@ bool AddHistoryItem(TAprsString *hp)
     if (hp == NULL)
         return(1);
 
-    pthread_mutex_lock(pmtxHistory);
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - AddHistoryItem.\n" << flush;
 
     if (pTail == NULL) {                // Starting from empty list
         pTail = hp;
@@ -128,7 +129,8 @@ bool AddHistoryItem(TAprsString *hp)
         ItemCount++;
     }
 
-    pthread_mutex_unlock(pmtxHistory);
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - AddHistoryItem.\n" << flush;
     return(0);
 }
 
@@ -173,7 +175,8 @@ int DeleteOldItems(int x)
     if ((pHead == NULL) || (pHead == pTail))
         return(0);                      // empty list
 
-    pthread_mutex_lock(pmtxHistory);
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - DeleteOldItems.\n" << flush;
 
     TAprsString *hp = pHead;
     TAprsString *pNext;
@@ -190,7 +193,8 @@ int DeleteOldItems(int x)
         hp = pNext;
     }
 
-    pthread_mutex_unlock(pmtxHistory);
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - .\n" << flush;
     return(delCount);
 }
 
@@ -229,10 +233,13 @@ int DeleteItem(TAprsString* ref)
 //-------------------------------------------------------------------------
 // Finds the last time a position was sent by the POSIT2RF handling (lastPositTx variable).
 
-time_t GetLastPositTx(TAprsString* ref) {
+time_t GetLastPositTx(TAprsString* ref) {	// is this not called anywhere???
 
-    if ((pHead == NULL) || (pHead == pTail) || (ref == NULL)) return 0;
-   
+    if ((pHead == NULL) || (pHead == pTail) || (ref == NULL)) 
+	return 0;
+	   
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - GetLastPositTx.\n" << flush;
     TAprsString *hp = pHead;
     TAprsString *pNext;
 
@@ -241,13 +248,15 @@ time_t GetLastPositTx(TAprsString* ref) {
         pNext = hp->next;
         if ((hp->aprsType == ref->aprsType) && (hp->dest == ref->dest)) {
             if(hp->ax25Source.compare(ref->ax25Source) == 0) {
+		pthread_mutex_unlock(pmtxHistory);
                 return hp->lastPositTx;
             }
         }
           
         hp = pNext;
     }
-    
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - GetLastPositTx.\n" << flush;
     return 0;
 }
 
@@ -258,6 +267,8 @@ time_t GetLastPositTx(TAprsString* ref) {
 //  is found.
 //
 //  Now obsolete and not used in version 2.1.2, June 2000
+
+/*
 bool DupCheck(TAprsString* ref, time_t t)
 {
     int x = -1;
@@ -271,6 +282,7 @@ bool DupCheck(TAprsString* ref, time_t t)
         return FALSE;                   // Empty list
 
     pthread_mutex_lock(pmtxDupCheck);   // Grab semaphore
+    pthread_mutex_lock(pmtxHistory);	// Don't mod the list while we scan it
 
     time(&tNow);                        // get current time
     TAprsString *hp = pTail;             // Point hp to last item in list
@@ -294,10 +306,12 @@ bool DupCheck(TAprsString* ref, time_t t)
         z = TRUE;
     else
         z = FALSE;
-
+    pthread_mutex_unlock(pmtxHistory);
     pthread_mutex_unlock(pmtxDupCheck);
     return(z);
  }
+
+*/
 
 //--------------------------------------------------------------------------
 //  Scan history list for source callsign which exactly matches *cp .
@@ -311,10 +325,12 @@ bool StationLocal(const char *cp, int em)
     if ((pTail == NULL) || (pHead == NULL))
         return(z);                      // Empty list
 
-    pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - StationLocal.\n" << flush;
     //cout << cp << " " << em << endl;  // debug
     if (ItemCount == 0) {               // if no data then...
-        pthread_mutex_unlock(pmtxHistory);  // ...release mutex semaphore
+	if(pthread_mutex_unlock(pmtxHistory) != 0)
+	    cerr << "Unable to unlock pmtxHistory - StationLocal.\n" << flush;
         return(z);                      // ...return FALSE
     }
 
@@ -329,7 +345,8 @@ bool StationLocal(const char *cp, int em)
         hp = hp->last;
     }
 
-    pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - StationLocal.\n" << flush;
     return(z);                          // return TRUE or FALSE
 }
 
@@ -345,10 +362,12 @@ TAprsString* getPosit(const string& call, int em)
 
     TAprsString* posit = NULL;
 
-    pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - getPosit.\n" << flush;
 
     if (ItemCount == 0) {               // if no data then...
-        pthread_mutex_unlock(pmtxHistory);  // ...release mutex semaphore
+	if(pthread_mutex_unlock(pmtxHistory) != 0)
+	    cerr << "Unable to unlock pmtxHistory - getPosit-early return.\n" << flush;
         return NULL;                    // ...return NULL
     }
 
@@ -366,7 +385,8 @@ TAprsString* getPosit(const string& call, int em)
         hp = hp->last;
     }
 
-    pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - getPosit.\n" << flush;
     return(posit);
 }
 
@@ -384,10 +404,12 @@ TAprsString* getPositAndUpdate(const string& call, int em, time_t earliestTime, 
 
    TAprsString* posit = NULL;
 
-   pthread_mutex_lock(pmtxHistory);     // grab mutex semaphore
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - getPositAndUpdate.\n" << flush;
 
     if (ItemCount == 0) {                      //if no data then...
-        pthread_mutex_unlock(pmtxHistory);   // ...release mutex semaphore
+	if(pthread_mutex_unlock(pmtxHistory) != 0)
+	    cerr << "Unable to unlock pmtxHistory - getPositAndUpdate - early return.\n" << flush;
         return NULL;                        // ...return NULL
     }
 
@@ -410,7 +432,8 @@ TAprsString* getPositAndUpdate(const string& call, int em, time_t earliestTime, 
 
     }
 
-    pthread_mutex_unlock(pmtxHistory);   //release mutex semaphore
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - getPositAndUpdate.\n" << flush;
     return posit;
 
 }
@@ -427,10 +450,12 @@ bool timestamp(long sn, time_t t)
     if ((pTail == NULL) || (pHead == NULL))
         return FALSE;                   // Empty list
 
-    pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - timstamp.\n" << flush;
 
     if (ItemCount == 0) {               // if no data then...
-        pthread_mutex_unlock(pmtxHistory);  // ...release mutex semaphore
+	if(pthread_mutex_unlock(pmtxHistory) != 0)
+	    cerr << "Unable to unlock pmtxHistory - timestamp - early return.\n" << flush;
         return FALSE;                       // ...return FALSE
     }
 
@@ -444,7 +469,8 @@ bool timestamp(long sn, time_t t)
         hp = hp->last;
     }
 
-    pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - timestamp.\n" << flush;
     return(x);
 }
 
@@ -518,17 +544,19 @@ histRec* createHistoryArray(TAprsString* hp)
 //
 int SendHistory(int session, int em)
 {
-    int rc,count,bytesSent,avgItemSize, i=0;
+    int rc,count,bytesSent, i=0;
     int retrys, lastretry;
 
     if (pHead == NULL)
         return(0);                      // Nothing to send
 
-    pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - SendHistory.\n" << flush;
 
     TAprsString *hp = pHead;             // Start at the beginning of list
     histRec* hr = createHistoryArray(hp);   // copy it to an array
-    pthread_mutex_unlock(pmtxHistory);  // release semaphore
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - SendHistory.\n" << flush;
 
     if (hr == NULL)
         return 0;
@@ -537,19 +565,17 @@ int SendHistory(int session, int em)
     count = 0;
     bytesSent = 0;
     float throttle = 150;                // Initial rate  about 50kbaud
-    //cerr << " Top of SendHistory Loop.\n" << flush;	// debug stuff
     for (i=0;i < n; i++) {
         if ((hr[i].EchoMask & em)
                 && (hr[i].reformatted == FALSE)) {      // filter data intended for this users port
             count++;                    // Count how many items we actually send
-	    //cerr << "Sending History Item " << count << ".\n" << flush; 	// debug stuff
             size_t dlen  = strlen(hr[i].data);
             retrys = lastretry = 0;
 
             do {
                 rc = send(session,(const void*)hr[i].data,dlen,0);  // Send history list item to client
                 reliable_usleep((int)throttle * dlen);       // pace ourself
-		bytesSent += dlen;
+		bytesSent += dlen;					// used for average size calculations
                 if(rc < 0) {
 		    if (errno == EAGAIN)	// only sleep on overrun
                     sleep(1 );          // Pause output 1 second if resource unavailable
@@ -557,8 +583,6 @@ int SendHistory(int session, int em)
                     if (retrys > lastretry) {	// original version would only throttle down once.
 			lastretry = retrys;
                         throttle = throttle * 2; //cut our speed in half
-			//cerr << "SendHistory Throttle Down to" << throttle   //debug stuff
-			//     << ".\n" << flush;
 		    }				
 
                     if (throttle > 4400) {
@@ -569,8 +593,6 @@ int SendHistory(int session, int em)
                 } else
                     if (throttle > 7.5) {		// max speed of about 1mbaud
                         throttle = throttle * 0.98;     // Speed up 2%
-			//cerr << "SendHistory Throttle Up to " << throttle // debug stuff
-			//     << ".\n" << flush;
 		    }
 
             } while((errno == EAGAIN) && (rc < 0) && ( retrys <= 180));  //Keep trying for 3 minutes
@@ -579,22 +601,21 @@ int SendHistory(int session, int em)
                 cerr <<  "send() error in SendHistory() errno= " << errno << " retrys= " << retrys
                     << " \n[" << strerror(errno) <<  "]" << endl;
 
-                pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
+		if(pthread_mutex_lock(pmtxHistory) != 0)
+		    cerr << "Unable to lock pmtxHistory - SendHistory-Abort.\n" << flush;
                 deleteHistoryArray(hr);
                 dumpAborts++;
-                pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
+		if(pthread_mutex_unlock(pmtxHistory) != 0)
+		    cerr << "Unable to unlock pmtxHistory - SendHistory-Abort.\n" << flush;
                 return(-1);
             }
         }
     }
-    //cerr << "Out of SendHistory loop.\n" << flush;		// debug stuff
-    avgItemSize = bytesSent/n;
-    //cerr << " Average size of History Item = " << avgItemSize << ".\n" << flush;	//debug stuff
-    pthread_mutex_lock(pmtxHistory);
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - SendHistory-Cleanup.\n" << flush;
     deleteHistoryArray(hr);
-    //cerr << "SendHistory Array deleted.\n" << flush;		// debug stuff
-    pthread_mutex_unlock(pmtxHistory);
-    //cerr << "History mutex unlocked - time to return.\n" << flush;	// debug stuff
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - SendHistory-Cleanup.\n" << flush;
     return(count);
 }
 
@@ -608,7 +629,8 @@ int SaveHistory(char *name)
     if (pHead == NULL)
         return 0;
 
-    pthread_mutex_lock(pmtxHistory);
+    if(pthread_mutex_lock(pmtxHistory) != 0)
+    	cerr << "Unable to lock pmtxHistory - SaveHistory.\n" << flush;
 
     ofstream hf(name);                  // Open the output file
 
@@ -638,7 +660,8 @@ int SaveHistory(char *name)
         hf.close();
     }
 
-    pthread_mutex_unlock(pmtxHistory);
+    if(pthread_mutex_unlock(pmtxHistory) != 0)
+    	cerr << "Unable to unlock pmtxHistory - SaveHistory.\n" << flush;
     return icount;
 }
 

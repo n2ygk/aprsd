@@ -197,7 +197,7 @@ void* rfReadCom (void *vp)
     i = 0;
 
     pidlist.SerialInp = getpid ();
-
+    cerr << "Async Comm thread started.\n" << flush;
     while (!CloseAsync) {
 
         if (AsyncPort)
@@ -207,7 +207,7 @@ void* rfReadCom (void *vp)
             lineTimeout = SocketReadWrite(buf);
 #endif
 
-        WatchDog++;
+        //WatchDog++;
         tickcount = 0;
 
         i = strlen((char*)buf);

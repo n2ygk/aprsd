@@ -53,8 +53,9 @@ cpQueue::cpQueue(int n, bool d)
     write_p = 0;
     read_p = 0;
     itemsQueued = 0;
-    Q_mutex = new pthread_mutex_t;
-    pthread_mutex_init(Q_mutex,NULL);
+    HWitemsQueued = 0;
+    pmtxQ = new pthread_mutex_t;
+    pthread_mutex_init(pmtxQ,NULL);
     lock = 0;
     inRead = 0;
     inWrite = 0;
@@ -80,8 +81,8 @@ cpQueue::~cpQueue(void)
             if (base_p[read_p].qcp != NULL)
                 delete (TAprsString*)base_p[read_p++].qcp ;
     }
-    pthread_mutex_destroy(Q_mutex);
-    delete Q_mutex;
+    pthread_mutex_destroy(pmtxQ);
+    delete pmtxQ;
     delete base_p;
 }
 
@@ -96,8 +97,9 @@ int cpQueue::write(char *cp, int n)
     if (lock)
         return -2;                      // Lock is only set true in the destructor
 
+    if(pthread_mutex_lock(pmtxQ) != 0)
+    	cerr << "Unable to lock pmtxQ - cpQueue:Write-char *cp.\n" << flush;
     inWrite = 1;
-    pthread_mutex_lock(Q_mutex);
     int idx = write_p;
 
     if (base_p[idx].rdy == false) {     // Be sure not to overwrite old stuff
@@ -106,6 +108,8 @@ int cpQueue::write(char *cp, int n)
         base_p[idx].rdy = TRUE;         // Set the ready flag
         idx++;
         itemsQueued++;
+	if (itemsQueued > HWitemsQueued)
+	    HWitemsQueued = itemsQueued;
 
         if (idx >= size)
             idx = 0;
@@ -120,8 +124,9 @@ int cpQueue::write(char *cp, int n)
         rc = -1;
     }
 
-    pthread_mutex_unlock(Q_mutex);
     inWrite = 0;
+    if(pthread_mutex_unlock(pmtxQ) != 0)
+    	cerr << "Unable to unlock pmtxQ - cpQueue:Write - char *cp.\n" << flush;
     return(rc);
 }
 
@@ -139,7 +144,8 @@ int cpQueue::write(string& cs, int n)
         return -2;
 
     inWrite = 1;
-    pthread_mutex_lock(Q_mutex);
+    if(pthread_mutex_lock(pmtxQ) != 0)
+    	cerr << "Unable to lock pmtxQ - cpQueue:Write - string.\n" << flush;
     int idx = write_p;
     if (base_p[idx].rdy == false) {     // Be sure not to overwrite old stuff
         base_p[idx].qcp = (char *)cs;	// put String on queue
@@ -161,8 +167,9 @@ int cpQueue::write(string& cs, int n)
         rc = -1;
     }
 
-    pthread_mutex_unlock(Q_mutex);
     inWrite = 0;
+    if(pthread_mutex_unlock(pmtxQ) != 0)
+    	cerr << "Unable to unlock pmtxQ - cpQueue:Write - string.\n" << flush;
     return(rc);
 }
 
@@ -175,8 +182,9 @@ int cpQueue::write(TAprsString* cs, int n)
     if (lock)
         return -2;
 
+    if(pthread_mutex_lock(pmtxQ) != 0)
+    	cerr << "Unable to lock pmtxQ - cpQueue:write - TAprsString.\n" << flush;
     inWrite = 1;
-    pthread_mutex_lock(Q_mutex);
     int idx = write_p;
     if (base_p[idx].rdy == false) {     // Be sure not to overwrite old stuff
         base_p[idx].qcp = (void*)cs;	// put String on queue
@@ -198,8 +206,9 @@ int cpQueue::write(TAprsString* cs, int n)
         rc = -1;
     }
 
-    pthread_mutex_unlock(Q_mutex);
     inWrite = 0;
+    if(pthread_mutex_unlock(pmtxQ) != 0)
+    	cerr << "Unable to unlock pmtxQ - cpQueue:write - TAprsString.\n" << flush;
     return(rc);
 }
 
@@ -213,9 +222,12 @@ int cpQueue::write(TAprsString* cs)
 //
 void* cpQueue::read(int *ip)
 {
+
+
+    if(pthread_mutex_lock(pmtxQ) != 0)
+    	cerr << "Unable to lock pmtxQ - cpQueue:read - int.\n" << flush;
     inRead = 1;
 
-    pthread_mutex_lock(Q_mutex);
     void* cp = base_p[read_p].qcp ;     // Read the TAprsString*
 
     if(ip)
@@ -231,7 +243,8 @@ void* cpQueue::read(int *ip)
 
     inRead = 0;
 
-    pthread_mutex_unlock(Q_mutex);
+    if(pthread_mutex_unlock(pmtxQ) != 0)
+    	cerr << "Unable to unlock pmtxQ - cpQueue:read - int.\n" << flush;
     return(cp);
 }
 
@@ -240,13 +253,15 @@ void* cpQueue::read(int *ip)
 int cpQueue::ready(void)
 {
     int rc=false;
-    pthread_mutex_lock(Q_mutex);
+    if(pthread_mutex_lock(pmtxQ) != 0)
+    	cerr << "Unable to lock pmtxQ - cpQueue:ready.\n" << flush;
     //if ((read_p != write_p) || wrap) rc = true ;
 
     if(base_p[read_p].rdy)
         rc = true;
 
-    pthread_mutex_unlock(Q_mutex);
+    if(pthread_mutex_unlock(pmtxQ) != 0)
+    	cerr << "Unable to unlock pmtxQ - cpQueue:ready.\n" << flush;
     return(rc);
 
 }
@@ -263,7 +278,24 @@ int cpQueue::getReadPtr(void)
 
 int cpQueue::getItemsQueued(void)
 {
-    return(itemsQueued);
+    int inq;
+    if(pthread_mutex_lock(pmtxQ) != 0)
+    	cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+    inq = itemsQueued;
+    if(pthread_mutex_unlock(pmtxQ) != 0)
+    	cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+    return(inq);
+}
+
+int cpQueue::getHWItemsQueued(void)
+{
+    int HWinq;
+    if(pthread_mutex_lock(pmtxQ) != 0)
+    	cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+    HWinq = HWitemsQueued;
+    if(pthread_mutex_unlock(pmtxQ) != 0)
+    	cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+    return(HWinq);
 }
 
 

@@ -125,7 +125,7 @@ typedef int INT32;
 #define SAVE_HISTORY "history.txt"
 #define USER_DENY "user.deny"
 #define FUBARLOG "badpacket.log"
-
+//  #define BPLOG		// Uncomment this for logging of filtered packets 
 
 /* These are for Linux user/pass logons.  They define the group used by
    /etc/group .   You must have these groups and users defined in /etc/group.

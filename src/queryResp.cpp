@@ -85,7 +85,8 @@ void queryResp(int session, const TAprsString* pkt)
     if (rc != 0)
         strcpy(hostname,"Host_Unknown");
     else {
-        pthread_mutex_lock(pmtxDNS);
+	if(pthread_mutex_lock(pmtxDNS) != 0)
+	    cerr << "Unable to lock pmtxDNS - queryResp.\n" << flush;
         // Thread-Safe verison of gethostbyname2() ?  Actually it's not so lock after all
         rc = gethostbyname2_r(hostname, AF_INET,
                                 &hostinfo_d,
@@ -94,7 +95,8 @@ void queryResp(int session, const TAprsString* pkt)
                                 &h,
                                 &h_err);
 
-        pthread_mutex_unlock(pmtxDNS);
+	if(pthread_mutex_unlock(pmtxDNS) != 0)
+	    cerr << "Unable to unlock pmtxDNS - queryResp.\n" << flush;
         if (h != NULL) {
             strncpy(hostname,h->h_name,80);             // Full host name
             strncpy((char*)hip,h->h_addr_list[0],4);    // Host IP
@@ -138,9 +140,11 @@ void queryResp(int session, const TAprsString* pkt)
     // Now build the query specfic packet(s)
 
     if (pkt->query.compare("IGATE") == 0) {
-        pthread_mutex_lock(pmtxCount) ;
+	if(pthread_mutex_lock(pmtxCount) != 0)
+	    cerr << "Unable to lock pmtxCount - queryresp-queryCounter.\n" << flush;
         queryCounter++;                 // Count this query
-        pthread_mutex_unlock(pmtxCount);
+	if(pthread_mutex_unlock(pmtxCount) != 0)
+	    cerr << "Unable to unlock pmtxCount - queryresp-queryCounter.\n" << flush;
 
         reply << szServerCall << szAPRSDPATH << ":"
             << sourceCall << ":"
