@@ -37,7 +37,6 @@
 using namespace aprsd;
 
 int WriteLog(const char *cp, const char *LogFile);
-int WriteLog(const string& sp, const string& LogFile);
 char* strupr(char *cp);
 void printhex(char *cp, int n);
 bool CmpDest(const char *line, const char *ref);

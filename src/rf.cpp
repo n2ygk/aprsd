@@ -118,7 +118,7 @@ int rfOpen (const char *szPort)
 
     if (AsyncPort)
         result = AsyncOpen(szPort);
-#ifdef HAVE_LIBAX25
+#ifdef WITH_AX25
     else
         result = SocketOpen(szPort, AprsPath);
 #else
@@ -136,7 +136,8 @@ int rfOpen (const char *szPort)
 
     // Now start the serial port reader thread
 
-    if ((rc = pthread_create (&tidReadCom, NULL, rfReadCom, NULL)) < 0) {
+    rc = pthread_create (&tidReadCom, NULL, rfReadCom, NULL);
+    if (rc) {
         cerr << "Error: ReadCom thread creation failed. Error code = " << rc
             << endl;
 
@@ -154,9 +155,9 @@ int rfClose(void)
     while (threadAck == false)
         reliable_usleep (1000);                  // wait till it does
 
-    if (AsyncPort)
+     if (AsyncPort)
         return(AsyncClose());
-#ifdef HAVE_LIBAX25
+#ifdef WITH_AX25
     else
         return(SocketClose());
 #else
@@ -173,6 +174,7 @@ int rfWrite (const char *cp)
     int rc = 0;
     Lock writeTNCLock(mtxWriteTNC, false);
 
+    //rc = pthread_mutex_lock(pmtxWriteTNC);
     writeTNCLock.get();
     strncpy(tx_buffer, cp, 256);
 
@@ -207,7 +209,7 @@ void* rfReadCom (void *vp)
 
         if (AsyncPort)
             lineTimeout = AsyncReadWrite(buf);
-#ifdef HAVE_LIBAX25
+#ifdef WITH_AX25
         else
             lineTimeout = SocketReadWrite(buf);
 #endif
@@ -303,7 +305,7 @@ int rfSendFiletoTNC (const char *szName)
 {
     if (AsyncPort)
         return(AsyncSendFiletoTNC(szName));
-#ifdef HAVE_LIBAX25
+#ifdef WITH_AX25
     else
         return(0); // Not applicable for sockets
 #else

@@ -302,6 +302,7 @@ TAprsString* getPosit(const string& call, int em)
         return NULL ;                   // Empty list
 
     TAprsString* posit = NULL;
+
     historyLock.get();
 
     if (ItemCount == 0) {               // if no data then...
@@ -322,6 +323,7 @@ TAprsString* getPosit(const string& call, int em)
 
         hp = hp->last;
     }
+
     historyLock.release();
     return(posit);
 }
@@ -341,6 +343,7 @@ TAprsString* getPositAndUpdate(const string& call, int em, time_t earliestTime, 
         return NULL ;  //Empty list
 
     TAprsString* posit = NULL;
+
     historyLock.get();
     if (ItemCount == 0) {                      //if no data then...
         historyLock.release();
@@ -366,6 +369,7 @@ TAprsString* getPositAndUpdate(const string& call, int em, time_t earliestTime, 
     }
     historyLock.release();
     return posit;
+
 }
 
 
@@ -537,9 +541,12 @@ int SendHistory(int session, int em)
             }
         }
     }
+    //pthread_mutex_lock(&pmtxHistory);
     historyLock.get();
     deleteHistoryArray(hr);
+    //pthread_mutex_unlock(&pmtxHistory);
     historyLock.release();
+
     return(count);
 }
 
