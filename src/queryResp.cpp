@@ -95,8 +95,8 @@ void queryResp(int session, const TAprsString* pkt)
     if (rc != 0)
         strcpy(hostname,"Host_Unknown");
     else {
-        // pthread_mutex_lock(pmtxDNS);
-        // Thread-Safe verison of gethostbyname2() ?
+        pthread_mutex_lock(pmtxDNS);
+        // Thread-Safe verison of gethostbyname2() ?  Actually it's not so lock after all
         rc = gethostbyname2_r(hostname, AF_INET,
                                 &hostinfo_d,
                                 h_buf,
