@@ -20,12 +20,9 @@
 */
 
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
-
-#define _REENTRANT
-#define _PTHREADS
 
 #include <time.h>
 #include <string.h>
@@ -36,6 +33,7 @@
 #include <strstream.h>
 #include <iomanip.h>
 #include <pwd.h>
+#include <crypt.h>
 #include <grp.h>
 #include <vector.h>
 
@@ -54,7 +52,7 @@ extern BOOL ConvertMicE;
 
 
 //----------------------------------------------------------------------
-int WriteLog(const char *pch, char *LogFile)
+int WriteLog(const char *pch, const char *LogFile)
 {	FILE *f;
 	time_t ltime;
 	char szTime[40];

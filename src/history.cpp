@@ -11,7 +11,7 @@
   3rd party station to station message is "local".
   */
 
-/* 
+/*
  Copyright 1997 by Dale A. Heatherington, WA4DSY
 
 
@@ -30,17 +30,11 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA
 */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
 
-#define _REENTRANT
-#define _PTHREADS
 
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -51,14 +45,13 @@
 #include <strstream.h>
 #include <iomanip.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <assert.h>
-
 
 #include "constant.h"
 #include "utils.h"
 #include "history.h"
-
 
 
 
@@ -124,7 +117,7 @@ BOOL AddHistoryItem(aprsString *hp)
 		{  
                   
          DeleteItem(hp);  //Delete any previously stored items with same call and type
-              
+
                        
          if(ItemCount == 0)  //List is empty, put in first item
                   {  pTail = hp;
@@ -276,7 +269,7 @@ BOOL DupCheck(aprsString* ref, time_t t)   /* Now obsolete and not used in versi
 			hp = hp->last;									//Go back in time through list
                                               //Usually less than 10 entrys need checking for 30 sec.
 		}
-  
+
   if (x == 0) z = TRUE; else z = FALSE;
   pthread_mutex_unlock(pmtxDupCheck);
   return z;
@@ -390,7 +383,7 @@ BOOL timestamp(long sn, time_t t)
          return FALSE;                        // ...return FALSE
    }
 
-   
+
    aprsString *hp = pTail;                      //point to end of history list
 
    while ((x == FALSE) && (hp != NULL))    //Loop while no match and not at beginning of list

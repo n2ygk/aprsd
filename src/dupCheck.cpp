@@ -1,12 +1,9 @@
 
 /* dupCheck.cpp */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
-
-#define _REENTRANT
-#define _PTHREADS
 
 #include <unistd.h>
 #include <ctype.h>

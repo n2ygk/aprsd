@@ -1,4 +1,4 @@
-/* validate.cpp version 2  May 23 1999   
+/* validate.cpp version 2  May 23 1999
 
  Put in thread-safe verisons of getgrnam and getpwnam, vers 2.1.2 Jun 22 2000
   
@@ -23,14 +23,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA
 
 //#define DEBUG 1
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
-
-#define _REENTRANT
-#define _PTHREADS
-
-
 
 #include <ctype.h>
 #include <string.h>

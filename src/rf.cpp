@@ -19,7 +19,9 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA
 */
 
-#define _REENTRANT 1
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <unistd.h>
 #include <stdio.h>

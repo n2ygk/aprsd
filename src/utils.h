@@ -17,7 +17,7 @@
 
 
 
-int WriteLog(const char *cp, char *LogFile);
+int WriteLog(const char *cp, const char *LogFile);
 char* strupr(char *cp);
 void printhex(char *cp, int n);
 BOOL CmpDest(const char *line, const char *ref);
