@@ -36,7 +36,6 @@
 #define BADPASSWD -3
 
 int WriteLog(const char *cp, const char *LogFile);
-int WriteLogS(const string &, const char *LogFile);
 char* strupr(char *cp);
 void printhex(char *cp, int n);
 bool CmpDest(const char *line, const char *ref);

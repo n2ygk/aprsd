@@ -71,7 +71,6 @@ int WriteLog(const char *pch, const char *LogFile)
     pthread_mutex_lock(pmtxLog);
 
     char *pLogFile = new char[strlen(LOGPATH) + strlen(LogFile) +1];
-    //memset(pLogFile, NULLCHR, sizeof(&pLogFile));
     strcpy(pLogFile,LOGPATH);
     strcat(pLogFile,LogFile);
 
@@ -110,67 +109,6 @@ int WriteLog(const char *pch, const char *LogFile)
 }
 
 
-//----------------------------------------------------------------------
-int WriteLogS(const string &sp, const char *LogFile)
-{
-    FILE *f;
-    time_t ltime;
-    char szTime[40];
-    char *p;
-    int rc;
-    static pthread_mutex_t* pmtxLog;    // Mutual exclusion semi for WriteLog function
-    static bool logInit = false;
-
-    string tsp = sp;             // Make local copy of input string.
-
-    if (!logInit) {
-        pmtxLog = new pthread_mutex_t;
-        pthread_mutex_init(pmtxLog,NULL);
-        logInit = true;
-        cout << "logger initialized\n";
-    }
-    pthread_mutex_lock(pmtxLog);
-
-    char *pLogFile = new char[strlen(LOGPATH) + strlen(LogFile) +1];
-    strcpy(pLogFile,LOGPATH);
-    strcat(pLogFile,LogFile);
-
-    f = fopen(pLogFile,"a");
-
-    if (f == NULL)
-        f = fopen(pLogFile,"w");
-
-    if (f == NULL) {
-        cerr << "failed to open " << pLogFile << endl;
-        rc = -1;
-    } else {
-        char *eol = strpbrk(tsp.c_str(),"\n\r");
-
-        if (eol)
-            *eol = '\0';                // remove crlf
-
-        time(&ltime) ;                  // Time Stamp
-        ctime_r(&ltime,szTime);         // Thread safe ctime()
-
-        p = strchr(szTime,(int)'\n');
-
-        if (p)
-            *p = ' ';                   // convert new line to a space
-
-        fprintf(f,"%s %s\n", szTime, tsp.c_str()); // Write log entry with time stamp
-        fflush(f);
-        fclose(f);
-        rc = 0;
-    }
-    delete &tsp;
-    delete pLogFile;
-    pthread_mutex_unlock(pmtxLog);
-
-    return(rc);
-}
-
-
-
 //------------------------------------------------------------------------
 //Convert all lower case characters in a string to upper case.
 // Assumes ASCII chars.
@@ -203,7 +141,6 @@ bool CmpDest(const char *line, const char *ref)
 {
     bool rv = false;
     char *cp = new char[strlen(ref)+3];
-    //memset(cp, NULLCHR, sizeof(&cp));
     strcpy(cp,">");
     strcat(cp,ref);
     strcat(cp,",");
@@ -211,7 +148,7 @@ bool CmpDest(const char *line, const char *ref)
     if (strstr(line,cp) !=	NULL)
         rv = true;
 
-    delete[] cp;
+    delete cp;
     return(rv);
 }
 //----------------------------------------------------------------------
@@ -221,8 +158,7 @@ bool CmpPath(const char *line, const char *ref)
 {
     bool rv = false;
     char *cp = new char[strlen(line)+1];
-    //memset(cp, NULLCHR, sizeof(&cp));
-    strcpy(cp, line);
+    strcpy(cp,line);
     char *path_end = strchr(cp,':');    // find colon
 
     if (path_end != NULL) {
@@ -231,7 +167,7 @@ bool CmpPath(const char *line, const char *ref)
             rv = true;
     }
 
-    delete[] cp;
+    delete cp;
     return(rv);
 }
 
@@ -358,8 +294,7 @@ void RemoveCtlCodes(char *cp)
 
     temp[j] = ucp[i];                   // copy terminating NULL
     strcpy(cp,(char*)temp);             // copy result back to original
-    delete[] temp;
-    delete[] ucp;
+    delete temp;
 }
 
 
@@ -382,8 +317,7 @@ void makePrintable(char *cp) {
 
     temp[j] = ucp[i];                   // copy terminating NULL
     strcpy(cp,(char*)temp);             // copy result back to original
-    delete[] temp;
-    delete[] ucp;
+    delete temp;
 }
 
 void removeHTML(string& sp) {
@@ -523,8 +457,8 @@ int stricmp(const char* szX, const char* szY)
     b[i]='\0';
 
     int rc = strcmp(a,b);
-    delete[] a;
-    delete[] b;
+    delete a;
+    delete b;
     return(rc);
 }
 

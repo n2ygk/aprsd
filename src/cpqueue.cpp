@@ -135,8 +135,8 @@ int cpQueue::write(unsigned char *cp, int n)
     return(write((char*)cp, n));
 }
 
-
-int cpQueue::write(string& sp, int n)
+/*
+int cpQueue::write(string& cs, int n)
 {
     int rc = 0;
 
@@ -145,11 +145,10 @@ int cpQueue::write(string& sp, int n)
 
     inWrite = 1;
     if(pthread_mutex_lock(pmtxQ) != 0)
-        cerr << "Unable to lock pmtxQ - cpQueue:Write - string.\n" << flush;
-
+    	cerr << "Unable to lock pmtxQ - cpQueue:Write - string.\n" << flush;
     int idx = write_p;
     if (base_p[idx].rdy == false) {     // Be sure not to overwrite old stuff
-        base_p[idx].qcp = (void*)sp.c_str();   // put String on queue
+        base_p[idx].qcp = (char *)cs;	// put String on queue
         base_p[idx].qcmd = n;           // put int (cmd) on queue
         base_p[idx].rdy = TRUE;         // Set the ready flag
         itemsQueued++;
@@ -163,18 +162,18 @@ int cpQueue::write(string& sp, int n)
         overrun++ ;
 
         if (dyn)
-            delete &sp;                  // Delete the object that couldn't be put in the queue
+            cs = NULL;                  // Delete the object that couldn't be put in the queue
 
         rc = -1;
     }
 
     inWrite = 0;
     if(pthread_mutex_unlock(pmtxQ) != 0)
-        cerr << "Unable to unlock pmtxQ - cpQueue:Write - string.\n" << flush;
-
+    	cerr << "Unable to unlock pmtxQ - cpQueue:Write - string.\n" << flush;
     return(rc);
 }
 
+*/
 
 int cpQueue::write(TAprsString* cs, int n)
 {
@@ -184,11 +183,9 @@ int cpQueue::write(TAprsString* cs, int n)
         return -2;
 
     if(pthread_mutex_lock(pmtxQ) != 0)
-        cerr << "Unable to lock pmtxQ - cpQueue:write - TAprsString.\n" << flush;
-
+    	cerr << "Unable to lock pmtxQ - cpQueue:write - TAprsString.\n" << flush;
     inWrite = 1;
     int idx = write_p;
-
     if (base_p[idx].rdy == false) {     // Be sure not to overwrite old stuff
         base_p[idx].qcp = (void*)cs;	// put String on queue
         base_p[idx].qcmd = n;           // put int (cmd) on queue
@@ -210,10 +207,8 @@ int cpQueue::write(TAprsString* cs, int n)
     }
 
     inWrite = 0;
-
-    if (pthread_mutex_unlock(pmtxQ) != 0)
-        cerr << "Unable to unlock pmtxQ - cpQueue:write - TAprsString.\n" << flush;
-
+    if(pthread_mutex_unlock(pmtxQ) != 0)
+    	cerr << "Unable to unlock pmtxQ - cpQueue:write - TAprsString.\n" << flush;
     return(rc);
 }
 
@@ -249,8 +244,7 @@ void* cpQueue::read(int *ip)
     inRead = 0;
 
     if(pthread_mutex_unlock(pmtxQ) != 0)
-        cerr << "Unable to unlock pmtxQ - cpQueue:read - int.\n" << flush;
-
+    	cerr << "Unable to unlock pmtxQ - cpQueue:read - int.\n" << flush;
     return(cp);
 }
 
@@ -260,16 +254,14 @@ int cpQueue::ready(void)
 {
     int rc=false;
     if(pthread_mutex_lock(pmtxQ) != 0)
-        cerr << "Unable to lock pmtxQ - cpQueue:ready.\n" << flush;
-
+    	cerr << "Unable to lock pmtxQ - cpQueue:ready.\n" << flush;
     //if ((read_p != write_p) || wrap) rc = true ;
 
     if(base_p[read_p].rdy)
         rc = true;
 
     if(pthread_mutex_unlock(pmtxQ) != 0)
-        cerr << "Unable to unlock pmtxQ - cpQueue:ready.\n" << flush;
-
+    	cerr << "Unable to unlock pmtxQ - cpQueue:ready.\n" << flush;
     return(rc);
 
 }
@@ -288,12 +280,10 @@ int cpQueue::getItemsQueued(void)
 {
     int inq;
     if(pthread_mutex_lock(pmtxQ) != 0)
-        cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
-
+    	cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
     inq = itemsQueued;
     if(pthread_mutex_unlock(pmtxQ) != 0)
-        cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
-
+    	cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
     return(inq);
 }
 
@@ -301,12 +291,12 @@ int cpQueue::getHWItemsQueued(void)
 {
     int HWinq;
     if(pthread_mutex_lock(pmtxQ) != 0)
-        cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
-
+    	cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
     HWinq = HWitemsQueued;
     if(pthread_mutex_unlock(pmtxQ) != 0)
-        cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
-
+    	cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
     return(HWinq);
 }
+
+
 
