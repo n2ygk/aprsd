@@ -2791,7 +2791,7 @@ bool sendOnRF(TAprsString& atemp,  const char* szPeer, const char* userCall, con
 
         //Destination station active on VHFand source not?
         if (((StationLocal(atemp.stsmDest.c_str(), srcTNC) == true) || stsmRFalways)
-                && (StationLocal(atemp.ax25Source.c_str(), srcTNC) == true)) {
+                && (StationLocal(atemp.ax25Source.c_str(), srcTNC) == false)) {
 
             TAprsString* rfpacket = new TAprsString(atemp.getChar(), atemp.sourceSock, src, szPeer, userCall);
             //ofstream debug("rfdump.txt");
@@ -4114,7 +4114,6 @@ void schedule_posit2RF(time_t t)
         abuff = getPositAndUpdate(*posit_rfcall[ptr] , srcIGATE | srcUSERVALID | srcUSER, t - (15 * 60), t);
 
         if (abuff) {
-            cout << "Found position ready for tx: " << abuff << endl;
             abuff->stsmReformat(MyCall);    // Convert to 3rd party format
             tncQueue.write(abuff);          // Send to TNC
 
