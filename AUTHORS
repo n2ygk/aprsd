@@ -1,0 +1,29 @@
+
+                        Developers and Contributors
+     _________________________________________________________________
+
+   This file attempts to list the majority of the aprsd developers and
+   contributors who have devoted a lot of their time into making aprsd
+   one of the best APRS server available.
+
+   aprsd was originally written by Dale A. Heatherington, WA4DSY.
+
+   APRS is trademarked by Bob Bruninga.
+
+   Developers and Contributors (in alphabetical order):
+
+   KG4IJB   Chuck Byam
+   N2YGK    Alan Crosswell (original MIC-E code)
+   VK3SB    Hamish Moffatt
+
+   Thanks go to all the people who have made individual contributions to
+   the aprsd project by sending bug-reports, patches and otherwise have
+   supported the project. Patch contributors are listed in the UPDATES
+   files.
+
+   If you think that you are missing from this list contact the aprsd
+   Development Team at http://aprsd.sourceforge.net
+     _________________________________________________________________
+
+   Copyright (C) 2000,2001 aprsd Development Team
+
