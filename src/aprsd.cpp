@@ -2081,7 +2081,6 @@ void *UDPServerThread(void *p)
     unsigned client_address_size;
     struct sockaddr_in client, server;
     char buf[UDPSIZE + 3]; //, szLog[UDPSIZE + 50];
-    string szLog;
     UdpParams* upp = (UdpParams*)p;
     int UDP_Port = upp->ServerPort;     // UDP port set in aprsd.conf
     const char *CRLF = "\r\n";
@@ -2138,14 +2137,12 @@ void *UDPServerThread(void *p)
             if (buf[i-1] != '\n')
                 strcat(buf, CRLF);       // Add a CR/LF if not present
 
-            //memset(szLog, 0, UDPSIZE + 50);
-            ostringstream log(szLog);
-            //ostrstream log(szLog, UDPSIZE+49);
+            ostringstream log;
             log << inet_ntoa(client.sin_addr)
                 << ": " << buf
                 << ends;
 
-            WriteLog(szLog.c_str(),UDPLOG);
+            WriteLog(log.str().c_str(),UDPLOG);
 
             TAprsString* abuff = new TAprsString(buf,SRC_UDP,srcUDP,inet_ntoa(client.sin_addr),"UDP");
 
@@ -2316,11 +2313,7 @@ void *TCPConnectThread(void *p)
     char h_buf[1024];
     int h_err;
     char buf[BUFSIZE];
-    //char logonBuf[MAX];
-    string logonBuf;
     char remoteIgateInfo[MAX];
-    //char szLog[MAX];
-    string szLog;
     int retryTimer;
     ConnectParams *pcp = (ConnectParams*)p;
     int err;
@@ -2377,19 +2370,17 @@ void *TCPConnectThread(void *p)
 
             if (rc == -1) {
                 close(clientSocket);
-                //memset(szLog, 0, UDPSIZE + 50);
-                //ostrstream os(szLog, UDPSIZE+49);
-                ostringstream os(szLog);
+                ostringstream os;
                 os << "Connection attempt failed " << pcp->RemoteName
                     << " " << pcp->RemoteSocket << ends;
 
-                WriteLog(szLog.c_str(), MAINLOG);
+                WriteLog(os.str().c_str(), MAINLOG);
 
                 {
                     char* cp = new char[256];
                     memset(cp, 0, 256);
                     ostrstream msg(cp, 255);
-                    msg <<  szLog << endl << ends;
+                    msg << os.str() << endl << ends;
                     conQueue.write(cp, 0);      // cp deleted by conQueue
                 }
 
@@ -2403,18 +2394,16 @@ void *TCPConnectThread(void *p)
                 pcp->bytesIn = 0;
                 pcp->bytesOut = 0;
 
-                //memset(szLog,0,MAX);
-                //ostrstream os(szLog, MAX-1);
-                ostringstream os(szLog);
+                ostringstream os;
                 os << "Connected to " << pcp->RemoteName
                     << " " << pcp->RemoteSocket << ends;
 
-                WriteLog(szLog.c_str(), MAINLOG);
+                WriteLog(os.str().c_str(), MAINLOG);
 
                 char* cp = new char[256];
                 memset(cp, 0, 256);
                 ostrstream msg(cp, 255);
-                msg <<  szLog << endl << ends;
+                msg << os.str() << endl << ends;
                 conQueue.write(cp, 0);               // cp deleted in queue reader
 
             }
@@ -2443,9 +2432,7 @@ void *TCPConnectThread(void *p)
                     << endl
                     << flush;
 
-                //memset(logonBuf,0,MAX);
-                ostringstream logon(logonBuf);
-                //ostrstream logon(logonBuf, MAX-1);     // Build logon string
+                ostringstream logon;
                 logon << "user "
                     << pcp->user
                     << " pass "
@@ -2455,7 +2442,7 @@ void *TCPConnectThread(void *p)
                     << "\r\n"
                     << ends;
 
-                rc = send(clientSocket, logonBuf.c_str(), logonBuf.length(), 0); // Send logon string to IGATE or Hub
+                rc = send(clientSocket, logon.str().c_str(), logon.str().length(), 0); // Send logon string to IGATE or Hub
 
                 if (pcp->EchoMask) {    // If any bits are set in EchoMask then this add to sessions list.
                     if (sp == NULL) {   // Grab an output session now. Note: This takes away 1 avalable user connection
@@ -2666,20 +2653,18 @@ void *TCPConnectThread(void *p)
             pcp->starttime = time(NULL);    // reset elapsed timer
             gotID = false;              // Force new aquisition of ID string next time we connect
 
-            //memset(szLog,0,MAX);
-            //ostrstream os(szLog, MAX-1);
-            ostringstream os(szLog);
+            ostringstream os;
             os << "Disconnected " << pcp->RemoteName
                 << " " << pcp->RemoteSocket
                 << ends;
 
-            WriteLog(szLog.c_str(), MAINLOG);
+            WriteLog(os.str().c_str(), MAINLOG);
 
             {
                 char* cp = new char[300];
                 memset(cp, 0, 300);
                 ostrstream msg(cp,299);
-                msg <<  szLog << endl << ends;
+                msg << os.str() << endl << ends;
                 conQueue.write(cp,0);
 
             if(pthread_mutex_unlock(pmtxSend) != 0)
@@ -2819,8 +2804,6 @@ const char* getStats()
     double serverRate = 0;
     double inetRate = 0;
     string inetRateX, serverRateX;
-    //char *cbuf = new char[1024];
-    string obuf;
 
     time(&time_now);
     upTime = ((double)(time_now - serverStartTime) / 3600);
@@ -2856,9 +2839,7 @@ const char* getStats()
         serverRateX = "Bps";
     }
 
-    //memset(cbuf, 0, 1024);
-    //ostrstream os(cbuf, 1023);
-    ostringstream os(obuf);
+    ostringstream os;
     os //<< setiosflags(ios::showpoint | ios::fixed)
         //<< setprecision(1)
         << "#\r\n"
@@ -2890,7 +2871,7 @@ const char* getStats()
     if(pthread_mutex_unlock(pmtxCount) != 0)
         cerr << "Unable to unlock pmtxCount - Calculate text stats.\n" << flush;
 
-    return(obuf.c_str());  // cbuf deleted by calling function... or should be :)
+    return(os.str().c_str());  // cbuf deleted by calling function... or should be :)
 }
 
 

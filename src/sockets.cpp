@@ -40,10 +40,8 @@
 #include <stdio.h>                      // perror
 #include <string.h>
 #include <ctype.h>                      // isprint
-#include <linux/ax25.h>
-#include <linux/rose.h>
-#include <netax25/axconfig.h>
 #include <netax25/axlib.h>
+#include <netax25/axconfig.h>
 
 #include <iostream>
 #include "constant.h"
