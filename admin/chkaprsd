@@ -1,0 +1,34 @@
+#! /bin/sh
+#
+# $Id$
+#
+# This is a script suitable for use in a crontab.  It checks to make sure
+# aprsd is running.  If aprsd is not running, it'll try to start it back up.
+#
+# To check aprsd every 10 minutes, put the following line in your
+# crontab:
+#    0,10,20,30,40,50 * * * *   /home/aprsd2/chkaprsd
+# And if you don't want to get email from crontab when it checks aprsd,
+# put the following in your crontab:
+#    0,10,20,30,40,50 * * * *   /home/aprsd2/chkaprsd >/dev/null 2>&1
+#
+# Note: Most implementations of crontab will accepts stepping; */5 * * * * for example
+# will step every 5 minutes
+
+if test -r /var/run/aprsd.pid
+then
+   aprsdpid=`cat /var/run/aprsd.pid`
+   # echo "found pid, trying to kill"
+   if `kill -CHLD $aprsdpid > /dev/null 2>&1`
+   then
+      # echo "Oops, this is for real, I'll leave alone"
+      #it's still running, back out quietly
+      exit 0
+   fi
+   echo ""
+   echo "Stale $bin.pid file, erasing..."
+   echo ""
+   rm -f /var/run/aprsd.pid
+   /home/aprsd2/aprsd -d
+   echo "restarted."
+fi
