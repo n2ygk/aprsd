@@ -43,3 +43,6 @@
 /* Define if you have AX25 */
 #undef WITH_OLD_AX25
 
+
+#undef APRSDTOCALL
+
