@@ -33,31 +33,19 @@
 
 #ifdef WITH_AX25 // if no AX25, do nothing
 extern "C" {
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/poll.h>
-#include <fcntl.h>
-#include <sys/socket.h>
+#include <sys/poll.h>                   // poll, et el
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
-#include <sys/utsname.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdio.h>                      // perror
 #include <string.h>
-#include <ctype.h>
-#include <time.h>
-#include <signal.h>
+#include <ctype.h>                      // isprint
 #include <linux/ax25.h>
 #include <linux/rose.h>
 #include <netax25/axconfig.h>
 #include <netax25/axlib.h>
-
 #include <iostream.h>
-#include <pthread.h>
 }
 
 #include "constant.h"

@@ -26,10 +26,10 @@
 #ifndef __UTILS_H
 #define __UTILS_H
 
+#include <vector.h>
 #include "constant.h"
 #include "aprsString.h"
 #include "cpqueue.h"
-#include <vector.h>
 
 #define BADUSER -1
 #define BADGROUP -2

@@ -27,29 +27,21 @@
 #endif
 
 extern "C" {
-#include <unistd.h>
-#include <stdio.h>
-#include <pthread.h>
-#include <string.h>
-#include <assert.h>
-#include <errno.h>
+#include <unistd.h>                     // write, read
+#include <stdio.h>                      // sys_errlist
+#include <errno.h>                      // errno
 #include <termios.h>
-#include <sys/timeb.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <stdlib.h>
-
-#include <fstream.h>
-#include <iostream.h>
-#include <strstream.h>
-#include <iomanip.h>
+#include <fstream.h>                    // ifstream
 }
+
 #include "constant.h"
 #include "serial.h"
 #include "utils.h"
 #include "rf.h"
 #include "cpqueue.h"
+
+using namespace std;
 
 int ttySread;
 int ttySwrite;

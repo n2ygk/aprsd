@@ -114,7 +114,7 @@ extern "C" {
 #include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
-
+#include <signal.h>                     // signal
 #include <fstream.h>
 #include <iostream.h>
 #include <strstream.h>
@@ -145,6 +145,7 @@ extern "C" {
 #include "aprsString.h"
 #include "validate.h"
 #include "queryResp.h"
+#include "except.hpp"
 
 using namespace std;
 
@@ -160,25 +161,22 @@ using namespace std;
 //---------------------------------------------------
 extern int dumpAborts;                  // Number of history dumps aborted
 extern int ItemCount;	                // number of items in History list
-cpQueue sendQueue(1024,true);            // Internet transmit queue
+cpQueue sendQueue(1024,true);           // Internet transmit queue
 cpQueue tncQueue(64,true);              // TNC RF transmit queue
-cpQueue charQueue(256,false);           // A queue of single characters
+cpQueue charQueue(1024,false);          // A queue of single characters
 cpQueue conQueue(256,true);             // data going to the console from various threads
 
 string MyCall;
-//char *MyLocation;
 string MyLocation;
-//char *MyEmail;
 string MyEmail;
-//char *NetBeacon;
 string NetBeacon;
-//char *TncBeacon;
 string TncBeacon;
 int TncBeaconInterval, NetBeaconInterval;
 long tncPktSpacing;
-bool igateMyCall;       // Set TRUE if server will gate packets to inet with "MyCall" in the ax25 source field.
+bool igateMyCall;                       // Set TRUE if server will gate packets to inet with "MyCall"
+                                        // in the ax25 source field.
 bool logAllRF;
-bool ConvertMicE;       // Set true causes Mic-E pkts to be converted to classic APRS pkts.
+bool ConvertMicE;                       // Set true causes Mic-E pkts to be converted to classic APRS pkts.
 extern int ttlDefault;
 extern bool TncSysopMode;
 bool APRS_PASS_ALLOW;
@@ -198,8 +196,7 @@ void dequeueTNC(void);
 void (*p_func)(void*);
 
 char *szAprsPath;                       // APRS packet path
-//char *szServerCall;                     // This servers "AX25 Source Call" (user defined)
-string szServerCall;
+string szServerCall;                    // This servers "AX25 Source Call" (user defined)
 char *szAPRSDPATH;                      // Servers "ax25 dest address + path" eg: >APD213,TCPIP*:
 
 const char szServerID[] = "APRS Server: ";
@@ -376,8 +373,7 @@ int nTrusted = 0;                       // Number of trusted UDP users defined
 
 //Debug stuff
 pidList pidlist;
-//char *DBstring;                         // for debugging
-string DBstring;
+string DBstring;                        // for debugging
 TAprsString* lastPacket;                 // for debugging
 FILE* fdump;
 
@@ -395,10 +391,8 @@ void initSessionParams(SessionParams* sp, int s, int echo)
     sp->dead = false;
     sp->starttime = time(NULL);
     sp->lastActive = sp->starttime;
-    memset((void*)sp->szPeer, '\0', SZPEERSIZE);
-    memset((void*)sp->userCall, '\0', USERCALLSIZE);
-    //bzero((void*)sp->szPeer,SZPEERSIZE);    // Fill strings with nulls
-    //bzero((void*)sp->userCall, USERCALLSIZE);
+    memset((void*)sp->szPeer, NULLCHR, SZPEERSIZE);
+    memset((void*)sp->userCall, NULLCHR, USERCALLSIZE);
 }
 
 
@@ -412,7 +406,7 @@ SessionParams* AddSession(int s, int echo)
     int i;
 
     pthread_mutex_lock(pmtxAddDelSess);
-
+    pthread_mutex_lock(pmtxSend);       // Don't add during send, walks on session queue
     for (i=0;i<MaxClients;i++)
         if (sessions[i].Socket == -1)
             break;                      // Find available unused session
@@ -420,12 +414,13 @@ SessionParams* AddSession(int s, int echo)
     if (i < MaxClients) {
         rv = &sessions[i];
         initSessionParams(rv,s,echo);
-        //pthread_mutex_lock(pmtxCount);
+        pthread_mutex_lock(pmtxCount);
         ConnectedClients++;
-        //pthread_mutex_unlock(pmtxCount);
+        pthread_mutex_unlock(pmtxCount);
     } else
         rv = NULL;
 
+    pthread_mutex_unlock(pmtxSend);
     pthread_mutex_unlock(pmtxAddDelSess);
     return(rv);
 }
@@ -448,9 +443,9 @@ bool DeleteSession(int s)
             sessions[i].EchoMask = 0;
             sessions[i].pid = 0;
             sessions[i].dead = true;
-            //pthread_mutex_lock(pmtxCount);
+            pthread_mutex_lock(pmtxCount);
             ConnectedClients--;
-            //pthread_mutex_unlock(pmtxCount);
+            pthread_mutex_unlock(pmtxCount);
 
             if ( ConnectedClients < 0)
                 ConnectedClients = 0;
@@ -506,7 +501,7 @@ void CloseAllSessions(void)
 void SendToAllClients(TAprsString* p)
 {
     int ccount = 0;
-    int rc,n,nraw,nsh;
+    int rc, n, nraw, nsh;
 
     if (p == NULL)
         return;
@@ -536,103 +531,111 @@ void SendToAllClients(TAprsString* p)
 #endif
         return;                         // Reject runts and error pkts
     }
+    try {
+        pthread_mutex_lock(pmtxAddDelSess);
+        pthread_mutex_lock(pmtxSend);
 
-    pthread_mutex_lock(pmtxAddDelSess);
-    pthread_mutex_lock(pmtxSend);
+        n = p->length();
+        nraw = p->raw.length();
+        nsh = p->srcHeader.length();
+        DBstring = "SendToAllClients: p length check";
+        for (int i = 0; i < MaxClients; i++) {
+            DBstring = "SendToAllClients: top of for loop";
+            if (sessions[i].Socket != -1) {
+                bool dup, wantdups, wantsrcheader;
+                dup = wantdups = wantsrcheader = false ;
 
-    n = p->length();
-    nraw = p->raw.length();
-    nsh = p->srcHeader.length();
-    DBstring = "SendToAllClients: p length check";
-    for (int i=0; i<MaxClients; i++) {
-        if (sessions[i].Socket != -1) {
-            bool dup, wantdups, wantsrcheader;
-            dup = wantdups = wantsrcheader = false ;
+                if (p->EchoMask & sendDUPS)
+                    dup = true;             // This packet is a duplicate
 
-            if (p->EchoMask & sendDUPS)
-                dup = true;             // This packet is a duplicate
+                if (sessions[i].EchoMask & sendDUPS)
+                    wantdups = true;        // User wants duplicates
 
-            if (sessions[i].EchoMask & sendDUPS)
-                wantdups = true;        // User wants duplicates
+                if (sessions[i].EchoMask & wantSRCHEADER)
+                    wantsrcheader = true;   // User wants IP source header
 
-            if (sessions[i].EchoMask & wantSRCHEADER)
-                wantsrcheader = true;   // User wants IP source header
+                int Em = p->EchoMask & 0x1ff;   // Mask off non-source determining bits
 
-            int Em = p->EchoMask & 0x1ff;   // Mask off non-source determining bits
+                if ((sessions[i].EchoMask & Em) // Echo inet data if source mask bits match
+                        && (p->sourceSock != sessions[i].Socket) // no echo to original sender
+                        && (ShutDownServer == false)
+                        && ((dup == false) || (wantdups))) { //dups filtered (or not)
 
-            if ((sessions[i].EchoMask & Em) // Echo inet data if source mask bits match
-                    && (p->sourceSock != sessions[i].Socket) // no echo to original sender
-                    && (ShutDownServer == false)
-                    && ((dup == false) || (wantdups))) { //dups filtered (or not)
+                    rc = 0;
+                    if (sessions[i].EchoMask & wantRAW) {  //User wants raw data?
+                        rc = send(sessions[i].Socket,p->raw.c_str(),nraw,0); //Raw data to clients
+                    } else {
+                        if ((p->reformatted == false)  // No 3rd party reformatted packets allowed
+                                && (wantsrcheader == false) // This guy doesn't want the IP source header prepended
+                                && (dup == false)) {        // No duplicates
+                            DBstring = "SendToAllClient: at send";
+                            rc = send(sessions[i].Socket,p->c_str(),n,0); // Cooked data to clients (normal mode)
+                        }
 
-                rc = 0;
-                if (sessions[i].EchoMask & wantRAW) {  //User wants raw data?
-                    rc = send(sessions[i].Socket,p->raw.c_str(),nraw,0); //Raw data to clients
-                } else {
-                    if ((p->reformatted == false)  // No 3rd party reformatted packets allowed
-                            && (wantsrcheader == false) // This guy doesn't want the IP source header prepended
-                            && (dup == false)) {        // No duplicates
-                        rc = send(sessions[i].Socket,p->c_str(),n,0); // Cooked data to clients (normal mode)
+                        if (wantsrcheader) {// Append source header to aprs packets, duplicates ok.
+                                            // Mostly for debugging the network
+                            rc = send(sessions[i].Socket,p->srcHeader.c_str(),nsh,0);
+                            if (rc != -1)
+                                rc = send(sessions[i].Socket,p->c_str(),n,0);
+
+                        }
                     }
 
-                    if (wantsrcheader) {// Append source header to aprs packets, duplicates ok.
-                                        // Mostly for debugging the network
-                        rc = send(sessions[i].Socket,p->srcHeader.c_str(),nsh,0);
-                        if (rc != -1)
-                            rc = send(sessions[i].Socket,p->c_str(),n,0);
+                    // Disconnect user if socket error or he failed
+                    // to accept 10 consecutive packets due to
+                    // resource temporarally unavailable errors
+                    if (rc == -1) {
+                        if (errno == EAGAIN)
+                            sessions[i].overruns++;
 
+                        if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
+                            sessions[i].EchoMask = 0;   // No more data for you!
+                            sessions[i].dead = true;    // Mark connection as dead for later removal...
+                                                        // ...by thread that owns it.
+                        }
+                    } else {
+                        sessions[i].overruns = 0;       // Clear users overrun counter if he accepted packet
+                        sessions[i].bytesOut += rc;     // Add these bytes to his bytesOut total
                     }
+                    ccount++;
                 }
-
-                // Disconnect user if socket error or he failed
-                // to accept 10 consecutive packets due to
-                // resource temporarally unavailable errors
-                if (rc == -1) {
-                    if (errno == EAGAIN)
-                        sessions[i].overruns++;
-
-                    if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
-                        sessions[i].EchoMask = 0;   // No more data for you!
-                        sessions[i].dead = true;    // Mark connection as dead for later removal...
-                                                    // ...by thread that owns it.
-                    }
-                } else {
-                    sessions[i].overruns = 0;       // Clear users overrun counter if he accepted packet
-                    sessions[i].bytesOut += rc;     // Add these bytes to his bytesOut total
-                }
-                ccount++;
             }
         }
+        DBstring = "SendToAllClients: out of loop";
+        pthread_mutex_unlock(pmtxSend);
+        pthread_mutex_unlock(pmtxAddDelSess);
+
+
+        /*if ((ccount > 0) && ((p->EchoMask & srcSTATS) == 0)) {
+            char *cp = new char[256];
+            ostrstream msg(cp,256);
+
+            //msg << "Sent " << setw(4) << n << " bytes to " << setw(3) << ccount << " clients"
+            //    << endl
+            //    << ends ;
+
+            if (cp != NULL)
+                conQueue.write(cp,0);           // cp deleted by queue reader
+            else
+            DBstring = "SendToAllClients: cp is NULL!";
+        }*/
+
+        //pthread_mutex_lock(pmtxCount);
+        bytesSent += (n * ccount);
+        //pthread_mutex_unlock(pmtxCount);
+
+        /*
+            gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
+            t1 = tv.tv_usec + (tv.tv_sec * 1000000);
+            cout << "t= " << t1-t0 << endl;
+    */
+        return;
     }
 
-    pthread_mutex_unlock(pmtxSend);
-    pthread_mutex_unlock(pmtxAddDelSess);
-
-
-    if ((ccount > 0) && ((p->EchoMask & srcSTATS) == 0)) {
-        char *cp = new char[256];
-        ostrstream msg(cp,256);
-
-        msg << "Sent " << setw(4) << n << " bytes to " << setw(3) << ccount << " clients"
-            << endl
-            << ends ;
-
-        if (cp != NULL)
-            conQueue.write(cp,0);           // cp deleted by queue reader
-        else
-           DBstring = "SendToAllClients: cp is NULL!";
+    catch (TAprsdException except) {
+        cout << except.what() << endl;
+        return;
     }
-
-    //pthread_mutex_lock(pmtxCount);
-    bytesSent += (n * ccount);
-    //pthread_mutex_unlock(pmtxCount);
-
-    /*
-        gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
-        t1 = tv.tv_usec + (tv.tv_sec * 1000000);
-        cout << "t= " << t1-t0 << endl;
-   */
-    return;
 }
 
 
@@ -831,7 +834,7 @@ void dequeueTNC(void)
             strncpy(rfbuf,abuff->data.c_str(),256); // copy only data portion to rf buffer
                                                     // and truncate to 256 bytes
             RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
-            rfbuf[256] = '\0';          // Make sure there's a null on the end
+            rfbuf[256] = NULLCHR;          // Make sure there's a null on the end
             strcat(rfbuf,"\r");         // append a CR to the end
             char* cp = new char[300];   // Will be deleted by conQueue reader.
             ostrstream msg(cp,300);
@@ -1020,8 +1023,8 @@ void *TCPSessionThread(void *p)
 
     time_t  starttime = time(NULL);
 
-    szPeer[0] = '\0';
-    userCall[0] = '\0';
+    szPeer[0] = NULLCHR;
+    userCall[0] = NULLCHR;
 
     if (getpeername(session, (struct sockaddr *)&peer_adr, &adr_size) == 0)
         strncpy(szPeer,inet_ntoa(peer_adr.sin_addr),32);
@@ -1274,7 +1277,7 @@ void *TCPSessionThread(void *p)
                     if ((State == REMOTE) && (c != 0x1b) && (c != 0x0) && (c != 0x0a)) {
                         char chbuf[2];
                         chbuf[0] = c;
-                        chbuf[1] = '\0';
+                        chbuf[1] = NULLCHR;
                         rfWrite(chbuf);     // Send chars to TNC in real time if REMOTE
                     }
                 }
@@ -1324,7 +1327,7 @@ void *TCPSessionThread(void *p)
             //printhex(buf,strlen(buf));
 
             if (State == REMOTE) {
-                buf[i-2] = '\0';        // No line feed required for TNC
+                buf[i-2] = NULLCHR;        // No line feed required for TNC
                 // printhex(buf,strlen(buf)); //debug code
             }
 
@@ -1613,9 +1616,9 @@ void *TCPSessionThread(void *p)
                 strncpy(szPass,buf,15);
 
                 if (j<16)
-                    szPass[j] = '\0';
+                    szPass[j] = NULLCHR;
                 else
-                    szPass[15] = '\0';
+                    szPass[15] = NULLCHR;
 
                 bool verified_tnc = false;
                 unsigned idxInvalid=0;
@@ -1723,9 +1726,9 @@ void *TCPSessionThread(void *p)
             if ((State == USER) && (BytesRead > 1)) {
                 strncpy(szUser,buf,15);
                 if (j < 16)
-                    szUser[j] = '\0';
+                    szUser[j] = NULLCHR;
                 else
-                    szUser[15]='\0';
+                    szUser[15]=NULLCHR;
 
                 State = PASS;
                 rc = SendSessionStr(session,"\r\n331 Pass:");
@@ -2012,7 +2015,7 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
         i = BytesRead -1 ;
         buf[i++] = (char)CR;            // make end-of-line CR-LF
         buf[i++] = (char)LF;
-        buf[i++] = '\0';                // Stick a NULL on the end.
+        buf[i++] = NULLCHR;                // Stick a NULL on the end.
         return(i-1);                    // Return number of bytes received.
     }
 
@@ -2108,8 +2111,7 @@ void *TCPConnectThread(void *p)
 
     retryTimer = 60;                    // time between connection attempts in seconds
 
-    //bzero(remoteIgateInfo,256);
-    memset(remoteIgateInfo, '\0', 256);
+    memset(remoteIgateInfo, NULLCHR, 256);
 
     do {
         state = 0;
@@ -2266,8 +2268,8 @@ void *TCPConnectThread(void *p)
                         queryResp(SRC_IGATE,&atemp);    // yes, send our response
                     }
 
-                    cout << atemp << endl;
-                    cout << atemp.stsmDest << "|" << szServerCall << "|" << atemp.aprsType << endl;
+                    //cout << atemp << endl;
+                    //cout << atemp.stsmDest << "|" << szServerCall << "|" << atemp.aprsType << endl;
 
                     if ((atemp.aprsType == APRSMSG) && (atemp.msgType == APRSMSGQUERY)){
                         // is this a directed query message?
@@ -2842,7 +2844,7 @@ int serverConfig(const string& cf)
                                                     // ...if a TNC is being used.
                     MyCall = strdup(token[1].c_str());
                     if (/*strlen(MyCall)*/MyCall.length() > 9)
-                        MyCall[9] = '\0';   // Truncate to 9 chars.
+                        MyCall[9] = NULLCHR;   // Truncate to 9 chars.
 
                     n = 1;
                 }
@@ -2855,14 +2857,14 @@ int serverConfig(const string& cf)
                 if (cmd.compare("SERVERCALL") == 0) {
                     szServerCall = strdup(token[1].c_str());
                     if (szServerCall.length() > 9)
-                        szServerCall[9] = '\0';     // Truncate to 9 chars.
+                        szServerCall[9] = NULLCHR;     // Truncate to 9 chars.
 
                     n = 1;
                 }
 
                 if (cmd.compare("APRSPATH") == 0) {
                     szAprsPath = (char*)malloc(BUFSIZE);
-                    szAprsPath[0] = '\0';
+                    szAprsPath[0] = NULLCHR;
 
                     for (n = 1; n < nTokens; n++) {
                         strcat(szAprsPath, token[n].c_str());
@@ -3623,20 +3625,15 @@ int main(int argc, char *argv[])
     szServerCall = "aprsd";             // default server FROM CALL used in system generated pkts.
 
     szAPRSDPATH = new char[64];
-    memset(szAPRSDPATH, '\0', 64);
-    //bzero(szAPRSDPATH,64);
+    memset(szAPRSDPATH, NULLCHR, 64);
     strcpy(szAPRSDPATH,">");
     strncat(szAPRSDPATH,PGVERS,64);
     strncat(szAPRSDPATH,",TCPIP*:",64); // ">APD215,TCPIP*:"
 
     ShutDownServer = false;
 
-    //szConfFile = new char[strlen(CONFPATH) + strlen(CONFFILE) + 1];
     szConfFile = CONFPATH;
-    szConfFile += CONFFILE;
-
-    //strcpy(szConfFile,CONFPATH);
-    //strcat(szConfFile,CONFFILE);        // default server configuration file
+    szConfFile += CONFFILE;             // default server configuration file
 
     CreateHistoryList();                // Make the history linked list structure
 
@@ -3765,12 +3762,9 @@ int main(int argc, char *argv[])
         sessions[i].szPeer = new char[SZPEERSIZE];
         sessions[i].userCall = new char[USERCALLSIZE];
         sessions[i].pgmVers = new char[PGMVERSSIZE];
-        memset((void*)sessions[i].szPeer, '\0', SZPEERSIZE);
-        memset((void*)sessions[i].userCall, '\0', USERCALLSIZE);
-        memset((void*)sessions[i].pgmVers, '\0', PGMVERSSIZE);
-        //bzero((void*)sessions[i].szPeer, SZPEERSIZE);    //Fill strings with nulls
-        //bzero((void*)sessions[i].userCall, USERCALLSIZE);
-        //bzero((void*)sessions[i].pgmVers, PGMVERSSIZE);
+        memset((void*)sessions[i].szPeer, NULLCHR, SZPEERSIZE);
+        memset((void*)sessions[i].userCall, NULLCHR, USERCALLSIZE);
+        memset((void*)sessions[i].pgmVers, NULLCHR, PGMVERSSIZE);
     }
 
     ConnectedClients = 0;
@@ -4070,7 +4064,8 @@ int main(int argc, char *argv[])
     } while (1==1);                     // ctrl-C to quit
 
     // Compiler burps on this (RH7.1)
-    /*pthread_mutex_destroy(pmtxSendFile);        // destroy/delete the mutex's before exit
+    /*
+    pthread_mutex_destroy(pmtxSendFile);        // destroy/delete the mutex's before exit
     delete pmtxSendFile;
     pthread_mutex_destroy(pmtxSend);
     delete pmtxSend;
@@ -4079,8 +4074,9 @@ int main(int argc, char *argv[])
     pthread_mutex_destroy(pmtxCount);
     delete pmtxCount;
     pthread_mutex_destroy(pmtxDNS);
-    delete pmtxDNS;*/
+    delete pmtxDNS;
     return(0);
+    */
 }
 
 // eof aprsd.cpp

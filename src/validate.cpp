@@ -34,18 +34,13 @@
 #endif
 
 extern "C" {
-#include <ctype.h>
+#include <ctype.h>                      // toupper
 #include <string.h>
-#include <stdlib.h>
+#include <stdlib.h>                     // atoi
 #include <unistd.h>
-#include <crypt.h>
-#include <stdio.h>
-#include <iostream.h>
-#include <strstream.h>
 #include <iomanip.h>
 #include <pwd.h>
 #include <grp.h>
-
 #include <shadow.h>
 }
 

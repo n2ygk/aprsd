@@ -47,12 +47,14 @@
 
 extern "C" {
 #include <stdio.h>
-#include <time.h>
+//#include <time.h>
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
 }
+
 #include "mic_e.h"
+
 using namespace std;
 
 const char *msgname[] = {

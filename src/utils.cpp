@@ -27,26 +27,18 @@
 #include "config.h"
 #endif
 
-//extern "C" {
+extern "C" {
 #include <sys/time.h>                   // gettimeofday
-//#include <time.h>
-//#include <string.h>
-//#include <unistd.h>
 #include <stdio.h>
 #include <fstream.h>                    // ifstream
-//#include <iostream.h>
-//#include <strstream.h>
-//#include <iomanip.h>
 #include <pwd.h>                        // pwd
 #include <crypt.h>                      // crypt
 #include <grp.h>                        // getgrnam
-//#include <vector.h>
-//}
+}
 
 #include "constant.h"
 #include "utils.h"
 #include "cpqueue.h"
-
 
 using namespace std;
 

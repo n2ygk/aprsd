@@ -28,23 +28,10 @@
 #endif
 
 extern "C" {
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <netdb.h>
-#include <pthread.h>
-
-#include <fstream.h>
-#include <iostream.h>
+#include <unistd.h>                     // gethostname
+#include <sys/socket.h>                 // send
+#include <netdb.h>                      // gethostbyname2_r
 #include <strstream.h>
-#include <iomanip.h>
-#include <errno.h>
-
-#include <netinet/in.h>
-#include <arpa/inet.h>
 }
 
 #include "constant.h"

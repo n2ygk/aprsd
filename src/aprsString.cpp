@@ -216,7 +216,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
 
         if (cp[0] == '#') {
             aprsType = COMMENT;
-            print(cout);
+            //print(cout);
             return;
         }
 
@@ -396,7 +396,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                         string temp = data.substr(1,MAXPKT);
                         TAprsString reparse(temp);
                         aprsType = reparse.aprsType;
-                        print(cout);    // debug
+                        //print(cout);    // debug
                         break;
                     }
 

@@ -27,22 +27,7 @@
 #endif
 
 extern "C" {
-#include <unistd.h>
-#include <stdio.h>
-#include <pthread.h>
-#include <string.h>
-#include <assert.h>
-#include <errno.h>
-#include <sys/timeb.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdlib.h>
-
-#include <fstream.h>
-#include <iostream.h>
-#include <strstream.h>
-#include <iomanip.h>
+#include <unistd.h>                     // getpid
 }
 
 #include "rf.h"
