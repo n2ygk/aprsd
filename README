@@ -32,3 +32,19 @@ Revision history
 Hamish Moffatt VK3SB
 email: hamish@debian.org
 
+APRS is a registered trademark, and APRS protocols are copyrighted
+by  Bob Bruninga, WB4APR.  The owner reserves all rights and
+privileges to their use.
+
+HAMS may apply the APRS formats in the TRANSMISSION of position,
+weather, and status packets.  However, the author reserves the
+ownership of these protocols for exclusive commercial application and for
+all reception and plotting applications. Other persons desiring to include
+APRS RECEPTION in their software  for sale within or outside of the
+amateur community will require a license from the author.  Also
+TRANSMISSION of APRS protocols in any NON-AMATEUR commercial application
+or software will require a license from the author.
+
+Bob Bruninga, WB4APR
+115 Old Farm CT
+Glen Burnie, MD 21060
