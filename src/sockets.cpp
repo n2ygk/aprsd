@@ -32,7 +32,6 @@
 #endif
 
 #ifdef WITH_AX25 // if no AX25, do nothing
-extern "C" {
 #include <sys/poll.h>                   // poll, et el
 #include <net/if.h>
 #include <netinet/if_ether.h>
@@ -45,9 +44,8 @@ extern "C" {
 #include <linux/rose.h>
 #include <netax25/axconfig.h>
 #include <netax25/axlib.h>
-#include <iostream.h>
-}
 
+#include <iostream>
 #include "constant.h"
 #include "rf.h"
 

@@ -27,12 +27,10 @@
 #include "config.h"
 #endif
 
-extern "C" {
 #include <unistd.h>                     // gethostname
 #include <sys/socket.h>                 // send
 #include <netdb.h>                      // gethostbyname2_r
-#include <strstream.h>
-}
+#include <strstream>
 
 #include "constant.h"
 #include "utils.h"

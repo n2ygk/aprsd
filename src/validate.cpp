@@ -33,18 +33,19 @@
 #include "config.h"
 #endif
 
-extern "C" {
 #include <ctype.h>                      // toupper
 #include <string.h>
 #include <stdlib.h>                     // atoi
 #include <unistd.h>
-#include <iomanip.h>
+#include <iomanip>
 #include <pwd.h>
 #include <grp.h>
 #include <shadow.h>
-}
+#include <iostream>
 
 #include "validate.h"
+
+using namespace std;
 
 /* Steves servers response to a user logon:
 

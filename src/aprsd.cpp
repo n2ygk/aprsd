@@ -115,10 +115,6 @@ extern "C" {
 #include <pthread.h>
 #include <stdlib.h>
 #include <signal.h>                     // signal
-#include <fstream.h>
-#include <iostream.h>
-#include <strstream.h>
-#include <iomanip.h>
 
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -134,7 +130,10 @@ extern "C" {
 }
 
 #include <string>
-
+#include <fstream>
+#include <iostream>
+#include <strstream>
+#include <iomanip>
 
 #include "dupCheck.h"
 #include "cpqueue.h"

@@ -31,16 +31,17 @@
 #define _XOPEN_SOURCE
 #endif
 
-
 #include <unistd.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <iostream.h>
-#include <strstream.h>
-#include <iomanip.h>
+#include <iostream>
+#include <strstream>
+#include <iomanip>
 
 #include "validate.h"
+
+using namespace std;
 
 int main(int argc, char *argv[])
 {

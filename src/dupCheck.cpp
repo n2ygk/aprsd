@@ -27,18 +27,16 @@
 #include "config.h"
 #endif
 
-extern "C" {
 #include <unistd.h>
 #include <ctype.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <fstream.h>
-#include <iostream.h>
-#include <strstream.h>
-#include <iomanip.h>
+#include <fstream>
+#include <iostream>
+#include <strstream>
+#include <iomanip>
 #include <string.h>
 #include <time.h>
-}
 
 #include <string>
 #include <stdexcept>

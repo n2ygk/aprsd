@@ -26,9 +26,7 @@
 #include "config.h"
 #endif
 
-extern "C" {
 #include <unistd.h>                     // getpid
-}
 
 #include "rf.h"
 #include "serial.h"

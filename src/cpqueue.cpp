@@ -27,12 +27,10 @@
 #include "config.h"
 #endif
 
-extern "C" {
 #include <stdio.h>
-#include <fstream.h>
-#include <iostream.h>
-#include <strstream.h>
-}
+#include <fstream>
+#include <iostream>
+#include <strstream>
 
 #include "constant.h"
 #include "cpqueue.h"

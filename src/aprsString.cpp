@@ -33,11 +33,11 @@
 extern "C" {
 #include <pthread.h>
 #include <stdio.h>
-#include <strstream.h>
 }
 
 #include <string>
 #include <stdexcept>
+#include <strstream>
 
 
 #include "constant.h"

@@ -26,14 +26,12 @@
 #include "config.h"
 #endif
 
-extern "C" {
 #include <unistd.h>                     // write, read
 #include <stdio.h>                      // sys_errlist
 #include <errno.h>                      // errno
 #include <termios.h>
 #include <fcntl.h>
-#include <fstream.h>                    // ifstream
-}
+#include <fstream>                      // ifstream
 
 #include "constant.h"
 #include "serial.h"

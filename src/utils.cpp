@@ -27,15 +27,13 @@
 #include "config.h"
 #endif
 
-extern "C" {
 #include <sys/time.h>                   // gettimeofday
 #include <stdio.h>
-#include <fstream.h>                    // ifstream
 #include <pwd.h>                        // pwd
 #include <crypt.h>                      // crypt
 #include <grp.h>                        // getgrnam
-}
 
+#include <fstream>                      // ifstream
 #include "constant.h"
 #include "utils.h"
 #include "cpqueue.h"
