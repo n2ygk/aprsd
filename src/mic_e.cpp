@@ -226,8 +226,9 @@ int fmt_mic_e(const u_char *t,          // tocall
         if (lat[2] > '5')               // reject lat minutes >= 60
             return 0;
 
-        if (lat[4] > '5')               // reject lat seconds >= 60
-            return 0;
+        // Last two digits are decimal hundredths of minutes, not seconds
+        // if (lat[4] > '5')               // reject lat seconds >= 60
+        //     return 0;
 
         if ((lat[0] == ' ') || (lat[1] == ' ')) // Reject ambiguious degrees
             return 0;
