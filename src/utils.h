@@ -61,6 +61,7 @@ void upcase(string& s);
 void reformatAndSendMicE(TAprsString* inetpacket, cpQueue& sendQueue);
 bool find_rfcall(const string& s, string* rfcall[]);
 bool find_rfcall(const string& s, vector<string*>& rfcall);
+bool matchCallsign(const string& s1, const string& s2);
 
 void strElapsedTime(time_t starttime,  char* timeStr);
 

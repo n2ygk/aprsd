@@ -228,6 +228,31 @@ int DeleteItem(TAprsString* ref)
 }
 
 //-------------------------------------------------------------------------
+// Finds the last time a position was sent by the POSIT2RF handling (lastPositTx variable).
+
+time_t GetLastPositTx(TAprsString* ref) {
+
+    if ((pHead == NULL) || (pHead == pTail) || (ref == NULL)) return 0;
+   
+    TAprsString *hp = pHead;
+    TAprsString *pNext;
+
+    while(hp != NULL) {    
+           
+        pNext = hp->next;
+        if ((hp->aprsType == ref->aprsType) && (hp->dest == ref->dest)) {
+            if(hp->ax25Source.compare(ref->ax25Source) == 0) {
+                return hp->lastPositTx;
+            }
+        }
+          
+        hp = pNext;
+    }
+    
+    return 0;
+}
+
+//-------------------------------------------------------------------------
 //  Check history list for a packet whose data matches that of "*ref"
 //  that was transmitted less or equal to "t" seconds ago.  Returns TRUE
 //  if duplicate exists.  Scanning stops when a packet older than "t" seconds
@@ -344,6 +369,51 @@ TAprsString* getPosit(const string& call, int em)
 
     pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
     return(posit);
+}
+
+//------------------------------------------------------------------------
+//  Returns a new aprsString of the posit packet whose ax25 source call
+//  matches the "call" arg and echomask bit matches a bit in "em".
+//  Memory allocated for the returned aprsString  must be deleted by the caller.
+//  It will return a position from the history list which was last transmitted
+//  before earliestTime, by checking the lastPositTx field. Then it will update
+//  the lastPositTx field.
+TAprsString* getPositAndUpdate(const string& call, int em, time_t earliestTime, time_t newTime)
+{
+
+   if ((pTail == NULL) || (pHead == NULL)) return NULL ;  //Empty list
+
+   TAprsString* posit = NULL;
+
+   pthread_mutex_lock(pmtxHistory);     // grab mutex semaphore
+
+    if (ItemCount == 0) {                      //if no data then...
+        pthread_mutex_unlock(pmtxHistory);   // ...release mutex semaphore
+        return NULL;                        // ...return NULL
+    }
+
+    TAprsString *hp = pTail;                      //point to end of history list
+
+    while ((posit == NULL) && (hp != NULL)) {    //Loop while no match and not at beginning of list
+
+        if(hp->EchoMask & em) {
+            if((matchCallsign(hp->ax25Source, call))    //Find the source call sign
+                && ((hp->aprsType == APRSPOS) || hp->aprsType == NMEA)   //of a posit packet   
+                && (hp->lastPositTx < earliestTime)) {
+
+                posit = new TAprsString(*hp);    //make a copy of the packet
+                hp->lastPositTx = newTime;      //update last TX time
+
+            }
+        }
+
+        hp = hp->last;
+
+    }
+
+    pthread_mutex_unlock(pmtxHistory);   //release mutex semaphore
+    return posit;
+
 }
 
 

@@ -538,5 +538,26 @@ void strElapsedTime(time_t starttime,  char* timeStr)
 
 }
 
+//--------------------------------------------------------------------
+/* Return TRUE if callsign s1 matches callsign s2, where s2 can include wildcards */
+bool matchCallsign(const string& s1, const string& s2)
+{
+   int pos;
+
+   // Try a straight out comparison
+   if (s1.compare(s2) == 0)
+       return TRUE;
+
+   // Else look for a wildcard
+   else if (((pos = s2.find('*')) != 0) &&
+       (s1.substr(0, pos).compare(s2.substr(0, pos)) == 0))
+       return TRUE;
+
+   // Else failed
+   else
+       return FALSE;
+
+
+}
 
 // eof: utils.cpp

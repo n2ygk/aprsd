@@ -140,6 +140,7 @@ TAprsString::TAprsString(TAprsString& as) : string(as)
     sourceSock = as.sourceSock;
     pathSize = as.pathSize;
     EchoMask = as.EchoMask;
+    lastPositTx = as.lastPositTx;
 
     pthread_mutex_lock(pmtxCounters);   // Lock the counters !
     NN++;                               // Increment counters
@@ -181,6 +182,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
         AEA = FALSE;
         acknum = "";
         query = "";
+        lastPositTx = 0;
 
         if (pmtxCounters == NULL) {     // Create mutex semaphore to protect counters if it doesn't exist...
             pmtxCounters = new pthread_mutex_t; // ...This semaphore is common to all instances of TAprsString.

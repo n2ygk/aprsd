@@ -3450,16 +3450,22 @@ void schedule_posit2RF(time_t t)
     last_t = t;
 
     if (posit_rfcall[ptr] != NULL) {
-        abuff = getPosit(*posit_rfcall[ptr] , srcIGATE | srcUSERVALID | srcUSER);
+
+        // Get a position which is older than 15 minutes and update it to the current time
+        abuff = getPositAndUpdate(*posit_rfcall[ptr] , srcIGATE | srcUSERVALID | srcUSER, t - (15 * 60), t);
 
         if (abuff) {
+            cout << "Found position ready for tx: " << abuff << endl;
             abuff->stsmReformat(MyCall);    // Convert to 3rd party format
             tncQueue.write(abuff);          // Send to TNC
-        }
-    }
 
-    ptr++;                              // point to next call sign
-    if (ptr >= (MAXRFCALL-1))
+        } else
+            ptr++;                        // Next time try the next callsign entry
+
+    } else
+        ptr++;                              // point to next call sign
+
+    if (ptr >= posit_rfcall_idx)
         ptr = 0;                        // wrap around if past end of array
 
 }

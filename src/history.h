@@ -26,7 +26,6 @@
 #ifndef __HISTORY_H
 #define __HISTORY_H
 
-
 void CreateHistoryList();
 bool AddHistoryItem(TAprsString *hp);
 void DeleteHistoryItem(TAprsString *hp);
@@ -39,6 +38,8 @@ int ReadHistory(char *name);
 bool StationLocal(const char *cp, int em);
 TAprsString* getPosit(const string& call, int em);
 bool timestamp(long sn, time_t t);
+TAprsString* getPositAndUpdate(const string& call, int em, time_t earliestTime, time_t newTime);
+time_t GetLastPositTx(TAprsString *hp);
 
 
 #endif  // __HISTORY_H

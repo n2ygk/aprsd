@@ -87,6 +87,7 @@ public:
 
     int allowdup;                       // TRUE or FALSE, object is a duplicate (for redundent ACKs)
     int msgType;                        // Indicates if message is an ACK or just text
+    time_t lastPositTx;                 // Time of last transmission by POSIT2RF
 
     string ax25Source;                  // ax25 source
     string ax25Dest ;                   // ax25 destination
