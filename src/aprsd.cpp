@@ -227,12 +227,6 @@ const char szRM2[] = "Send Access Denied. Access is Read-Only.\r\n";
 const char szRM3[] = "RF access denied, Internet access only.\r\n";
 const char szACCESSDENIED[] = "Access Denied ";
 
-//pthread_mutex_t *pmtxSendFile;
-//pthread_mutex_t *pmtxSend;              // protect socket send()
-//pthread_mutex_t *pmtxAddDelSess;        // protects AddSession() and DeleteSession()
-//pthread_mutex_t *pmtxCount;             // Protect counters
-//pthread_mutex_t *pmtxDNS;               // Protect buggy gethostbyname2_r()
-
 bool ShutDownServer, configComplete;
 int ConnectedClients;
 int msg_cnt;
@@ -444,7 +438,6 @@ SessionParams* AddSession(int s, int echo)
     if (i < MaxClients) {
         rv = &sessions[i];
         initSessionParams(rv, s, echo);
-        
         CountLock.get();
         ConnectedClients++;
         CountLock.release();
@@ -517,8 +510,8 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
     DBstring = "AddSessionInfo - out of loop";
     sendLock.release();
     addDelSessLock.release();
-    return(rv);
 
+    return(rv);
 }
 
 //---------------------------------------------------------------------
@@ -584,6 +577,7 @@ void SendToAllClients(TAprsString* p)
     }
 
     DBstring = "Lock mutexes before send";
+
     addDelSessLock.get();
     sendLock.get();
 
@@ -650,11 +644,14 @@ void SendToAllClients(TAprsString* p)
                                                     // ...by thread that owns it.
                     }
                 } else {
+
                     countLock.get();
                     sessions[i].overruns = 0;       // Clear users overrun counter if he accepted packet
                     sessions[i].bytesOut += rc;     // Add these bytes to his bytesOut total
+
                     countLock.release();
                 }
+
                 countLock.get();
                 ccount++;
                 countLock.release();
@@ -662,7 +659,6 @@ void SendToAllClients(TAprsString* p)
         }
     }
     DBstring = "SendToAllClients: out of loop";
-
     sendLock.release();
     addDelSessLock.release();
     DBstring = "Unlock AddDelSess and Send Mutexes";
@@ -686,6 +682,7 @@ void SendToAllClients(TAprsString* p)
     countLock.get();
     bytesSent += (n * ccount);
     countLock.release();
+
     DBstring = "Unlock pmtxCount after bytesSent increment";
 
     /*
@@ -722,13 +719,18 @@ void *DeQueue(void *)
     struct timezone tz;
     long usLastTime, usNow;
     long t0;
+    //const char *dcp;
+    //string(dcp);
+    //Lock countLock(mtxCount, false);
 
     usLastTime = usNow = 0;
 
     pidlist.InetQueue = getpid();
 
-    nice(-10);                          // Increase priority of this thread by
+    nice(-10);                        // Increase priority of this thread by
                                         // 10 (only works if run as root)
+                                        // N5VFF - let's try it without this..
+
     while (!ShutDownServer) {
         DBstring = "Top of DeQueue thread main loop";
         gettimeofday(&tv,&tz);          // Get time of day in microseconds to tv.tv_usec
@@ -804,7 +806,7 @@ void *DeQueue(void *)
                 DBstring = "Add item to history list - before";
 
                 AddHistoryItem(abuff);  // Put item in history list.
-                
+
                 DBstring = "Add item to history list - after";
 
                 noHist = false;
@@ -846,7 +848,7 @@ void *ACKrepeaterThread(void *p)
     abuff->allowdup = true;             // Bypass the dup filter!
     paprs->ttl = 0;                     // Flag tells caller we're done with it.
 
-    for (int i = 0; i < ackRepeats; i++) {
+    for (int i=0 ;i<ackRepeats;i++) {
         //sleep(ackRepeatTime);
         usleep(ackRepeatTime * 1000000);
         TAprsString *ack =  new TAprsString(*abuff);
@@ -916,8 +918,9 @@ void dequeueTNC(void)
 
             strncpy(rfbuf, abuff->data.c_str(), 256); // copy only data portion to rf buffer
                                                     // and truncate to 256 bytes
+            //RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
             rfbuf[256] = '\0';          // Make sure there's a null on the end
-            strcat(rfbuf, "\r");        // append a CR to the end
+            strcat(rfbuf, "\r");         // append a CR to the end
             char* cp = new char[300];   // Will be deleted by conQueue reader.
             memset(cp, '\0', 300);
             ostrstream msg(cp, 299);
@@ -934,7 +937,6 @@ void dequeueTNC(void)
                     countLock.get();
                     msg_cnt++;
                     countLock.release();
-
                     memset(szUserMsg, '\0', MAX);
                     ostrstream umsg(szUserMsg, MAX-1);
                     umsg << abuff->peer << " " << abuff->user
@@ -1010,6 +1012,7 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
     }
 
     sendLock.release();
+
     {
         char* cp = new char[128];
         memset(cp, '\0', 128);
@@ -1070,10 +1073,10 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << ConnectedClients << " users"
             << "\r\n"
             << ends;
-
         countLock.release();
         BroadcastString(infomsg);       // Say call sign of disconnected client
     }
+
     pthread_exit(0);
 }
 
@@ -1100,8 +1103,10 @@ void *TCPSessionThread(void *p)
 
     const char *szUserStatus;
     unsigned char c;
-    unsigned adr_size = sizeof(peer_adr);
-    int n, rc, data, verified=false, loggedon=false;
+    socklen_t adr_size = sizeof(peer_adr);
+    int n, rc, data;
+    bool verified = false;
+    bool loggedon = false;
     ULONG State = BASE;
     char userCall[10];
     char* tc;
@@ -1123,7 +1128,6 @@ void *TCPSessionThread(void *p)
     DBstring = "TCPSessionThread - basic initialization complete";
 
     TotalConnects++;
-
     time_t  starttime = time(NULL);
 
     szPeer[0] = '\0';
@@ -1432,10 +1436,11 @@ void *TCPSessionThread(void *p)
 
         if ((BytesRead > 0) && ( i > 0)  ) {    // 1 or more bytes needed
             i = BytesRead - 1;
+            //RemoveCtlCodes(buf);
 
             buf[i++] = 0x0d;            // Put a CR-LF on the end of the buffer
             buf[i++] = 0x0a;
-            buf[i++] = 0;
+            buf[i++] = '\0';
 
             countLock.get();
             TotalUserChars += i;
@@ -1900,22 +1905,23 @@ void *TCPSessionThread(void *p)
 //
 void *TCPServerThread(void *p)
 {
-    int s;
+    int sockfd;
     int rc = 0;
-    unsigned i;
+    socklen_t sin_size;
     SessionParams* session;
     pthread_t SessionThread;
-    struct sockaddr_in server,client;
+    struct sockaddr_in server, client;
     //int optval;
     ServerParams *sp = (ServerParams*)p;
+    const int backlog = 10;
 
     sp->pid = getpid();
-    if (( s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+    if (( sockfd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
         char buf[100];
         throw IOException(strerror_r(errno, buf, sizeof(buf)));
     }
 
-    sp->ServerSocket = s;
+    sp->ServerSocket = sockfd;
 
     //optval = 1;                                 // Allow address reuse
     //setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*)&optval, sizeof(int));
@@ -1924,7 +1930,7 @@ void *TCPServerThread(void *p)
     // Let the kernel reuse the socket without waiting for the
     // port to time out.
     int reuse = 1;
-    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int));
 
     //if (s == 0) {
     //    perror("TCPServerThread socket error");
@@ -1940,8 +1946,8 @@ void *TCPServerThread(void *p)
     server.sin_port = htons(sp->ServerPort);
 
     // Bind the socket to the port.
-    if (bind(s, (SA *)&server, sizeof(server))) {
-        close(s);
+    if (bind(sockfd, (SA *)&server, sizeof(SA))) {
+        close(sockfd);
         char buf[100];
         throw BindException(strerror_r(errno, buf, sizeof(buf)));
     }
@@ -1958,22 +1964,26 @@ void *TCPServerThread(void *p)
         //reliable_usleep(100000);                // Wait till everything else is running.
         usleep(1000000);
 
-    listen(s, 2);
+    //listen(sockfd, backlog);
     // Listen for connections.
-    if (listen(s, 2)) {
+    if ((listen(sockfd, backlog)) == -1) {
         char buf[100];
         throw IOException(strerror_r(errno, buf, sizeof(buf)));
     }
 
-    for(;;) {
-        i = sizeof(client);
+    while (1) {         // main accept loop
+        sin_size = sizeof(struct sockaddr_in);
         session = new SessionParams;
-        session->Socket = accept(s, (SA *)&client, &i);
+        if ((session->Socket = accept(sockfd, (SA *)&client, &sin_size)) == -1) {
+            cerr << "Accept error..." << endl;
+            continue;
+        }
+
         session->EchoMask = sp->EchoMask;
         session->ServerPort = sp->ServerPort;
 
         if (ShutDownServer) {
-            close(s);
+            close(sockfd);
             if (session->Socket >= 0)
                 close(session->Socket);
 
@@ -2121,7 +2131,9 @@ void *UDPServerThread(void *p)
 int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
 {
     int c;
-    int i,BytesRead ,timeout;
+    int bytes_recv;
+    int BytesRead;
+    int timeout;
 
     *err = 0;
     BytesRead = 0;
@@ -2133,17 +2145,13 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
     do {
         c = -1;
 
-        i = recv(sock, &c, 1, 0);       // get 1 byte into c
-
-        if (i == 0)
-            abort = true;               // recv returns ZERO when remote host disconnects
-
-        if (i == -1) {
+        if ((bytes_recv = recv(sock, &c, 1, 0)) == -1) {      // get 1 byte into c
+            // timeout waiting
             *err = errno;
 
             if ((*err != EWOULDBLOCK) || (ShutDownServer == true)) {
                 BytesRead = 0;
-                i = -2;
+                bytes_recv = -2;
                 abort = true;           // exit on errors other than EWOULDBLOCK
             }
 
@@ -2151,14 +2159,15 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
             usleep(1000000);
 
             if (timeout-- <= 0) {
-                i = 0;
+                bytes_recv = 0;
                 abort = true;           // Force exit if timeout
             }
-
-            //cout << timeout << " Waiting...  abort= " << abort << "\n";  //debug code
         }
 
-        if (i == 1) {
+        if (bytes_recv == 0)
+            abort = true;               // recv returns ZERO when remote host disconnects
+
+        if (bytes_recv == 1) {
             c &= 0x7f ;
 
             bool cLFCR =  (( c == LF) || ( c == CR));   // TRUE if c is a LF or CR
@@ -2178,19 +2187,19 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
                                                             // And no socket errors or timeouts
 
     //cerr << "Bytes received=" << BytesRead << " abort=" << abort << endl;   //debug code
-    
+
     if ((BytesRead > 0) && (abort == false) ) {     // 1 or more bytes needed
-        i = BytesRead -1 ;
-        buf[i++] = (char)CR;            // make end-of-line CR-LF
-        buf[i++] = (char)LF;
-        buf[i++] = NULLCHR;                // Stick a NULL on the end.
-        return(i-1);                    // Return number of bytes received.
+        bytes_recv = (BytesRead - 1);
+        buf[bytes_recv++] = 0x0d;            // make end-of-line CR-LF
+        buf[bytes_recv++] = 0x0a;
+        buf[bytes_recv++] = '\0';                // Stick a NULL on the end.
+        return(bytes_recv - 1);                    // Return number of bytes received.
     }
 
     //if(i == -2) cerr << "errorno= " << *err << endl;    //debug
 
-    return(i);                          // Return 0 if timeout or
-                                        // Return  -2 if socket error
+    return(bytes_recv);                 // Return -1 if timeout or
+                                        // Return -2 if socket error
 }
 
 
@@ -2287,20 +2296,9 @@ void *TCPConnectThread(void *p)
         state = 0;
         dnsLock.get();
         // Thread-Safe version of gethostbyname2() ?  Actually it's still buggy so needs mutex locks!
-        //rc = gethostbyname2_r(pcp->RemoteName, AF_INET,
-        //                         &hostinfo_d,
-        //                         h_buf,
-        //                         1024,
-        //                         &hostinfo,
-        //                         &h_err);
 
         if (gethostbyname_r(pcp->RemoteName, &hostinfo_d, h_buf, sizeof(h_buf), &hostinfo, &h_err) == -1)
             hostinfo = NULL;
-
-        //if (!hostinfo)
-        //{
-        //    throw UnknownHostException(hstrerror(h_err));
-        //}
 
         dnsLock.release();
 
@@ -2311,21 +2309,24 @@ void *TCPConnectThread(void *p)
             msg << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends;
             WriteLog(cp, MAINLOG);
             conQueue.write(cp, 0);       // cp deleted by conQueue
-            throw UnknownHostException(hstrerror(h_err));
-	} else
+            //throw UnknownHostException(hstrerror(h_err));
+        } else
             state = 1;
 
         if (state == 1) {
-            if (( clientSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-                char buf[100];
-                throw IOException(strerror_r(errno, buf, sizeof(buf)));
+            if (( clientSocket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+                //char buf[100];
+                //throw IOException(strerror_r(errno, buf, sizeof(buf)));
+                close(clientSocket);
+                continue;
             }
             host.sin_family = AF_INET;
             host.sin_port = htons(pcp->RemoteSocket);
-            host.sin_addr = *(struct in_addr *)*hostinfo->h_addr_list;
+            host.sin_addr = *((struct in_addr *)*hostinfo->h_addr_list);
+            memset(&(host.sin_zero), '\0', 8);      // zero the rest of the structure
             length = sizeof(host);
 
-            if (( rc = connect(clientSocket,(SA *)&host, length)) < 0) {
+            if (( rc = connect(clientSocket,(SA *)&host, length)) == -1) {
                 close(clientSocket);
                 ostringstream os;
                 os << "Connection attempt failed " << pcp->RemoteName
@@ -2403,6 +2404,7 @@ void *TCPConnectThread(void *p)
                     if (sp == NULL) {   // Grab an output session now. Note: This takes away 1 avalable user connection
                         sp = AddSession(clientSocket, pcp->EchoMask);    // Add this to list of sockets to send on
                     } else {            // else already had an output session
+
                         addDelSessLock.get();
                         sendLock.get();
                         initSessionParams(sp, clientSocket, pcp->EchoMask);   // Restore output session for sending
@@ -2523,7 +2525,7 @@ void *TCPConnectThread(void *p)
                         if (inetpacket->aprsType == APRSMIC_E) {    // Reformat Mic-E packets
                             reformatAndSendMicE(inetpacket, sendQueue);
                         } else
-                            sendQueue.write(inetpacket,0);          // send data to users.
+                            sendQueue.write(inetpacket, 0);          // send data to users.
                     }
 
                     if (configComplete && (atemp.aprsType == APRSMSG)) {    //find matching posit for 3rd party msg
@@ -2605,7 +2607,6 @@ void *TCPConnectThread(void *p)
                 ostrstream msg(cp, 299);
                 msg << os.str() << endl;
                 conQueue.write(cp,0);
-
             }
             sendLock.release();
             addDelSessLock.release();
@@ -2794,7 +2795,6 @@ const char* getStats()
     last_tnc_chars = TotalTncChars;
 
     bytesSent = 0;                      // Reset this
-
     countLock.release();
 
     return(os.str().c_str());  // cbuf deleted by calling function... or should be :)
@@ -2843,6 +2843,13 @@ void serverQuit(termios* initial_settings)
     pSaveHistory = NULL;
 
     if (broadcastJavaInfo) {
+        //char *ShutDown = new char[255];
+        //strcpy(ShutDown,szServerCall);
+        //strcat(ShutDown,szJAVAMSG);
+        //strcat(ShutDown,MyLocation);
+        //strcat(ShutDown," ");
+        //strcat(ShutDown,szServerID);
+        //strcat(ShutDown," shutting down.  Bye.\r\n");
         string ShutDown;
         ShutDown = szServerCall;
         ShutDown.append(szJAVAMSG);
@@ -3065,7 +3072,7 @@ int serverConfig(const string& cf)
                 if (cmd.compare("MYCALL") == 0) {   // This will be over-written by the MYCALL in INIT.TNC...
                                                     // ...if a TNC is being used.
                     MyCall = strdup(token[1].c_str());
-                    if (MyCall.length() > 9)
+                    if (/*strlen(MyCall)*/MyCall.length() > 9)
                         MyCall[9] = NULLCHR;   // Truncate to 9 chars.
 
                     n = 1;
@@ -3477,7 +3484,6 @@ void segvHandler(int signum)  //For debugging seg. faults
         serverRate = (double)serverLoad;
         serverRateX = "Bps";
     }
-
     countLock.release();
 
     gmt = new tm;
@@ -3577,7 +3583,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>Sysop email</TD><TD><A HREF=\"mailto:" << MyEmail << "\">" << MyEmail << "</A></TD></TR>\n"
         << "</TABLE>"
         << ends;
-
+    
     countLock.release();
 
     html2send[idx] = new char[strlen(htmlbuf)+1];  //Create space for server status report string
@@ -3598,10 +3604,12 @@ void segvHandler(int signum)  //For debugging seg. faults
     strcpy(html2send[idx],queueheader);
     idx++;
 
-    // now build the individual queue stat lines
+// now build the individual queue stat lines
 
     ostrstream qstats(htmlbuf, HTMLSIZE-1);
     string bgcolor = "\"#C0C0C0\"";
+
+
 
     qstats << "<TR ALIGN=center BGCOLOR=" << bgcolor << ">"
         << "<TD>" << "Inet" << "</TD>"
@@ -3631,7 +3639,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TD>" << charQueue.getQueueSize() << "</TD>"
         << "<TD>" << charQueue.overrun << "</TD>"
         << "</TR>\n"
-        << "</TABLE>"
+	<< "</TABLE>"
         << ends;
 
 
@@ -3654,6 +3662,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     html2send[idx] = new char[strlen(igateheader)+1];
     strcpy(html2send[idx],igateheader);
     idx++;
+
     countLock.get();
 
     for (i=0; i< nIGATES;i++) {
@@ -3727,6 +3736,7 @@ void segvHandler(int signum)  //For debugging seg. faults
 
         }
     }
+
     countLock.release();
 
     char userheader[] =
@@ -4172,7 +4182,7 @@ int main(int argc, char *argv[])
 
         if (spMainServer.ServerPort > 0) {
             //Create Main Server thread. (Provides Local data, Logged on users and IGATE data)
-            if (pthread_create(&spMainServer.tid, NULL,TCPServerThread,&spMainServer) == -1) {
+            if (pthread_create(&spMainServer.tid, NULL, TCPServerThread, &spMainServer) == -1) {
                 cerr << "Error: Main TCPServerThread failed to start\n";
                 exit(2);
             }
@@ -4181,7 +4191,7 @@ int main(int argc, char *argv[])
         if (spMainServer_NH.ServerPort > 0) {
             // Create another Main Server thread .
             // (Provides Local data, Logged on users and IGATE data but doesn't dump the 30 min. history)
-            if (pthread_create(&spMainServer_NH.tid, NULL,TCPServerThread,&spMainServer_NH) == -1) {
+            if (pthread_create(&spMainServer_NH.tid, NULL, TCPServerThread, &spMainServer_NH) == -1) {
                 cerr << "Error: Main-NH TCPServerThread failed to start\n";
                 exit(2);
             }
@@ -4189,7 +4199,7 @@ int main(int argc, char *argv[])
 
         if (spLinkServer.ServerPort > 0) {
             // Create Link Server thread.  (Provides local TNC data plus logged on users data)
-            if (pthread_create(&spLinkServer.tid, NULL,TCPServerThread,&spLinkServer) == 1) {
+            if (pthread_create(&spLinkServer.tid, NULL,TCPServerThread, &spLinkServer) == 1) {
                 cerr << "Error: Link TCPServerThread failed to start\n";
                 exit(2);
             }
@@ -4197,7 +4207,7 @@ int main(int argc, char *argv[])
 
         if (spLocalServer.ServerPort > 0) {
             // Create Local Server thread  (Provides only local TNC data).
-            if (pthread_create(&spLocalServer.tid, NULL,TCPServerThread,&spLocalServer) == -1) {
+            if (pthread_create(&spLocalServer.tid, NULL, TCPServerThread, &spLocalServer) == -1) {
                 cerr << "Error: Local TCPServerThread failed to start\n";
                 exit(2);
             }
@@ -4205,7 +4215,7 @@ int main(int argc, char *argv[])
 
         if (spRawTNCServer.ServerPort > 0) {
             // Create Local Server thread  (Provides only local TNC data).
-            if (pthread_create(&spRawTNCServer.tid, NULL,TCPServerThread,&spRawTNCServer) == -1) {
+            if (pthread_create(&spRawTNCServer.tid, NULL, TCPServerThread, &spRawTNCServer) == -1) {
                 cerr << "Error: RAW TNC TCPServerThread failed to start\n";
                 exit(2);
             }
@@ -4213,14 +4223,14 @@ int main(int argc, char *argv[])
 
         if (spMsgServer.ServerPort > 0) {
             // Create message Server thread  (Provides only 3rd party message data).
-            if (pthread_create(&spMsgServer.tid, NULL,TCPServerThread,&spMsgServer) == -1) {
+            if (pthread_create(&spMsgServer.tid, NULL, TCPServerThread, &spMsgServer) == -1) {
                 cerr << "Error: 3rd party message TCPServerThread failed to start\n";
                 exit(2);
             }
         }
 
         if (upUdpServer.ServerPort > 0) {
-            if (pthread_create(&upUdpServer.tid, NULL,UDPServerThread,&upUdpServer) == -1) {
+            if (pthread_create(&upUdpServer.tid, NULL, UDPServerThread, &upUdpServer) == -1) {
                 cerr << "Error: UDP Server thread failed to start\n";
                 exit(2);
             }
@@ -4228,15 +4238,16 @@ int main(int argc, char *argv[])
 
         if (spHTTPServer.ServerPort > 0) {
             // Create HTTP Server thread. (Provides server status in HTML format)
-            if (pthread_create(&spHTTPServer.tid, NULL,TCPServerThread,&spHTTPServer) == -1) {
+            if (pthread_create(&spHTTPServer.tid, NULL, TCPServerThread, &spHTTPServer) == -1) {
                 cerr << "Error: HTTP server thread failed to start\n";
                 exit(2);
             }
         }
 
         if (spIPWatchServer.ServerPort > 0) {
-            // Create IPWatch Server thread. (Provides prepended header with IP and User Call on aprs packets)
-            if (pthread_create(&spIPWatchServer.tid, NULL,TCPServerThread,&spIPWatchServer) == -1) {
+            // Create IPWatch Server thread. (Provides prepended header with IP and User Call 
+            // on aprs packets)
+            if (pthread_create(&spIPWatchServer.tid, NULL, TCPServerThread, &spIPWatchServer) == -1) {
                 cerr << "Error: IPWatch server thread failed to start" << endl;
                 exit(2);
             }
@@ -4295,6 +4306,13 @@ int main(int argc, char *argv[])
 
         for (i = 0; i < nIGATES; i++) {
             if (!firstHub) {
+                //rc = pthread_create(&cpIGATE[i].tid, NULL,TCPConnectThread,&cpIGATE[i]);
+                //if (rc == 0)
+                //    pthread_detach(cpIGATE[i].tid);
+
+                //if (cpIGATE[i].hub)
+                //    firstHub = true;
+
                 if (pthread_create(&cpIGATE[i].tid, NULL, TCPConnectThread, &cpIGATE[i]) == 0)
                     pthread_detach(cpIGATE[i].tid);
 
@@ -4303,6 +4321,10 @@ int main(int argc, char *argv[])
 
             } else {
                 if (!cpIGATE[i].hub) {
+                    //rc = pthread_create(&cpIGATE[i].tid, NULL,TCPConnectThread,&cpIGATE[i]);
+
+                    //if (rc == 0)
+                    //    pthread_detach(cpIGATE[i].tid);
                     if (pthread_create(&cpIGATE[i].tid, NULL, TCPConnectThread, &cpIGATE[i]) == 0)
                         pthread_detach(cpIGATE[i].tid);
                 }
@@ -4430,8 +4452,11 @@ int main(int argc, char *argv[])
                 WatchDog = 0;               // Serial port reader increments this with each rx line.
                 const char *stats = getStats();
                 cout << stats << endl;
+                //getProcStats();
                 TAprsString* monStats = new TAprsString(stats, SRC_INTERNAL, srcSTATS);
                 sendQueue.write(monStats);
+                //delete stats;
+                //stats = NULL;
 
             /*
                 for(int i=0;i<MaxClients;i++)
@@ -4443,15 +4468,29 @@ int main(int argc, char *argv[])
 
             if ((Time - tLastDel) > 300 ) { // do this every 5 minutes.
                                             // Remove old entrys from history list
+
+                //if(pthread_mutex_lock(pmtxCount) != 0)
+                //    cerr << "Unable to lock pmtxCount - main-DeleteOldItems.\n" << flush;
                 countLock.get();
                 int di = DeleteOldItems(5);
                 countLock.release();
+                //if(pthread_mutex_unlock(pmtxCount) != 0)
+                //    cerr << "Unable to unlock pmtxCount - main-DeleteOldItems.\n" << flush;
 
                 if (di > 0)
                     cout << " Deleted " << di << " expired items from history list" << endl << flush;
 
                 tLastDel = Time;
             }
+
+        /*
+        if ((Time - tLast) > 900)		//Save history list every 15 minutes
+        {
+        SaveHistory(pSaveHistory);
+        tLast = Time;
+        }
+        */
+
         } while (1 == 1);                     // ctrl-C to quit
     }
     catch (Exception& e)
