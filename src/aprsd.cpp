@@ -673,7 +673,7 @@ void *DeQueue(void *)
     struct timezone tz;
     long usLastTime, usNow;
     long t0;
-    const char *dcp;
+    //const char *dcp;
     //string(dcp);
 
     usLastTime = usNow = 0;
@@ -711,7 +711,7 @@ void *DeQueue(void *)
                     dequeueTNC();       // Check the TNC queue
             }
             reliable_usleep(1000);               // 1ms
-            
+
             if (ShutDownServer)
                 pthread_exit(0);
         }
@@ -719,18 +719,14 @@ void *DeQueue(void *)
         abuff = (TAprsString*)sendQueue.read(&cmd);  // Read an TAprsString pointer from the queue to abuff
 
         lastPacket = abuff;             // debug thing
-        dcp = " ";                      // another one
+        //dcp = " ";                      // another one
 
         if (abuff != NULL) {
-            //pthread_mutex_lock(pmtxCount);
-            //frame_cnt++;
-            //pthread_mutex_unlock(pmtxCount);
             abuff->dest = destINET;
 
             dup = FALSE;
-            if (!((abuff->EchoMask) & (srcSTATS | srcSYSTEM))) {
+            if (!((abuff->EchoMask) & (srcSTATS | srcSYSTEM)))
                 dup  = dupFilter.check(abuff,15);   // Check for duplicates within 15 second window
-            }
 
             if (((abuff->EchoMask & src3RDPARTY)&&((abuff->aprsType == APRSPOS)) // No Posits fetched from history list
                     || (abuff->aprsType == COMMENT)               // No comment packets in the history buffer
@@ -843,8 +839,9 @@ void dequeueTNC(void)
                     cerr << "Error: ACKrepeaterThread failed to start\n";
                     abuff->ttl = 0;
                 } else
-                    pthread_detach(tid);    // Run detached to free resources.
+                    pthread_detach(tid);                // Run detached to free resources.
             }
+
             strncpy(rfbuf,abuff->data.c_str(),256); // copy only data portion to rf buffer
                                                     // and truncate to 256 bytes
             RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
@@ -852,8 +849,9 @@ void dequeueTNC(void)
             strcat(rfbuf,"\r");         // append a CR to the end
             char* cp = new char[300];   // Will be deleted by conQueue reader.
             ostrstream msg(cp,300);
+
             msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
-            conQueue.write(cp,0);
+            conQueue.write(cp, 0);
 
             pthread_mutex_lock(pmtxCount);
             TotalTNCtxChars += strlen(rfbuf);
