@@ -87,7 +87,7 @@ char* pax25 (char*, const unsigned char*);
 //---------------------------------------------------------------------
 // Open the AX.25 sockets
 
-int SocketOpen (char *rfport, char *destcall)
+int SocketOpen (const char *rfport, const char *destcall)
 {
     char* portcall;
 

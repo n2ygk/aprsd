@@ -1,3 +1,4 @@
+
 /*
  * $Id$
  *
@@ -497,7 +498,7 @@ void deleteHistoryArray(histRec* hr)
 
         for (i = 0;i<arraySize;i++) {
             if (hr[i].data != NULL) {
-                delete hr[i].data;
+                free(hr[i].data);
                 hr[i].data = NULL;
             }
         }
@@ -734,7 +735,7 @@ int ReadHistory(char *name)
         hf.close();
     }
 
-    delete data;
+    delete[] data;
     cout << "Read " << icount+expiredCount << "  items from " << name  << endl;
 
     if (expiredCount)

@@ -27,9 +27,9 @@
 
 #include "constant.h"
 
-int SocketOpen (char *rfport, char *destcall);
+int SocketOpen (const char *rfport, const char *destcall);
 int SocketClose (void);
-int SocketWrite (char *cp);
+int SocketWrite (const char *cp);
 int SocketWrite (void);
 bool SocketReadWrite (char buf[]);
 

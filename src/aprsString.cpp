@@ -104,8 +104,9 @@ TAprsString::TAprsString(string& cp) : string(cp)
     constructorSetUp(cp.c_str(),0,0);
 }
 
-
-//Copy constructor
+//
+// Copy constructor
+//
 TAprsString::TAprsString(TAprsString& as) : string(as)
 {
     *this = as;
@@ -149,7 +150,7 @@ TAprsString::TAprsString(TAprsString& as) : string(as)
     timestamp = time(NULL);             // User current time instead of time in original
     instances = 0;
     if(pthread_mutex_unlock(pmtxCounters) != 0)
-    	cerr << "Unable to unlock pmtxCounters - CopyConstructors.\n" << flush;
+        cerr << "Unable to unlock pmtxCounters - CopyConstructors.\n" << flush;
 
 }
 
@@ -212,8 +213,8 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             words[i] = "";
 
         ax25Source = "";
-        ax25Dest = "";
-        stsmDest = "";
+        ax25Dest   = "";
+        stsmDest   = "";
         raw = string(cp);
 
         pathSize = 0;
@@ -260,7 +261,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             path = substr(0,pIdx);      // extract all chars up to the ":" into path
             dataIdx = pIdx+1;           // remember where data starts
 
-            size_type gtIdx = path.find(">");  //find first ">" in path
+            size_type gtIdx = path.find(">");  // find first ">" in path
             size_type gt2Idx = path.find_last_of(">"); // find last ">" in path
 
             if ((gtIdx != gt2Idx) && (gtIdx != npos)) {
@@ -331,6 +332,12 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 return;
             }
 
+            if ((data.find('\r') > data.length()) || (data.find('\n') > data.length())) {
+                cerr << "added CRLF to packet " << data << endl << flush;
+                data.append("\n\r");
+                //data.append('\r');
+            }
+
             size_type idx,qidx;
 
             if (ax25Dest.compare("ID") == 0) {      // ax25 ID packet
@@ -343,7 +350,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     // Message Packet
                     // Spec:
                     // :Addressee (9bytes):Message Text (69 bytes)[{msg ID (1-5bytes)] <-optional
-                    // Message Text contain any printable data except "|~{"
+                    // Message Text may contain any printable data except "|~{"
                     //
                     //msgdata = "";
 
@@ -409,21 +416,63 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
 
                     break;
 
-                case '_' :              // weather
-                    aprsType = APRSWX ;
+                case '_' :              // positionless weather
+                                        // _ (1) Time MDHM (8) data(36) aprs software (1) wx unit (2-4)
+                    if (data.length() > 52) {
+                        aprsType = APRSERROR;
+                        cerr << "Bad weather packet length = " << data.length() << endl << flush;
+                        cerr << data << endl << flush;
+                    }
+                    else
+                        aprsType = APRSWX ;
+
                     break;
 
-                case '@' :              // APRS mobile station
+                case '@' :              // APRS mobile station (with messaging)
+                                        // @ (1), Time DHM/HMS (7), Lat (8), Sym ID (1), Lon (9), Sym Code (1), ;
+                                        //      Speed/Crs/PHG/DF (8), /BRG/NRQ (8), Comment (0-28)
+                                        //
+                                        // Compressed
+                                        // @ (1), Time DHM/HMS (7), Sym ID (1), Lat (4), Lon (4), Sym Code (1), ;
+                                        //      Speed/Crs/PHG/DF (2), Comp Type (1), Comment (0-40)
+                    if (data.length() > 71) {
+                        aprsType = APRSERROR;
+                        cerr << "Bad @ packet; length = " << data.length() << endl << flush;
+                        cerr << data << endl << flush;
+                    }
+                    break;
 
                 case '=' :              // APRS fixed station
+                    if (data.length() > 63) {
+                        aprsType = APRSERROR;
+                        cerr << "Bad = packet; length = " << data.length() << endl << flush;
+                        cerr << data << endl << flush;
+                    }
+                    break;
 
                 case '!' :              // APRS not runing, fixed short format
+                    if (data.length() > 63) {
+                        aprsType = APRSERROR;
+                        cerr << "Bad ! packet; length = " << data.length() << endl << flush;
+                        cerr << data << endl << flush;
+                    }
+                    break;
 
                 case '/' :              // APRS not running, fade to gray in 2 hrs
-                    aprsType = APRSPOS;
+                    if (data.length() > 71) {
+                        aprsType = APRSERROR;
+                        cerr << "Bad / packet; length = " << data.length() << endl << flush;
+                        cerr << data << endl << flush;
+                    } else
+                        aprsType = APRSPOS;
                     break;
 
                 case '>' :
+                    if (data.length() > 70) {
+                        aprsType = APRSERROR;
+                        cerr << "Bad Status packet; length = " << data.length() << endl << flush;
+                        cerr << data << endl << flush;
+                    } else
                     aprsType = APRSSTATUS;
                     break;
 
@@ -436,7 +485,12 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     break;
 
                 case ';' :
-                    aprsType = APRSOBJECT;
+                    if (data.length() > 87) {
+                        aprsType = APRSERROR;
+                        cerr << "Bad Object packet; length = " << data.length() << endl << flush;
+                        cerr << data << endl << flush;
+                    } else
+                        aprsType = APRSOBJECT;
                     break;
 
                 case 0x60:              // These indicate it's a Mic-E packet
@@ -460,8 +514,13 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     }
 
                 case '$' :
-                    aprsType = NMEA;
-                    break;
+                    if (data.length() < 26 || data.length() > 210) {
+                        aprsType = APRSERROR;
+                        cerr << "Bad NMEA sentence packet; length = " << data.length() << endl << flush;
+                        cerr << data << endl << flush;
+                    } else
+                        aprsType = NMEA;
+                        break;
 
                 default:                // check for messages in the old format
                     if (data.length() >= 10) {

@@ -99,13 +99,12 @@ int WriteLog(const char *pch, const char *LogFile)
         fclose(f);
         rc = 0;
     }
-    delete cp;
-    cp = NULL;
+    free(cp);
     delete[] pLogFile;
     pLogFile = NULL;
     pthread_mutex_unlock(pmtxLog);
 
-    return(rc);
+    return(0);
 }
 
 

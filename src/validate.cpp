@@ -67,187 +67,174 @@ short doHash(const char *theCall);
 
 int  checkSystemPass(const char *szUser, const char *szPass, const char *szGroup)
 {
-	passwd *ppw = NULL;
-	group *pgrp = NULL;
-   spwd *pspwd = NULL;
-	char *member = NULL;
-   struct group grp;
-   struct passwd pwd;
-	int i;
-	char salt[16];
-	int usrfound = 0 ;
-   int pwLength = 0;
-	int rc = BADGROUP;
-   
+    passwd *ppw = NULL;
+    group *pgrp = NULL;
+    spwd *pspwd = NULL;
+    char *member = NULL;
+    struct group grp;
+    struct passwd pwd;
+    int i;
+    char salt[16];
+    int usrfound = 0 ;
+    int pwLength = 0;
+    int rc = BADGROUP;
 
 #ifdef DEBUG
-   cout << szUser << " " << szPass << " " << szGroup << endl;  //debug
+    cout << szUser << " " << szPass << " " << szGroup << endl;  //debug
 #endif
 
-  
-   size_t bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
-   char *buffer1 = new char[bufsize];
-   //Thread-Safe getgrnam()
-   getgrnam_r(szGroup,         /* Does group name szGroup exist? */
+    size_t bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
+    char *buffer1 = new char[bufsize];
+    //Thread-Safe getgrnam()
+    getgrnam_r(szGroup,                 // Does group name szGroup exist?
               &grp,
               buffer1,
               bufsize,
               &pgrp);
 
+    if (pgrp == NULL) {
+        delete[] buffer1;
+        buffer1 = NULL;
+        return rc;                      // return BADGROUP if not
+    }
 
-   
-   			  
-	if (pgrp == NULL) {
-      delete[] buffer1;
-      buffer1 = NULL;
-      return rc;	  /* return BADGROUP if not */
-   }
-
-   
-   bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-   
-   char *buffer2 = new char[bufsize];
-   //Thread-Safe getpwnam()
-   getpwnam_r(szUser,
+    bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+    char *buffer2 = new char[bufsize];
+    //Thread-Safe getpwnam()
+    getpwnam_r(szUser,
             &pwd,
             buffer2,
             bufsize,
             &ppw);
 
-   
-  
-	if (ppw == NULL){ 
-      delete[] buffer2;
-      buffer2 = NULL;
-      delete[] buffer1;
-      buffer1 = NULL;
-      return BADUSER ; /* return BADUSER if no such user */
-   }
-   
-	i = 0;
-		
-	/* find out if user is a member of szGroup */
-	while(((member = pgrp->gr_mem[i++]) != NULL) && (usrfound == 0 ))
-		{	
- #ifdef DEBUG
-         cerr << member << endl;	 //debug code
- #endif
-			if(strcmp(member,szUser) == 0)  usrfound = 1	;
-		}
-	
-	if(usrfound == 0){ 
-      delete[] buffer1;
-      buffer1 = NULL;
-      delete[] buffer2;
-      buffer1 = NULL;
-      return BADGROUP;	 /* return BADGROUP if user not in group */
-   }
+    if (ppw == NULL){
+        delete[] buffer2;
+        buffer2 = NULL;
+        delete[] buffer1;
+        buffer1 = NULL;
+        return BADUSER ;                // return BADUSER if no such user
+    }
 
-   /* check the password */
+    i = 0;
 
+    // find out if user is a member of szGroup
+    while(((member = pgrp->gr_mem[i++]) != NULL) && (usrfound == 0 )) {
 #ifdef DEBUG
-   cout << ppw->pw_passwd << endl
-      << crypt(szPass,salt) << endl;
+        cerr << member << endl;	 //debug code
+#endif
+        if (strcmp(member,szUser) == 0)
+            usrfound = 1;
+    }
+
+    if (usrfound == 0) {
+        delete[] buffer1;
+        buffer1 = NULL;
+        delete[] buffer2;
+        buffer1 = NULL;
+        return BADGROUP;                // return BADGROUP if user not in group
+    }
+
+    // check the password
+#ifdef DEBUG
+    cout << ppw->pw_passwd << endl
+        << crypt(szPass,salt) << endl;
 #endif
 
-   pwLength = strlen(ppw->pw_passwd);
+    pwLength = strlen(ppw->pw_passwd);
 
-	if(ppw->pw_passwd[0] != '$'){
-      /* DES salt */
-	   strncpy(salt,ppw->pw_passwd,2);
-	   salt[2] = '\0';
-   }else
-     {   /* MD5 salt */
-         int i;
-         for(i=0;i<3;i++) 
-            if(i < pwLength) salt[i] = ppw->pw_passwd[i];
+    if (ppw->pw_passwd[0] != '$') {
+        // DES salt
+        strncpy(salt,ppw->pw_passwd,2);
+        salt[2] = '\0';
+    } else {                            // MD5 salt
+        int i;
+        for (i = 0; i < 3; i++)
+            if (i < pwLength)
+                salt[i] = ppw->pw_passwd[i];
 
-         while((i < 14) && (ppw->pw_passwd[i] != '$')) 
-            salt[i++] = ppw->pw_passwd[i];
+        while((i < 14) && (ppw->pw_passwd[i] != '$')) {
+            salt[i] = ppw->pw_passwd[i];
+            i++;
+        }
+        salt[i] = '$';
+        i++;
+        salt[i] = '\0';
 
-         salt[i++] = '$';
-         salt[i] = '\0';
-         
-   }
-
-   #ifdef DEBUG
-   cout << "salt=" << salt << endl;
-   #endif
-
-   
-   if (strcmp(crypt(szPass,salt), ppw->pw_passwd) == 0 ) 
-		rc = 0; 
-		else 
-			rc = BADPASSWD;
-	
-   if ((rc == BADPASSWD) && (strcmp("x",ppw->pw_passwd) == 0)) {
-#ifdef DEBUG
-      cout << "Shadow passwords enabled\n";
-#endif
-      pspwd = getspnam(szUser);  //Get shadow password file data for user
-      if (pspwd == NULL) {
-         cout << "validate: Can't read shadowed password file.  This program must run as root\n";
-         delete[] buffer1;
-         buffer1 = NULL;
-         delete[] buffer2;
-         buffer2 = NULL;
-         return MUSTRUNROOT;
-      }
-
-      pwLength = strlen(pspwd->sp_pwdp);
+    }
 
 #ifdef DEBUG
-      cout << "pw=" << pspwd->sp_pwdp << endl;
+    cout << "salt=" << salt << endl;
 #endif
 
-      if(pspwd->sp_pwdp[0] != '$'){
-         /* DES salt */
-         strncpy(salt,pspwd->sp_pwdp,2);
-	      salt[2] = '\0';
-      }else
-         {     /* MD5 salt */
-         int i;
-         for(i=0;i<3;i++) 
-            if(i < pwLength) salt[i] = pspwd->sp_pwdp[i];
+    if (strcmp(crypt(szPass,salt), ppw->pw_passwd) == 0 )
+        rc = 0;
+    else
+        rc = BADPASSWD;
 
-         while((i < 14) && (pspwd->sp_pwdp[i] != '$')) 
-            salt[i++] = pspwd->sp_pwdp[i];
-
-         salt[i++] = '$';
-         salt[i] = '\0';
-         
-   }
-
- #ifdef DEBUG
-   cout << "salt=" << salt << endl;
-
+    if ((rc == BADPASSWD) && (strcmp("x",ppw->pw_passwd) == 0)) {
+#ifdef DEBUG
+        cout << "Shadow passwords enabled\n";
 #endif
+        pspwd = getspnam(szUser);       //Get shadow password file data for user
 
+        if (pspwd == NULL) {
+            cout << "validate: Can't read shadowed password file.  This program must run as root\n";
+            delete[] buffer1;
+            buffer1 = NULL;
+            delete[] buffer2;
+            buffer2 = NULL;
+            return MUSTRUNROOT;
+        }
 
-
-      if (strcmp(crypt(szPass,salt), pspwd->sp_pwdp) == 0 ) 
-      rc = 0; 
-		else 
-			rc = BADPASSWD;
+        pwLength = strlen(pspwd->sp_pwdp);
 
 #ifdef DEBUG
-      cout  << pspwd->sp_pwdp 
-            << " :  " 
-            << crypt(szPass,salt) 
-            << "  :  " 
-            << szPass 
+        cout << "pw=" << pspwd->sp_pwdp << endl;
+#endif
+
+        if (pspwd->sp_pwdp[0] != '$') {
+            // DES salt
+            strncpy(salt,pspwd->sp_pwdp,2);
+            salt[2] = '\0';
+        } else {
+            // MD5 salt
+            int i;
+            for (i = 0; i < 3; i++)
+                if (i < pwLength)
+                    salt[i] = pspwd->sp_pwdp[i];
+
+            while ((i < 14) && (pspwd->sp_pwdp[i] != '$')) {
+                salt[i] = pspwd->sp_pwdp[i];
+                i++;
+            }
+            salt[i] = '$';
+            i++;
+            salt[i] = '\0';
+        }
+
+#ifdef DEBUG
+        cout << "salt=" << salt << endl;
+#endif
+
+        if (strcmp(crypt(szPass,salt), pspwd->sp_pwdp) == 0 )
+            rc = 0;
+        else
+            rc = BADPASSWD;
+
+#ifdef DEBUG
+      cout  << pspwd->sp_pwdp
+            << " :  "
+            << crypt(szPass,salt)
+            << "  :  "
+            << szPass
             << endl;
 #endif
-
-   }
-   delete[] buffer1;
-   buffer1 = NULL;
-   delete[] buffer2;
-   buffer1 = NULL;
-	return rc;
-
-
-
+    }
+    delete[] buffer1;
+    buffer1 = NULL;
+    delete[] buffer2;
+    buffer1 = NULL;
+    return rc;
 }
 
 
@@ -255,29 +242,33 @@ int  checkSystemPass(const char *szUser, const char *szPass, const char *szGroup
 
 bool validate(const char* user,const char* pass, const char* group, bool allow_hash)
 {
-   
-  
-   if(allow_hash && (strcmp("tnc",group) != 0)){  //Don't allow tnc users to use aprs numerical password
-                                            //"allow_hash" must be TRUE to use the HASH test.
-                                    //If allow_hash is false only the Linux user/pass validation is used
-      short iPass = atoi(pass);
 
-      if (iPass == -1) return BADUSER;        // -1 is known to be not registered
-      if(strlen(user) <= 9){                  // Limit user call sign to 9 chars or less (2.1)
-      if (doHash(user) == iPass) return 0;    // return Zero if hash test is passed
-      }
-   }
+
+    if(allow_hash && (strcmp("tnc",group) != 0)) {
+        // Don't allow tnc users to use aprs numerical password
+        // "allow_hash" must be TRUE to use the HASH test.
+        // If allow_hash is false only the Linux user/pass validation is used
+        short iPass = atoi(pass);
+
+        if (iPass == -1)
+            return BADUSER;             // -1 is known to be not registered
+
+        if (strlen(user) <= 9) {        // Limit user call sign to 9 chars or less (2.1)
+            if (doHash(user) == iPass)  // return Zero if hash test is passed
+                return 0;
+        }
+    }
                                                //if hash fails, test for
-   int rc = checkSystemPass(user,pass,group); // valid  Linux system user/pass
+    int rc = checkSystemPass(user,pass,group); // valid  Linux system user/pass
 
 #ifdef DEBUG
-   cout << "checkSystemPass returned: " << rc << endl;
+    cout << "checkSystemPass returned: " << rc << endl;
 #endif
 
-  if (rc == BADPASSWD) sleep(10);
-  return rc;   
-  
-  
+    if (rc == BADPASSWD)
+        sleep(10);
+
+    return rc;
 }
 
 //-----------------------------------------------------------------------------------
@@ -287,34 +278,28 @@ source aprs community */
 
 short doHash(const char *theCall)
 {
-	char 			rootCall[10];			// need to copy call to remove ssid from parse
-	char 			*p1 = rootCall;
-	
-	while ((*theCall != '-') && (*theCall != 0)) *p1++ = toupper(*theCall++);
-	*p1 = 0;
-	
-	short hash = kKey;			// Initialize with the key value
-	short i = 0;
-	short len = strlen(rootCall);
-	char *ptr = rootCall;
-	while (i<len)				// Loop through the string two bytes at a time
-	{
-		hash ^= (*ptr++)<<8;	// xor high byte with accumulated hash
-		hash ^= (*ptr++);		// xor low byte with accumulated hash
-		i += 2;
-	}
+    char rootCall[10];                  // need to copy call to remove ssid from parse
+    char *p1 = rootCall;
 
-   
-	return hash & 0x7fff;		// mask off the high bit so number is always positive
+    while ((*theCall != '-') && (*theCall != 0))
+        *p1++ = toupper(*theCall++);
+
+    *p1 = 0;
+
+    short hash = kKey;                  // Initialize with the key value
+    short i = 0;
+    short len = strlen(rootCall);
+    char *ptr = rootCall;
+
+    while (i < len) {                   // Loop through the string two bytes at a time
+        hash ^= (*ptr++)<<8;            // xor high byte with accumulated hash
+        hash ^= (*ptr++);               // xor low byte with accumulated hash
+        i += 2;
+    }
+
+    return hash & 0x7fff;		// mask off the high bit so number is always positive
 }
 
 //--------------------------------------------------------------------------------------
 //End of file
-
-
-
-   
-
-
-
 

@@ -106,10 +106,12 @@ N6OAA>APRS,GATE,WIDE*:@280144z4425.56N/08513.11W/ "Mitch", Lake City, MI
 #define DEBUG
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "../config.h"
 #endif
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 #include <termios.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -127,12 +129,19 @@ extern "C" {
 
 #include <stdio.h>
 #include <fcntl.h>                      // umask
+#ifdef __cplusplus
 }
+#endif
+
+//#ifdef WITH_DMALLOC
+//#include <dmalloc.h>
+//#endif
 
 #include <string>
 #include <fstream>
 #include <iostream>
 #include <strstream>
+#include <sstream>
 #include <iomanip>
 
 #include "dupCheck.h"
@@ -856,7 +865,11 @@ void *DeQueue(void *)
                 abuff->EchoMask |= sendDUPS;    // If it's a duplicate mark it.
 
             DBstring = "Execute SendToAllClients";
-            SendToAllClients(abuff);    // Send item out on internet
+            if (abuff->aprsType != APRSERROR)
+                SendToAllClients(abuff);    // Send item out on internet
+            //else
+            //   delete &abuff;
+
             DBstring = "Back in main DeQueue flow";
             if (noHist) {
                 delete abuff;           // delete it now if it didn't go to the history list.
@@ -891,6 +904,7 @@ void *ACKrepeaterThread(void *p)
     delete abuff;
     abuff = NULL;
     pthread_exit(0);
+    return(NULL);
 }
 
 //----------------------------------------------------------------------
@@ -1277,8 +1291,6 @@ void *TCPSessionThread(void *p)
     DBstring = "TCPSessionThread - get session pointer via AddSession";
     SessionParams* sp =  AddSession(session, EchoMask);
     DBstring = "TCPSessionThread - return with session pointer via AddSession";
-
-
 
     if (sp == NULL) {
         rc = SendSessionStr(session,szError);
@@ -1952,6 +1964,7 @@ void *TCPSessionThread(void *p)
     endSession(session,szPeer,userCall,starttime);
 
     pthread_exit(0);  //Actually thread exits from endSession above.
+    return(NULL);
 }
 
 
@@ -2067,7 +2080,8 @@ void *UDPServerThread(void *p)
     int s,i;
     unsigned client_address_size;
     struct sockaddr_in client, server;
-    char buf[UDPSIZE+3],szLog[UDPSIZE+50];
+    char buf[UDPSIZE + 3]; //, szLog[UDPSIZE + 50];
+    string szLog;
     UdpParams* upp = (UdpParams*)p;
     int UDP_Port = upp->ServerPort;     // UDP port set in aprsd.conf
     const char *CRLF = "\r\n";
@@ -2122,15 +2136,16 @@ void *UDPServerThread(void *p)
 
         if (sourceOK && configComplete && (i > 0)) {
             if (buf[i-1] != '\n')
-                strcat(buf,CRLF);       // Add a CR/LF if not present
+                strcat(buf, CRLF);       // Add a CR/LF if not present
 
-            memset(szLog,0,UDPSIZE+50);
-            ostrstream log(szLog, UDPSIZE+49);
+            //memset(szLog, 0, UDPSIZE + 50);
+            ostringstream log(szLog);
+            //ostrstream log(szLog, UDPSIZE+49);
             log << inet_ntoa(client.sin_addr)
                 << ": " << buf
                 << ends;
 
-            WriteLog(szLog,UDPLOG);
+            WriteLog(szLog.c_str(),UDPLOG);
 
             TAprsString* abuff = new TAprsString(buf,SRC_UDP,srcUDP,inet_ntoa(client.sin_addr),"UDP");
 
@@ -2301,9 +2316,11 @@ void *TCPConnectThread(void *p)
     char h_buf[1024];
     int h_err;
     char buf[BUFSIZE];
-    char logonBuf[MAX];
+    //char logonBuf[MAX];
+    string logonBuf;
     char remoteIgateInfo[MAX];
-    char szLog[MAX];
+    //char szLog[MAX];
+    string szLog;
     int retryTimer;
     ConnectParams *pcp = (ConnectParams*)p;
     int err;
@@ -2360,12 +2377,13 @@ void *TCPConnectThread(void *p)
 
             if (rc == -1) {
                 close(clientSocket);
-                memset(szLog,0,UDPSIZE+50);
-                ostrstream os(szLog, UDPSIZE+49);
+                //memset(szLog, 0, UDPSIZE + 50);
+                //ostrstream os(szLog, UDPSIZE+49);
+                ostringstream os(szLog);
                 os << "Connection attempt failed " << pcp->RemoteName
                     << " " << pcp->RemoteSocket << ends;
 
-                WriteLog(szLog, MAINLOG);
+                WriteLog(szLog.c_str(), MAINLOG);
 
                 {
                     char* cp = new char[256];
@@ -2385,12 +2403,13 @@ void *TCPConnectThread(void *p)
                 pcp->bytesIn = 0;
                 pcp->bytesOut = 0;
 
-                memset(szLog,0,MAX);
-                ostrstream os(szLog, MAX-1);
+                //memset(szLog,0,MAX);
+                //ostrstream os(szLog, MAX-1);
+                ostringstream os(szLog);
                 os << "Connected to " << pcp->RemoteName
                     << " " << pcp->RemoteSocket << ends;
 
-                WriteLog(szLog, MAINLOG);
+                WriteLog(szLog.c_str(), MAINLOG);
 
                 char* cp = new char[256];
                 memset(cp, 0, 256);
@@ -2403,7 +2422,7 @@ void *TCPConnectThread(void *p)
 
         if (state == 2) {
             data = 1;                   // Set socket for non-blocking
-            ioctl(clientSocket, FIONBIO, (char*)&data, sizeof(int));
+            ioctl(clientSocket, FIONBIO, (char*)&data); //, sizeof(int));
 
             int optval = 1;             // Enable keepalive option
             setsockopt(clientSocket, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, sizeof(int));
@@ -2424,18 +2443,19 @@ void *TCPConnectThread(void *p)
                     << endl
                     << flush;
 
-                memset(logonBuf,0,MAX);
-                ostrstream logon(logonBuf, MAX-1);     // Build logon string
+                //memset(logonBuf,0,MAX);
+                ostringstream logon(logonBuf);
+                //ostrstream logon(logonBuf, MAX-1);     // Build logon string
                 logon << "user "
                     << pcp->user
                     << " pass "
                     << pcp->pass
                     << " vers "
-                    << VERS
+                    << "APRSd 2.2.0"/*VERS*/
                     << "\r\n"
                     << ends;
 
-                rc = send(clientSocket, logonBuf, strlen(logonBuf), 0); // Send logon string to IGATE or Hub
+                rc = send(clientSocket, logonBuf.c_str(), logonBuf.length(), 0); // Send logon string to IGATE or Hub
 
                 if (pcp->EchoMask) {    // If any bits are set in EchoMask then this add to sessions list.
                     if (sp == NULL) {   // Grab an output session now. Note: This takes away 1 avalable user connection
@@ -2646,13 +2666,14 @@ void *TCPConnectThread(void *p)
             pcp->starttime = time(NULL);    // reset elapsed timer
             gotID = false;              // Force new aquisition of ID string next time we connect
 
-            memset(szLog,0,MAX);
-            ostrstream os(szLog, MAX-1);
+            //memset(szLog,0,MAX);
+            //ostrstream os(szLog, MAX-1);
+            ostringstream os(szLog);
             os << "Disconnected " << pcp->RemoteName
                 << " " << pcp->RemoteSocket
                 << ends;
 
-            WriteLog(szLog, MAINLOG);
+            WriteLog(szLog.c_str(), MAINLOG);
 
             {
                 char* cp = new char[300];
@@ -2687,6 +2708,7 @@ void *TCPConnectThread(void *p)
     } while(ShutDownServer == false);
 
     pthread_exit(0);
+    return(NULL);
 }
 
 //----------------------------------------------------------------------
@@ -2787,7 +2809,7 @@ int SendFiletoClient(int session, char *szName)
 //----------------------------------------------------------------------
 //
 //
-char* getStats()
+const char* getStats()
 {
     time_t time_now;
 
@@ -2797,7 +2819,8 @@ char* getStats()
     double serverRate = 0;
     double inetRate = 0;
     string inetRateX, serverRateX;
-    char *cbuf = new char[1024];
+    //char *cbuf = new char[1024];
+    string obuf;
 
     time(&time_now);
     upTime = ((double)(time_now - serverStartTime) / 3600);
@@ -2833,10 +2856,11 @@ char* getStats()
         serverRateX = "Bps";
     }
 
-    memset(cbuf, 0, 1024);
-    ostrstream os(cbuf, 1023);
-    os << setiosflags(ios::showpoint | ios::fixed)
-        << setprecision(1)
+    //memset(cbuf, 0, 1024);
+    //ostrstream os(cbuf, 1023);
+    ostringstream os(obuf);
+    os //<< setiosflags(ios::showpoint | ios::fixed)
+        //<< setprecision(1)
         << "#\r\n"
         << "Server Up Time    = " << upTime << " hours" << "\r\n"
         << "Total TNC packets = " << TotalLines << "\r\n"
@@ -2866,7 +2890,7 @@ char* getStats()
     if(pthread_mutex_unlock(pmtxCount) != 0)
         cerr << "Unable to unlock pmtxCount - Calculate text stats.\n" << flush;
 
-    return(cbuf);  // cbuf deleted by calling function... or should be :)
+    return(obuf.c_str());  // cbuf deleted by calling function... or should be :)
 }
 
 
@@ -3567,7 +3591,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     gmt = NULL;
 
     data = 1;                           // Set socket for non-blocking
-    ioctl(sock,FIONBIO,(char*)&data,sizeof(int));
+    ioctl(sock,FIONBIO,(char*)&data); //,sizeof(int));
 
     rc = recvline(sock,buf,BUFSIZE,&err, 10);  //10 sec timeout value
 
@@ -3611,8 +3635,8 @@ void segvHandler(int signum)  //For debugging seg. faults
     htmlbuf[HTMLSIZE-1] = '\0';   //Set last byte in buffer to null
     ostrstream stats(htmlbuf,HTMLSIZE-1);
 
-    stats << setiosflags(ios::showpoint | ios::fixed)
-        << setprecision(1)
+    stats //<< setiosflags(ios::showpoint | ios::fixed)
+        //<< setprecision(1)
         << "HTTP/1.0 200 OK\n"
         << "Date: " << szTime << "\n"
         << "Server: aprsd\n"
@@ -3658,16 +3682,16 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "</TABLE>"
         << ends;
 
-    
+
 
     if(pthread_mutex_unlock(pmtxCount) != 0)
         cerr << "Unable to unlock pmtxCount - HTTPStats2.\n" << flush;
 
-     
+
     html2send[idx] = new char[strlen(htmlbuf)+1];  //Create space for server status report string
     strcpy(html2send[idx],htmlbuf);                //copy data
-    idx++;                                         //increment index 
-    
+    idx++;                                         //increment index
+
     // Experimental Queue report
 
     // build the header
@@ -3950,7 +3974,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     //Now read all the  char strings from html2send to the tcpip socket.
 
     data = 0;                           // Set socket for blocking
-    ioctl(sock,FIONBIO,(char*)&data,sizeof(int));
+    ioctl(sock,FIONBIO,(char*)&data); //,sizeof(int));
 
     char* cp;
     int ecnt = 0;
@@ -3990,6 +4014,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     html2send = NULL;
 
     pthread_exit(0);
+    return(NULL);
 }
 
 
@@ -4081,7 +4106,7 @@ int daemonInit(void)
 
     setsid();                           // Become session leader
     chdir(HOMEDIR);                     // change to the aprsd2 directory
-    umask(0);                           // Clear our file mode selection mask
+    //umask(0);                           // Clear our file mode selection mask
 
     return(0);
 }
@@ -4184,7 +4209,7 @@ int main(int argc, char *argv[])
     szAPRSDPATH = new char[64];
     memset(szAPRSDPATH, NULLCHR, 64);
     strcpy(szAPRSDPATH,">");
-    strncat(szAPRSDPATH,PGVERS,64);
+    strncat(szAPRSDPATH,"APD220",64);
     strncat(szAPRSDPATH,",TCPIP*:",64); // ">APD215,TCPIP*:"
 
     ShutDownServer = false;
@@ -4498,13 +4523,15 @@ int main(int argc, char *argv[])
             char *cp = (char*)conQueue.read(NULL);    //Yes, read and print it.
 
             if (cp) {
-                printf("%s",cp);
-                strcat(cp,"\r");
+                //printf("%s",cp);
+                //strcat(cp,"\r");
+                cout << cp << ends << endl;
                 TAprsString* monStats = new TAprsString(cp,SRC_INTERNAL,srcSTATS);
                 sendQueue.write(monStats);
 
-                delete cp;
-                cp = NULL;
+                delete[] cp;
+                //cp = NULL;
+                //free(cp);
             }
         }
 
@@ -4578,13 +4605,13 @@ int main(int argc, char *argv[])
 
             tPstats = Time;
             WatchDog = 0;               // Serial port reader increments this with each rx line.
-            char *stats = getStats();
+            const char *stats = getStats();
             cout << stats << flush;
             //getProcStats();
             TAprsString* monStats = new TAprsString(stats, SRC_INTERNAL, srcSTATS);
             sendQueue.write(monStats);
-            delete stats;
-            stats = NULL;
+            //delete stats;
+            //stats = NULL;
 
           /*
             for(int i=0;i<MaxClients;i++)
@@ -4610,7 +4637,7 @@ int main(int argc, char *argv[])
             tLastDel = Time;
         }
 
-    /*    	
+    /*
     if ((Time - tLast) > 900)		//Save history list every 15 minutes
     {
       SaveHistory(pSaveHistory);
@@ -4634,6 +4661,7 @@ int main(int argc, char *argv[])
     delete pmtxDNS;
     return(0);
 */
+    return(0);
 }
 
 // eof aprsd.cpp

@@ -42,11 +42,14 @@ using namespace std;
 void BroadcastString(char *cp);
 
 extern char* szAPRSDPATH ;
-extern char* szServerCall ;
-extern char* MyLocation ;
+//extern char* szServerCall ;
+extern string szServerCall;
+//extern char* MyLocation ;
+extern string MyLocation;
 //extern char* MyCall;
 extern string MyCall;
-extern char* MyEmail;
+//extern char* MyEmail;
+extern string MyEmail;
 
 extern int msgsn;
 extern cpQueue tncQueue;

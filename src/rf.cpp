@@ -68,7 +68,8 @@ extern const int srcHISTORY;
 extern const int src3RDPARTY;
 extern const int sendHISTORY;
 
-extern char *szServerCall;
+//extern char *szServerCall;
+extern string szServerCall;
 
 pthread_t tidReadCom;
 extern string MyCall;
@@ -87,7 +88,7 @@ char* ComBaud;
 //--------------------------------------------------------------------
 // Set APRS path (before the port is opened)
 //
-void rfSetPath (char* path)
+void rfSetPath (const char* path)
 {
     AprsPath = strdup(path);
 }
@@ -95,7 +96,7 @@ void rfSetPath (char* path)
 //--------------------------------------------------------------------
 // Set serial port speed (before the port is opened)
 //
-void rfSetBaud (char* baud)
+void rfSetBaud (const char* baud)
 {
     ComBaud = strdup(baud);
 }
@@ -104,7 +105,7 @@ void rfSetBaud (char* baud)
 //--------------------------------------------------------------------
 // Open RF ports (TNC or sockets)
 
-int rfOpen (char *szPort)
+int rfOpen (const char *szPort)
 {
     int result;
     AsyncPort = (szPort[0] == '/');
@@ -172,7 +173,7 @@ int rfClose(void)
 //-------------------------------------------------------------------
 // Write NULL terminated string to serial port */
 //
-int rfWrite (char *cp)
+int rfWrite (const char *cp)
 {
     int rc;
 
@@ -241,7 +242,7 @@ void* rfReadCom (void *vp)
                     if ((abuff->aprsType == APRSMSG)
                         && (abuff->msgType == APRSMSGQUERY)) {  // is this a directed query message?
 
-                        if ((stricmp(szServerCall, abuff->stsmDest.c_str()) == 0)
+                        if ((stricmp(szServerCall.c_str(), abuff->stsmDest.c_str()) == 0)
                             || (stricmp("aprsd", abuff->stsmDest.c_str()) == 0)
                             || (stricmp("igate", abuff->stsmDest.c_str()) == 0)) {    // Is query for us?
                             queryResp (SRC_TNC, abuff);         // Yes, respond.
@@ -302,7 +303,7 @@ void* rfReadCom (void *vp)
 //---------------------------------------------------------------------
 // Send a text file to the TNC for configuration
 
-int rfSendFiletoTNC (char *szName)
+int rfSendFiletoTNC (const char *szName)
 {
     if (AsyncPort)
         return(AsyncSendFiletoTNC(szName));

@@ -82,7 +82,7 @@ cpQueue::~cpQueue(void)
     pthread_mutex_destroy(pmtxQ);
     delete pmtxQ;
     pmtxQ = NULL;
-    delete base_p;
+    delete[] base_p;
     base_p = NULL;
 }
 

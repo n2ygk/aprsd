@@ -56,7 +56,7 @@ extern char* ComBaud;
 //---------------------------------------------------------------------
 // Sets various parameters on a COM port for use with TNC
 
-int AsyncSetupPort (int fIn, int fOut)
+int AsyncSetupPort(int fIn, int fOut)
 {
     speed_t baud = B0;
 
@@ -112,7 +112,7 @@ int AsyncSetupPort (int fIn, int fOut)
 //--------------------------------------------------------------------
 // Open and initialise the COM port for the TNC
 
-int AsyncOpen (char *szPort)
+int AsyncOpen(const char *szPort)
 {
     APIRET rc;
     struct stat buf;
@@ -175,7 +175,7 @@ int AsyncOpen (char *szPort)
 //--------------------------------------------------------------------
 // Close the COM port
 
-int AsyncClose (void)
+int AsyncClose(void)
 {
     if (!PortIsFile) {
 
@@ -194,7 +194,7 @@ int AsyncClose (void)
 //--------------------------------------------------------------------
 // Read a line from the COM port.
 
-bool AsyncReadWrite (char* buf)
+bool AsyncReadWrite(char* buf)
 {
     USHORT i;
     unsigned char *c;
@@ -256,7 +256,7 @@ bool AsyncReadWrite (char* buf)
    */
 
 
-int AsyncSendFiletoTNC (char *szName)
+int AsyncSendFiletoTNC(const char *szName)
 {
     int nTokens;
     char Line[256];

@@ -28,9 +28,9 @@
 #include "constant.h"
 
 bool AsyncReadWrite(char* buf);
-int AsyncOpen(char* szPort);
+int AsyncOpen(const char* szPort);
 int AsyncClose(void);
-int AsyncSendFiletoTNC(char *szName);
+int AsyncSendFiletoTNC(const char *szName);
 
 #endif
 

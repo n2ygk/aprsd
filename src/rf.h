@@ -34,13 +34,13 @@ extern bool TncSysopMode;
 
 /*--------------------------------------------------------------*/
 
-int rfOpen(char* szPort);
+int rfOpen(const char* szPort);
 int rfClose(void);
-int rfSendFiletoTNC(char* szName);
+int rfSendFiletoTNC(const char* szName);
 void* rfReadCom(void* vp);        //Com port read thread
-int rfWrite(char* cp);
-void rfSetPath(char* path);
-void rfSetBaud(char* baud);
+int rfWrite(const char* cp);
+void rfSetPath(const char *path);
+void rfSetBaud(const char *baud);
 
 #endif
 
