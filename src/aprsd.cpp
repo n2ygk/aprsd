@@ -573,14 +573,12 @@ int serverConfig(const string& cf)
                 }
 
                 if (cmd.compare("APRSPATH") == 0) {
-                    //szAprsPath = (char*)malloc(BUFSIZE);
-                    //szAprsPath[0] = '\0';
-                    szAprsPath = token[1];
-
                     for (n = 1; n < nTokens; n++) {
+                        //cout << "Token["<<n<<"] == " << token[n] << endl;
                         szAprsPath += token[n];
                         szAprsPath += " ";
                     }
+                    //cout << "\nAX25 Path: " << szAprsPath << endl;
                     n = 1;
                     
                     //cout << "Debug: szAprsPath == " << szAprsPath << endl;
