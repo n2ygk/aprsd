@@ -40,6 +40,7 @@
 #include "constant.h"
 #include "utils.h"
 #include "cpqueue.h"
+#include "mutex.h"
 
 using namespace std;
 using namespace aprsd;
@@ -50,7 +51,15 @@ int CountDefault = 7;                   // Max of 7 instances of one call sign i
 extern cpQueue conQueue;
 extern bool ConvertMicE;
 
+Mutex mtxLog;
 
+
+int WriteLog(const string& sLog, const string& LogFile)
+{
+    WriteLog(sLog.c_str(), LogFile.c_str());
+
+    return 1;
+}
 //----------------------------------------------------------------------
 int WriteLog(const char *pch, const char *LogFile)
 {
@@ -59,27 +68,29 @@ int WriteLog(const char *pch, const char *LogFile)
     char szTime[40];
     char *p;
     int rc;
-    static pthread_mutex_t* pmtxLog;    // Mutual exclusion semi for WriteLog function
+    //static pthread_mutex_t* pmtxLog;    // Mutual exclusion semi for WriteLog function
+    Lock logLock(mtxLog, false);
     static bool logInit = false;
 
     char *cp = strdup(pch);             // Make local copy of input string.
 
     if (!logInit) {
-        pmtxLog = new pthread_mutex_t;
-        pthread_mutex_init(pmtxLog,NULL);
+        //pmtxLog = new pthread_mutex_t;
+        //pthread_mutex_init(pmtxLog,NULL);
         logInit = true;
         cout << "logger initialized\n";
     }
-    pthread_mutex_lock(pmtxLog);
+    //pthread_mutex_lock(pmtxLog);
+    logLock.get();
 
     char *pLogFile = new char[strlen(LOGPATH) + strlen(LogFile) +1];
-    strcpy(pLogFile,LOGPATH);
-    strcat(pLogFile,LogFile);
+    strcpy(pLogFile, LOGPATH);
+    strcat(pLogFile, LogFile);
 
-    f = fopen(pLogFile,"a");
+    f = fopen(pLogFile, "a");
 
     if (f == NULL)
-        f = fopen(pLogFile,"w");
+        f = fopen(pLogFile, "w");
 
     if (f == NULL) {
         cerr << "failed to open " << pLogFile << endl;
@@ -106,7 +117,8 @@ int WriteLog(const char *pch, const char *LogFile)
     free(cp);
     delete[] pLogFile;
     pLogFile = NULL;
-    pthread_mutex_unlock(pmtxLog);
+    //pthread_mutex_unlock(pmtxLog);
+    logLock.release();
 
     return(0);
 }

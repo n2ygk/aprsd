@@ -598,7 +598,8 @@ void SendToAllClients(TAprsString* p)
                     || (p->find("has connected") <= p->length())
                     || (p->find("Connection attempt failed") <= p->length())
                     || (p->find("has disconnected") <= p->length())
-                    || (p->find("Connected to") <= p->length()))) {
+                    || (p->find("Connected to") <= p->length())))
+            {
                 if (p->aprsType == APRSERROR) {
                     char *fubarmsg;
                     fubarmsg = new char[2049];
@@ -607,8 +608,7 @@ void SendToAllClients(TAprsString* p)
 
                     msg << "FUBARPKT " << p->srcHeader.c_str()
                         << " " << p->c_str()
-                        << endl
-                        << ends;
+                        << endl;
 
                     DBstring = "Write bad packet log";
 
@@ -622,15 +622,8 @@ void SendToAllClients(TAprsString* p)
     }
 
     DBstring = "Lock mutexes before send";
-    //if(pthread_mutex_lock(pmtxAddDelSess) != 0)
-    //    cerr << "Unable to lock pmtxAddDelSess - SendToAllClients.\n" << flush;
-
-    //if(pthread_mutex_lock(pmtxSend) != 0)
-    //    cerr << "Unable to lock pmtxSend - SendToAllClients.\n" << flush;
-
     addDelSessLock.get();
     sendLock.get();
-
     DBstring = "Mutexes locked for send";
 
     n = p->length();
@@ -662,7 +655,7 @@ void SendToAllClients(TAprsString* p)
 
                 rc = 0;
                 if (sessions[i].EchoMask & wantRAW) {  //User wants raw data?
-                    rc = send(sessions[i].Socket,p->raw.c_str(),nraw,0); //Raw data to clients
+                    rc = send(sessions[i].Socket,p->raw.c_str(), nraw, 0); //Raw data to clients
                 } else {
                     if ((p->reformatted == false)  // No 3rd party reformatted packets allowed
                             && (wantsrcheader == false) // This guy doesn't want the IP source header prepended
@@ -673,10 +666,9 @@ void SendToAllClients(TAprsString* p)
 
                     if (wantsrcheader) {// Append source header to aprs packets, duplicates ok.
                                         // Mostly for debugging the network
-                        rc = send(sessions[i].Socket,p->srcHeader.c_str(),nsh,0);
+                        rc = send(sessions[i].Socket,p->srcHeader.c_str(), nsh, 0);
                         if (rc != -1)
-                            rc = send(sessions[i].Socket,p->c_str(),n,0);
-
+                            rc = send(sessions[i].Socket, p->c_str(), n, 0);
                     }
                 }
 
@@ -686,7 +678,7 @@ void SendToAllClients(TAprsString* p)
                 if (rc == -1) {
                     if (errno == EAGAIN) {
                         sessions[i].overruns++;
-                        cerr << "Session overrun (" << sessions[i].userCall << ")" << ends << endl;
+                        cerr << "Session overrun (" << sessions[i].userCall << ")" << endl;
                     }
                     if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
                         sessions[i].EchoMask = 0;   // No more data for you!
@@ -694,35 +686,18 @@ void SendToAllClients(TAprsString* p)
                                                     // ...by thread that owns it.
                     }
                 } else {
-                    //if(pthread_mutex_lock(pmtxCount) != 0)
-                    //    cerr << "Unable to lock pmtxCount - SessionOverrun.\n" << flush;
                     countLock.get();
                     sessions[i].overruns = 0;       // Clear users overrun counter if he accepted packet
                     sessions[i].bytesOut += rc;     // Add these bytes to his bytesOut total
-
-                    //if(pthread_mutex_unlock(pmtxCount) != 0)
-                    //    cerr << "Unable to unlock pmtxCount - SessionOverrun.\n" << flush;
                     countLock.release();
                 }
-                //if(pthread_mutex_lock(pmtxCount) != 0)
-                //    cerr << "Unable to lock pmtxCount - SessionOverrun2.\n" << flush;
-
                 countLock.get();
                 ccount++;
                 countLock.release();
-
-                //if(pthread_mutex_unlock(pmtxCount) != 0)
-                //    cerr << "Unable to unlock pmtxCount - SessionOverrun2.\n" << flush;
             }
         }
     }
     DBstring = "SendToAllClients: out of loop";
-    //if(pthread_mutex_unlock(pmtxSend) != 0)
-    //    cerr << "Unable to unlock pmtxSend - SendToAllClients.\n" << flush;
-
-    //if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
-    //    cerr << "Unable to unlock pmtxAddDelSess - SendToAllClients.\n" << flush;
-
     sendLock.release();
     addDelSessLock.release();
     DBstring = "Unlock AddDelSess and Send Mutexes";
@@ -743,14 +718,9 @@ void SendToAllClients(TAprsString* p)
     }*/
 
     DBstring = "Lock pmtxCount for bytesSent increment";
-    //if(pthread_mutex_lock(pmtxCount) != 0)
-    //    cerr << "Unable to lock pmtxCount - SendToAlClients.\n" << flush;
     countLock.get();
     bytesSent += (n * ccount);
     countLock.release();
-    //if (pthread_mutex_unlock(pmtxCount) != 0)
-    //    cerr << "Unable to unlock pmtxCount - SendToAllClients.\n" << flush;
-
     DBstring = "Unlock pmtxCount after bytesSent increment";
 
     /*
@@ -795,7 +765,7 @@ void *DeQueue(void *)
 
     pidlist.InetQueue = getpid();
 
-    nice(-10);                        // Increase priority of this thread by
+    nice(-10);                          // Increase priority of this thread by
                                         // 10 (only works if run as root)
                                         // N5VFF - let's try it without this..
 
@@ -873,13 +843,7 @@ void *DeQueue(void *)
                 abuff->ttl = MaxAge;
                 DBstring = "Add item to history list - before";
 
-                //if(pthread_mutex_lock(pmtxCount) != 0)
-                //    cerr << "Unable to lock pmtxCount - DeQueue-AddHistoryItem.\n" << flush;
-
                 AddHistoryItem(abuff);  // Put item in history list.
-
-                //if(pthread_mutex_unlock(pmtxCount) != 0)
-                //    cerr << "Unable to unlock pmtxCount - DeQueue-AddHistoryItem.\n" << flush;
 
                 DBstring = "Add item to history list - after";
 
@@ -1002,24 +966,15 @@ void dequeueTNC(void)
             msg << "Sending to TNC: " << rfbuf << endl; //debug only
             conQueue.write(cp, 0);
 
-            //if (pthread_mutex_lock(pmtxCount) != 0)
-            //    cerr << "Unable to lock pmtxCount - SendToTNC." << endl;
             countLock.get();
             TotalTNCtxChars += strlen(rfbuf);
             countLock.release();
-            //if (pthread_mutex_unlock(pmtxCount) != 0)
-            //    cerr << "Unable to unlock pmtxCount - SendToTNC." << endl;
 
             if (!tncMute) {
                 if (abuff->reformatted) {
-                    //if (pthread_mutex_lock(pmtxCount) != 0)
-                    //    cerr << "Unable to lock pmtxCount - SendToTNC - Msg." << endl;
                     countLock.get();
                     msg_cnt++;
                     countLock.release();
-
-                    //if (pthread_mutex_unlock(pmtxCount) != 0)
-                    //    cerr << "Unable to unlock pmtxCount - SendToTNC - Msg." << endl;
 
                     memset(szUserMsg, '\0', MAX);
                     ostrstream umsg(szUserMsg, MAX-1);
@@ -1059,9 +1014,6 @@ int SendSessionStr(int session, const char *s)
     int rc, retrys;
     Lock sendLock(mtxSend, false);
 
-    //if (pthread_mutex_lock(pmtxSend) != 0)
-    //    cerr << "Unable to lock pmtxSend - SendSessionStr." << endl;
-
     sendLock.get();
     retrys = 0;
 
@@ -1074,8 +1026,6 @@ int SendSessionStr(int session, const char *s)
         }
     } while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
 
-    //if (pthread_mutex_unlock(pmtxSend) != 0)
-    //    cerr << "Unable to unlock pmtxSend - SendSessionStr.\n" << flush;
     sendLock.release();
     return(rc);
 }
@@ -1084,7 +1034,8 @@ int SendSessionStr(int session, const char *s)
 //-----------------------------------------------------------------------
 void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 {
-    char szLog[MAX], infomsg[MAX];
+    //char szLog[MAX];
+    char infomsg[MAX];
     string sLog;
     Lock sendLock(mtxSend, false);
     Lock countLock(mtxCount, false);
@@ -1092,8 +1043,6 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
     if (ShutDownServer)
         pthread_exit(0);
 
-    //if(pthread_mutex_lock(pmtxSend) != 0)
-    //    cerr << "Unable to lock pmtxSend - endSession.\n" << flush;
     sendLock.get();
     DeleteSession(session);             // remove it  from list
     if (shutdown(session, SHUT_RDWR) < 0) { // Close socket
@@ -1104,8 +1053,6 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
     }
 
     sendLock.release();
-    //if(pthread_mutex_unlock(pmtxSend) != 0)
-    //    cerr << "Unable to unlock pmtxSend - endSession.\n" << flush;
 
     {
         char* cp = new char[128];
@@ -1159,8 +1106,6 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         BroadcastString(infomsg);           // Say IP address of disconected client
 
     if (strlen(userCall) > 0) {
-        //if (pthread_mutex_lock(pmtxCount) != 0)
-        //    cerr << "Unable to lock pmtxCount - EndSession.\n" << flush;
         countLock.get();
         memset(infomsg, '\0', MAX);
         ostrstream msg(infomsg, MAX-1);
@@ -1175,8 +1120,6 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << "\r\n"
             << ends;
 
-        //if(pthread_mutex_unlock(pmtxCount) != 0)
-        //    cerr << "Unable to unlock pmtxCount - EndSession.\n" << flush;
         countLock.release();
         BroadcastString(infomsg);       // Say call sign of disconnected client
     }
@@ -2032,7 +1975,8 @@ void *TCPServerThread(void *p)
     unsigned i;
     SessionParams* session;
     pthread_t SessionThread;
-    struct sockaddr_in server,client;
+    struct sockaddr_in server;
+    struct sockaddr_in client;
     //int optval;
     ServerParams *sp = (ServerParams*)p;
 
@@ -2044,14 +1988,10 @@ void *TCPServerThread(void *p)
 
     sp->ServerSocket = s;
 
-    //optval = 1;                                 // Allow address reuse
-    //setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*)&optval, sizeof(int));
-    //setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, sizeof(int));
-
     // Let the kernel reuse the socket without waiting for the
     // port to time out.
     int reuse = 1;
-    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, (socklen_t)sizeof(reuse));
 
     //if (s == 0) {
     //    perror("TCPServerThread socket error");
@@ -2059,8 +1999,8 @@ void *TCPServerThread(void *p)
     //    return NULL;
     //}
 
-    memset(&server, '\0', sizeof(server));
-    memset(&client, '\0', sizeof(client));
+    memset(&server, 0, sizeof(server));
+    memset(&client, 0, sizeof(client));
 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
@@ -2079,13 +2019,13 @@ void *TCPServerThread(void *p)
     //    return NULL;
     //}
 
-    cout << "TCP Server listening on port " << sp->ServerPort << endl << flush;
+    cout << "TCP Server listening on port " << sp->ServerPort << endl;
 
     while (!configComplete)
         //reliable_usleep(100000);                // Wait till everything else is running.
         usleep(1000000);
 
-    listen(s, 2);
+    // listen(s, 2);
     // Listen for connections.
     if (listen(s, 2)) {
         char buf[100];
@@ -2136,7 +2076,7 @@ void *TCPServerThread(void *p)
         } else                                  // session will be deleted in TCPSession Thread
             pthread_detach(SessionThread);      // run session thread DETACHED!
 
-        memset(&client, '\0', sizeof(client));
+        memset(&client, 0, sizeof(client));
     }
     return(0);
 }
@@ -2260,11 +2200,46 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
     do {
         c = -1;
 
-        i = recv(sock, &c, 1, 0);       // get 1 byte into c
+        i = recv(sock, &c, 1, 0);   // get 1 byte into c
 
-        if (i == 0)
-            abort = true;               // recv returns ZERO when remote host disconnects
+        switch (i) {
+            case 0 :
+                abort = true;
 
+            case -1 :
+                *err = errno;
+                if ((*err != EWOULDBLOCK) || (ShutDownServer == true)) {
+                    BytesRead = 0;
+                    i = -2;
+                    abort = true;
+                }
+                usleep(1000000);
+
+                if (timeout-- <= 0) {
+                    i = 0;
+                    abort = true;           // Force exit if timeout
+                }
+
+            case 1 :
+                c &= 0x7f ;
+
+                bool cLFCR =  (( c == LF) || ( c == CR));   // TRUE if c is a LF or CR
+                bool rejectCH = (((BytesRead == 0) && cLFCR ) || (c == 0)) ;
+
+                if ((BytesRead < (n - 3)) && (rejectCH == false)) {
+                    // reject if LF or CR is first on line or it's a NULL
+                    if ((c >= 0x20) || (c <= 0x7e)) {
+                        buf[BytesRead] = (char)c;   // and discard data that runs off the end of the buffer
+                        BytesRead++;            // We have to allow 3 extra bytes for CR,LF,NULL
+                        timeout = timeoutMax;
+                    }
+                }
+        }
+
+/*        if ( i == 0) {
+        abort = true;               // recv returns ZERO when remote host disconnects
+
+        }
         if (i == -1) {
             *err = errno;
 
@@ -2300,12 +2275,12 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
                 }
             }
         }
-
+*/
     } while ((c != CR) && (c != LF) && (abort == false));   // Loop while c is not CR or LF
                                                             // And no socket errors or timeouts
 
     //cerr << "Bytes received=" << BytesRead << " abort=" << abort << endl;   //debug code
-    
+
     if ((BytesRead > 0) && (abort == false) ) {     // 1 or more bytes needed
         i = BytesRead -1 ;
         buf[i++] = (char)CR;            // make end-of-line CR-LF
@@ -2499,10 +2474,10 @@ void *TCPConnectThread(void *p)
 
         if (state == 2) {
             data = 1;                   // Set socket for non-blocking
-            ioctl(clientSocket, FIONBIO, (char*)&data); //, sizeof(int));
+            ioctl(clientSocket, FIONBIO, (char *)&data); //, sizeof(int));
 
             int optval = 1;             // Enable keepalive option
-            setsockopt(clientSocket, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, sizeof(int));
+            setsockopt(clientSocket, SOL_SOCKET, SO_KEEPALIVE, (char *)&optval, (socklen_t)sizeof(optval));
 
             /*
                 If user and password are supplied we will send our Internet user and TNC
@@ -2827,24 +2802,17 @@ int SendFiletoClient(int session, char *szName)
 {
     char Line[256];
     APIRET rc = 0;
-    int n,retrys;
+    size_t nbytes;
+    int retrys;
     int throttle;
-
-    //if(pthread_mutex_lock(pmtxSendFile) != 0)
-    //    cerr << "Unable to lock pmtxSendFile - SendFilteToClient.\n" << flush;
 
     ifstream file(szName);
 
     if (!file) {
         cerr << "Can't open " << szName << endl << flush;
-
-        //if(pthread_mutex_unlock(pmtxSendFile) != 0)
-        //    cerr << "Unable to unlock pmtxSendFile - SendFileToClient.\n" << flush;
-
         return(-1);
     }
-    //if(pthread_mutex_lock(pmtxSend) != 0)
-    //    cerr << "Unable to lock pmtxSend - SendFiletoClient.\n" << flush;
+
     do {
         file.getline(Line, 256);         // Read each line in file and send to client session
         if (!file.good())
@@ -2852,24 +2820,25 @@ int SendFiletoClient(int session, char *szName)
 
         if (strlen(Line) > 0) {
             strncat(Line, "\r\n", 256);
-            n = strlen(Line);
+            nbytes = strlen(Line);
             retrys = 0;
 
-            do {
-                rc = send(session, Line, n, 0);
-                throttle = n * 150;
+            //do {
+            //    rc = send(session, Line, nbytes, 0);
+            //    throttle = nbytes * 150;
                 //reliable_usleep(throttle);       // Limit max rate to about 50kbaud
-                usleep(throttle);
+            //    usleep(throttle);
 
-                if (rc < 0) {
+                //if (rc < 0) {
                     //reliable_usleep(100000);     // 0.1 sec between retrys
-                    usleep(100000);
-                    retrys++;
-                }
-            } while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
+                //    usleep(100000);
+                //    retrys++;
+                //}
+            //} while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
 
             //if (rc == -1) {
-            if (rc < 0) {
+            if ((size_t)send(session, Line, nbytes, 0) != nbytes) {
+            //if (rc < 0) {
                 perror("SendFileToClient()");
                 if (shutdown(session, SHUT_RDWR) < 0) { // Close socket
                     if (close(session) < 0) {           // Close socket, really
@@ -2877,21 +2846,11 @@ int SendFiletoClient(int session, char *szName)
                         throw SocketException(strerror_r(errno, buff, sizeof(buff)));
                     }
                 }
-
             }
-
         }
-
     } while (file.good() && (rc >= 0));
 
-    //if(pthread_mutex_unlock(pmtxSend) != 0)
-   //     cerr << "Unable to unlock pmtxSend - SendFiletoClient.\n" << flush;
-
     file.close();
-
-    //if(pthread_mutex_unlock(pmtxSendFile) != 0)
-    //    cerr << "Unable to unlock pmtxSendFile - SendFileToClient.\n" << flush;
-
     return(rc);
 }
 
@@ -3686,9 +3645,9 @@ void segvHandler(int signum)  //For debugging seg. faults
     gmt = NULL;
 
     data = 1;                           // Set socket for non-blocking
-    ioctl(sock,FIONBIO,(char*)&data); //,sizeof(int));
+    ioctl(sock, FIONBIO,(char*)&data); //,sizeof(int));
 
-    rc = recvline(sock,buf,BUFSIZE,&err, 10);  //10 sec timeout value
+    rc = recvline(sock, buf, BUFSIZE, &err, 10);  //10 sec timeout value
 
     if (rc<=0) {
         close(sock);
@@ -3705,7 +3664,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     char buf2[127];
 
     do {
-        n = recvline(sock,buf2,126,&err, 1);        // Discard everything else
+        n = recvline(sock, buf2, 126, &err, 1);        // Discard everything else
     } while (n > 0);
 
     if (n == -2) {
@@ -4090,7 +4049,7 @@ void segvHandler(int signum)  //For debugging seg. faults
                  usleep(1000000);
                  ecnt++;                         //...and bump the error counter.
             }
-       }while((rc == -1) && (ecnt < 5));         //Retry for 5 secs max.
+       } while((rc == -1) && (ecnt < 5));         //Retry for 5 secs max.
        */
 
     }
