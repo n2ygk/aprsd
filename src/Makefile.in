@@ -80,7 +80,7 @@ bin_PROGRAMS = aprsd
 aprsd_SOURCES = aprsd.cpp aprsd.h \
 		aprsString.cpp aprsString.h \
 		ax25socket.cpp ax25socket.h \
-		cpqueue.cpp cpqueu.h \
+		cpqueue.cpp cpqueue.h \
 		crc32.c crc.h \
 		dupCheck.cpp dupCheck.h \
 		aprsdexception.cpp aprsdexception.h \
@@ -100,7 +100,7 @@ aprsd_SOURCES = aprsd.cpp aprsd.h \
 
 INCLUDES = -I$(top_srcdir)/src
 subdir = src
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(SHELL) $(top_srcdir)/support/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 bin_PROGRAMS = aprsd$(EXEEXT)
@@ -123,7 +123,7 @@ DEFAULT_INCLUDES =  -I. -I$(srcdir) -I$(top_builddir)
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-depcomp = $(SHELL) $(top_srcdir)/depcomp
+depcomp = $(SHELL) $(top_srcdir)/support/depcomp
 am__depfiles_maybe = depfiles
 @AMDEP_TRUE@DEP_FILES = ./$(DEPDIR)/aprsString.Po ./$(DEPDIR)/aprsd.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/aprsdexception.Po \
@@ -155,7 +155,7 @@ all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .cpp .o .obj
-$(srcdir)/Makefile.in:  Makefile.am  $(top_srcdir)/configure.in $(ACLOCAL_M4)
+$(srcdir)/Makefile.in:  Makefile.am  $(top_srcdir)/configure.ac $(ACLOCAL_M4)
 	cd $(top_srcdir) && \
 	  $(AUTOMAKE) --gnu  src/Makefile
 Makefile:  $(srcdir)/Makefile.in  $(top_builddir)/config.status

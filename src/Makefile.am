@@ -3,7 +3,7 @@ bin_PROGRAMS = aprsd
 aprsd_SOURCES = aprsd.cpp aprsd.h \
 		aprsString.cpp aprsString.h \
 		ax25socket.cpp ax25socket.h \
-		cpqueue.cpp cpqueu.h \
+		cpqueue.cpp cpqueue.h \
 		crc32.c crc.h \
 		dupCheck.cpp dupCheck.h \
 		aprsdexception.cpp aprsdexception.h \

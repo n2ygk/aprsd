@@ -62,6 +62,7 @@ extern ULONG TotalTncChars;
 extern cpQueue charQueue;
 extern string MyCall;
 extern char* ComBaud;
+//extern bool TncSysopMode;         /*Set true when sysop wants direct TNC access */
 
 Mutex pmtxWriteTNC;
 

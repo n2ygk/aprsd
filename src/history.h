@@ -32,16 +32,16 @@ extern int dumpAborts;  //Number of history dumps aborted
 extern int ItemCount;   //number of items in History list
 
 void CreateHistoryList();
-bool AddHistoryItem(aprsString *hp);
-void DeleteHistoryItem(aprsString *hp);
+bool AddHistoryItem(aprsd::aprsString *hp);
+void DeleteHistoryItem(aprsd::aprsString *hp);
 int DeleteOldItems(int x);
-int DeleteItem(aprsString* ref);
-bool DupCheck(aprsString* ref, time_t t);
+int DeleteItem(aprsd::aprsString* ref);
+bool DupCheck(aprsd::aprsString* ref, time_t t);
 int SendHistory(int session,int em);
-int SaveHistory(const string& name);
-int ReadHistory(const string& name);
+int SaveHistory(const std::string& name);
+int ReadHistory(const std::string& name);
 bool StationLocal(const std::string& sp, int em);
-aprsString* getPosit(const std::string& call, int em);
+aprsd::aprsString* getPosit(const std::string& call, int em);
 bool timestamp(unsigned long sn, time_t t);
 int localCount();
 

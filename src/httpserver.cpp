@@ -45,7 +45,7 @@
 #include "utils.h"
 #include "constant.h"
 #include "history.h"
-#include "serialp.h"
+#include "serial.h"
 #include "aprsString.h"
 #include "validate.h"
 #include "queryResp.h"

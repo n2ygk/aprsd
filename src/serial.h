@@ -28,6 +28,8 @@
 
 #include "constant.h"
 
+extern bool TncSysopMode;
+
 bool AsyncReadWrite(char* buf);
 int AsyncOpen(const std::string& szPort, const std::string& TncBaud);
 int AsyncClose(void);

@@ -31,7 +31,7 @@
 
 #include "constant.h"
 
-using namespace std;
+
 
 #define MAXPKT 256
 #define MAXPATH 22    /* longest path we can parse */
@@ -112,6 +112,8 @@ using namespace std;
  static const int TTLSIZE = 5;      //Length of TTL or Internet Injection point string
 
  extern int ttlDefault;    //Make ttlDefault available to other modules
+namespace aprsd {
+using namespace std;
 
 class aprsString: public string
 {  
@@ -240,5 +242,5 @@ private:
     void constructorSetUp(const char *cp, int s, int e);
     bool AEAtoTAPR(string& s, string& rs);
 } ;
-
+}
 #endif      // APESSTRING_H

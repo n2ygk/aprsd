@@ -73,8 +73,6 @@
 #include <sys/wait.h>
 #include <errno.h>
 
-
-
 #include "dupCheck.h"
 #include "cpqueue.h"
 #include "utils.h"
@@ -84,7 +82,6 @@
 #include "aprsString.h"
 #include "validate.h"
 #include "queryResp.h"
-
 
 #include "aprsd.h"
 #include "servers.h"
@@ -137,6 +134,14 @@ void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -IN
         << outFile
         << endl;
 
+
+    //char *ShutDown = new char[255];
+    //strcpy(ShutDown, szServerCall);
+    //strcat(ShutDown, szJAVAMSG);
+    //strcat(ShutDown, MyLocation);
+    //strcat(ShutDown, " ");
+    //strcat(ShutDown, szServerID);
+    //strcat(ShutDown, " shutting down.  Bye.\r\n");
     string ShutDown = szServerCall;
     ShutDown += szJAVAMSG;
     ShutDown += MyLocation;
@@ -153,12 +158,17 @@ void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -IN
     nanosleep(&ts,NULL);
 
     if(tncPresent){
+        //char *pRestore = new char[CONFPATH.length() + TNC_RESTORE.length() + 1];
+        //strcpy(pRestore, CONFPATH.c_str());
+        //strcat(pRestore, TNC_RESTORE.c_str());
+
         string pRestore = CONFPATH;
         pRestore += TNC_RESTORE;
 
         AsyncSendFiletoTNC(pRestore.c_str());
 
         AsyncClose() ;
+        //delete pRestore;
     }
 
     ShutDownServer = true;
