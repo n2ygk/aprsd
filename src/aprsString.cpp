@@ -366,10 +366,6 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     if (stsmDest.length() != 9)
                         break;
 
-                    idx = stsmDest.find_first_of(RXwhite);
-                    if (idx != npos)
-                        stsmDest = stsmDest.substr(0, idx);
-
                     // Get the data portion
                     msgdata = data.substr(11, data.length());
 
@@ -415,6 +411,13 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                             //cout << "Query=" << query << " qidx=" << qidx << endl;  // debug
                         }
                     }
+
+                    // Strip trailing white spaces from stsmDest. If this is done
+                    // above, invalid messages are generated on RF (dest call must be
+                    // padded)
+                    idx = stsmDest.find_first_of(RXwhite);
+                    if (idx != npos)
+                        stsmDest = stsmDest.substr(0, idx);
 
                     break;
 
