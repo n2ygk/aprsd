@@ -297,14 +297,16 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             if (pathSize >= 1) {
                 ax25Source = ax25Path[0];           //AX25 Source
 
-                if (int nfind = ax25Source.find_first_of('}') <= ax25Source.length()) {
+                if (ax25Source.find_first_of("}") <= ax25Source.length()) {
+                    int nfind = ax25Source.find_first_of("}");
                     //cerr << "Found } in source at position: " << nfind << endl;
-                    ax25Source.erase(nfind);
+                    ax25Source.erase(nfind,1);
                 }
 
-                if (int nfind = ax25Source.find_first_of('*') <= ax25Source.length()) {
+                if (ax25Source.find_first_of("*") <= ax25Source.length()) {
+                    int nfind = ax25Source.find_first_of("*");
                     //cerr << "Found * in source at position: " << nfind << endl;
-                    ax25Source.erase(nfind);
+                    ax25Source.erase(nfind,1);
                 }
 
                 if ((ax25Source.length() > 10) || (ax25Source.length() < 3)) {
