@@ -31,6 +31,8 @@
 #include "config.h"
 #endif
 
+#ifdef WITH_AX25 // if no AX25, do nothing
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/poll.h>
@@ -174,7 +176,6 @@ bool SocketReadWrite (char buf[])
     int asize;
     int result;
     int size;
-    int x;
     unsigned char rxbuf[1500];
     unsigned char *textbuf;
 
@@ -183,8 +184,6 @@ bool SocketReadWrite (char buf[])
     do {
 
         if (txrdy) {          //Check for data to Transmit
-            size_t len = strlen (tx_buffer);
-
             sendto(tx_socket, tx_buffer, strlen(tx_buffer), 0, 
                 (struct sockaddr *)&tx_dest, tx_dest_len);
             txrdy = 0;      //Indicate we sent it.
@@ -239,7 +238,6 @@ bool SocketReadWrite (char buf[])
 void fmt (const unsigned char *buf, int len, unsigned char **outbuf)
 {
     static unsigned char buf1[1000];
-    int l1, l2;
     char from[10], to[10], digis[100];
     int i, hadlast, l;
     char tmp[15];
@@ -315,11 +313,6 @@ char * pax25 (char *buf, const unsigned char *data)
     for (i = 0; i < ALEN; i++) {
 	c = (data[i] >> 1) & 0x7F;
 
-	if (!isalnum (c) && c != ' ') {
-	    strcpy (buf, "[invalid]");
-	    return buf;
-	}
-
 	if (c != ' ')
 	    *s++ = c;
     }
@@ -331,3 +324,6 @@ char * pax25 (char *buf, const unsigned char *data)
 
     return (buf);
 }
+
+#endif // WITH_AX25
+
