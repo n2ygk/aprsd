@@ -689,7 +689,8 @@ int ReadHistory(char *name)
     int icount = 0;
     int expiredCount = 0;
     int ttl,EchoMask,aprsType;
-    char *data = new char[256];
+    char *data = new char[257];
+    memset(data, NULLCHR, sizeof(&data));
     time_t now, timestamp;
 
     ifstream hf(name);                  // Create ifstream instance "hf" and open the input file
@@ -699,7 +700,7 @@ int ReadHistory(char *name)
         while (hf.good()) {
             hf >> ttl  >> timestamp >> EchoMask >> aprsType;
             hf.get();                   // skip 1 space
-            hf.get(data,252,'\r');      // read the rest of the line as a char string
+            hf.get(data, 252, '\r');      // read the rest of the line as a char string
             int i = strlen(data);
 
             data[i++] = '\r';
@@ -731,8 +732,8 @@ int ReadHistory(char *name)
         hf.close();
     }
 
-    delete data;
-    cout << "Read " << icount+expiredCount << "  items from " << name  << endl;
+    delete[] data;
+    cout << "Read " << icount + expiredCount << "  items from " << name  << endl;
 
     if (expiredCount)
         cout << "Ignored " << expiredCount

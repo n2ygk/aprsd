@@ -68,22 +68,25 @@ void queryResp(int session, const TAprsString* pkt)
     int h_err;
 
     TAprsString *rfpacket, *ackRFpacket;
-    char* hostname = new char[80];
+    char* hostname = new char[81];
+    memset(hostname, NULLCHR, sizeof(&hostname));
     unsigned char hip[5];
-    char* cp = new char[256];
-    char* cpAck = new char[256];
-    ostrstream reply(cp,256);
-    ostrstream ack(cpAck,256);
+    char* cp = new char[257];
+    memset(cp, NULLCHR, sizeof(&cp));
+    char* cpAck = new char[257];
+    memset(cpAck, NULLCHR, sizeof(&cpAck));
+    ostrstream reply(cp, 256);
+    ostrstream ack(cpAck, 256);
     bool wantAck = false;
 
-    for (int i=0;i<4;i++)
+    for (int i = 0; i < 4; i++)
         hip[i] = 0;
 
     // Get hostname and host IP
-    rc = gethostname(hostname,80);
+    rc = gethostname(hostname, 80);
 
     if (rc != 0)
-        strcpy(hostname,"Host_Unknown");
+        strcpy(hostname, "Host_Unknown");
     else {
 	if(pthread_mutex_lock(pmtxDNS) != 0)
 	    cerr << "Unable to lock pmtxDNS - queryResp.\n" << flush;
@@ -98,8 +101,8 @@ void queryResp(int session, const TAprsString* pkt)
 	if(pthread_mutex_unlock(pmtxDNS) != 0)
 	    cerr << "Unable to unlock pmtxDNS - queryResp.\n" << flush;
         if (h != NULL) {
-            strncpy(hostname,h->h_name,80);             // Full host name
-            strncpy((char*)hip,h->h_addr_list[0],4);    // Host IP
+            strncpy(hostname, h->h_name, 80);             // Full host name
+            strncpy((char*)hip, h->h_addr_list[0], 4);    // Host IP
         }
     }
 
@@ -140,11 +143,13 @@ void queryResp(int session, const TAprsString* pkt)
     // Now build the query specfic packet(s)
 
     if (pkt->query.compare("IGATE") == 0) {
-	if(pthread_mutex_lock(pmtxCount) != 0)
-	    cerr << "Unable to lock pmtxCount - queryresp-queryCounter.\n" << flush;
+        if(pthread_mutex_lock(pmtxCount) != 0)
+            cerr << "Unable to lock pmtxCount - queryresp-queryCounter.\n" << flush;
+
         queryCounter++;                 // Count this query
-	if(pthread_mutex_unlock(pmtxCount) != 0)
-	    cerr << "Unable to unlock pmtxCount - queryresp-queryCounter.\n" << flush;
+
+        if(pthread_mutex_unlock(pmtxCount) != 0)
+            cerr << "Unable to unlock pmtxCount - queryresp-queryCounter.\n" << flush;
 
         reply << szServerCall << szAPRSDPATH << ":"
             << sourceCall << ":"

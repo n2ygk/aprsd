@@ -244,7 +244,8 @@ void* cpQueue::read(int *ip)
     inRead = 0;
 
     if(pthread_mutex_unlock(pmtxQ) != 0)
-    	cerr << "Unable to unlock pmtxQ - cpQueue:read - int.\n" << flush;
+        cerr << "Unable to unlock pmtxQ - cpQueue:read - int.\n" << flush;
+
     return(cp);
 }
 
@@ -254,14 +255,16 @@ int cpQueue::ready(void)
 {
     int rc=false;
     if(pthread_mutex_lock(pmtxQ) != 0)
-    	cerr << "Unable to lock pmtxQ - cpQueue:ready.\n" << flush;
+        cerr << "Unable to lock pmtxQ - cpQueue:ready.\n" << flush;
+
     //if ((read_p != write_p) || wrap) rc = true ;
 
     if(base_p[read_p].rdy)
         rc = true;
 
     if(pthread_mutex_unlock(pmtxQ) != 0)
-    	cerr << "Unable to unlock pmtxQ - cpQueue:ready.\n" << flush;
+        cerr << "Unable to unlock pmtxQ - cpQueue:ready.\n" << flush;
+
     return(rc);
 
 }
@@ -280,10 +283,12 @@ int cpQueue::getItemsQueued(void)
 {
     int inq;
     if(pthread_mutex_lock(pmtxQ) != 0)
-    	cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+        cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+
     inq = itemsQueued;
     if(pthread_mutex_unlock(pmtxQ) != 0)
-    	cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+        cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+
     return(inq);
 }
 
@@ -291,12 +296,12 @@ int cpQueue::getHWItemsQueued(void)
 {
     int HWinq;
     if(pthread_mutex_lock(pmtxQ) != 0)
-    	cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+        cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+
     HWinq = HWitemsQueued;
     if(pthread_mutex_unlock(pmtxQ) != 0)
-    	cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+        cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+
     return(HWinq);
 }
-
-
 

@@ -71,6 +71,7 @@ int WriteLog(const char *pch, const char *LogFile)
     pthread_mutex_lock(pmtxLog);
 
     char *pLogFile = new char[strlen(LOGPATH) + strlen(LogFile) +1];
+    memset(pLogFile, NULLCHR, sizeof(&pLogFile));
     strcpy(pLogFile,LOGPATH);
     strcat(pLogFile,LogFile);
 
@@ -141,6 +142,7 @@ bool CmpDest(const char *line, const char *ref)
 {
     bool rv = false;
     char *cp = new char[strlen(ref)+3];
+    memset(cp, NULLCHR, sizeof(&cp));
     strcpy(cp,">");
     strcat(cp,ref);
     strcat(cp,",");
@@ -148,7 +150,7 @@ bool CmpDest(const char *line, const char *ref)
     if (strstr(line,cp) !=	NULL)
         rv = true;
 
-    delete cp;
+    delete[] cp;
     return(rv);
 }
 //----------------------------------------------------------------------
@@ -158,7 +160,8 @@ bool CmpPath(const char *line, const char *ref)
 {
     bool rv = false;
     char *cp = new char[strlen(line)+1];
-    strcpy(cp,line);
+    memset(cp, NULLCHR, sizeof(&cp));
+    strcpy(cp, line);
     char *path_end = strchr(cp,':');    // find colon
 
     if (path_end != NULL) {
@@ -167,7 +170,7 @@ bool CmpPath(const char *line, const char *ref)
             rv = true;
     }
 
-    delete cp;
+    delete[] cp;
     return(rv);
 }
 
@@ -294,7 +297,8 @@ void RemoveCtlCodes(char *cp)
 
     temp[j] = ucp[i];                   // copy terminating NULL
     strcpy(cp,(char*)temp);             // copy result back to original
-    delete temp;
+    delete[] temp;
+    delete[] ucp;
 }
 
 
@@ -317,7 +321,8 @@ void makePrintable(char *cp) {
 
     temp[j] = ucp[i];                   // copy terminating NULL
     strcpy(cp,(char*)temp);             // copy result back to original
-    delete temp;
+    delete[] temp;
+    delete[] ucp;
 }
 
 void removeHTML(string& sp) {
@@ -457,8 +462,8 @@ int stricmp(const char* szX, const char* szY)
     b[i]='\0';
 
     int rc = strcmp(a,b);
-    delete a;
-    delete b;
+    delete[] a;
+    delete[] b;
     return(rc);
 }
 
