@@ -1,0 +1,155 @@
+# $Id$
+
+README
+  ------------------------------------------------------------------------
+
+     Please at least SKIM this document before asking questions. In fact,
+     READ IT if you've never successfully set up aprsd before. PLEASE!
+     READ IT! If you haven't read this file, and ask for help
+     expect to be told to READ the README file first! or rtfm :)
+
+     Contents
+
+     0    Important notice
+     1    What is aprsd?
+     2    How do I get aprsd
+     2a   CVS usage
+     3    Quick startup
+     4    Upgrading
+     5    Boring legal stuff
+     6    Mailing list
+     7    Documentation
+     8    Obtaining help
+
+  ------------------------------------------------------------------------
+
+     (0) NOTICE
+
+          Please read this file carefully before trying to set up Xastir.
+          This software was developed to be used by licensced amateur radio
+          operators.  You are responsible for any information transmitted
+          or propogated on any network.
+
+     (1) WHAT IS APRSD?
+
+          APRSd is an APRS server program that uses amateur radio and internet
+          services to convey GPS mapping, weather, and positional data.  
+          It has been developed by and for amateur radio enthusiasts to provide 
+          real-time data in an easy to use package.
+
+          APRSd is an open-source project: Most sources, documentation, and
+          binaries are available under the GPL license, with a few modules
+          available under other open-source or public domain licenses.
+
+     (2) HOW TO GET APRSD
+
+          Currently, the 2.2.x tree of aprsd is developed at
+          <http://sourceforge.net/projects/aprsd/>
+          You can get the latest version of aprsd from there.
+
+     (2a) CVS USAGE
+
+          You might obtain the *very latest* version of aprsd that
+          is still under development by using CVS. CVS means
+          'Concurrent Versions System' and is a tool for developers to
+          always keep source code up to date. Try 'man cvs' on your
+          shell for more information about CVS ;-)
+
+          This intended only for users that know a fair bit about
+          aprsd. Be aware that the versions of aprsd that you get
+          by CVS are still being developed, and may be buggy. The
+          aprsd devteam will in *NO WAY* take any responsibility for
+          whatever might happen to you or your computer if you use a
+          CVS version of aprsd.
+
+          To obtain aprsd over CVS, go to the aprsd project page
+          at SourceForge:  <http://sourceforge.net/projects/aprsd/>,
+          Click on CVS, then follow the instructions listed.
+
+          Notes:
+
+               (1) you can 'cvs logout', but you don't need to.
+               (2) you don't need to go through this whole
+               process every time; if you want to get a CVS
+               version of aprsd at a later time, you can just
+               'cd ~/<aprsd-source-dir>' and type 'cvs update -A'.
+               (3) if you experience errors when using 'export',
+               you might be using tclsh or csh as a shell. If so,
+               try using the command 'setenv' instead of 'export':
+               'setenv CVSROOT
+
+     (3) QUICK STARTUP
+
+           *** ToDo ***
+
+     (4) UPGRADING
+
+           *** ToDo ***
+
+     (5) BORING LEGAL STUFF
+
+          APRSd is Copyright © by Dale A. Heatherington, WA4DSY. 
+          APRSd is distributed according to the GNU General Public
+          License. There should be a copy of this license in the
+          file COPYING. If not, write to the Free Software
+          Foundation, Inc., 675 Mass Ave, Cambridge, MA
+          02139, USA.
+
+          As of aprsd 2.2.0 all changes made by the aprsd
+          development team to the aprsd source code and any related
+          files are Copyright © 2002-2003 by The Xastir Group. The source
+          code will still be distributed according to the GNU General
+          Public License as Dale A. Heatherington did in the past.
+
+          There is no warranty, implied or whatever. You use this
+          software at your own risk, no matter what purpose you put
+          it to.
+
+          You didn't pay for it, so don't expect magic.
+
+     (6) MAILING LIST
+
+          There are currently a couple of mailing lists about aprsd.
+          aprsd-users@lists.sourceforge.net is the one relevant for 
+          posts about Xastir 2.2.x and up (and bug fixes, and 
+          suggestions, etc).
+
+          To subscribe to the aprsd mailing list, send email to:
+          aprsd-users-request@lists.sourceforge.net In the body of the 
+          message, put "subscribe aprsd-users"; or go to
+          http://lists.sourceforge.net/lists/listinfo/aprsd-users
+
+          Please, before posting to this list, see what things are
+          like, and when you do post, read over your post for
+          readability, spelling, and grammar mistakes. Obviously,
+          we're all human (or are we?) and we all make mistakes (heck,
+          look at this document! ;).
+
+          Open discussion and debate is integral to change and
+          progress. Don't flame others over mere form (grammar and
+          spelling), or even substantive issues either for that
+          matter. Please read and follow the mailing list rules.
+
+          The aprsd-users@lists.sourceforge.net maillist is dedicated to 
+          Bug reports, technical questions, your thoughts or suggestions 
+          on new features being added to Xastir, things that should be 
+          removed or fixed, amazing problems that even stump the guru's, 
+          etc... are what we want to see here.
+
+     (7) DOCUMENTATION
+
+          We're trying to keep the documentation up to date. If you
+          feel that anything is missing here, or that anything should
+          be added etc, please email aprsd-users@lists.sourceforge.net 
+          about it, thank you.
+
+     (10) OBTAINING HELP
+
+          Please read the file FAQ, and make sure you've followed any relevant
+          instructions in this document. If the problem still exists, feel free
+          to ask on the aprsd mailing list, as described above.
+
+
+  ------------------------------------------------------------------------
+(c) 1997 by Dale A. Heatherington, WA4DSY
+(c) 2002-2003 The APRSd DevTeam
