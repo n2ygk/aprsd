@@ -33,6 +33,7 @@
 #include <list>
 #include <iomanip>
 
+#include "aprsd.hpp"
 #include "osdep.hpp"
 #include "servers.hpp"
 #include "mutex.hpp"
@@ -219,8 +220,12 @@ void buildPage(StringList& htmlpage)
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">HTTP Access Counter</TD><TD>" << webCounter << "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">IGATE Queries</TD><TD>" << queryCounter << "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Server Version</TD><TD>" << VERS << "</TD></TR>\n"
-        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Sysop email</TD><TD><A HREF=\"mailto:" << MyEmail << "\">" << fixEmail(MyEmail) << "</A></TD></TR>\n"
-        << "</TABLE><BR />\n";
+        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Sysop email</TD><TD><A HREF=\"mailto:" << MyEmail << "\">" << fixEmail(MyEmail) << "</A></TD></TR>\n";
+        
+        if (httpStats)
+            stats << "<tr valign=\"baseline\" bgcolor=\"#CCCCCC\"><td bgcolor=\"#CCCCFF\" colspan=2 align=center><a href=\"" << httpStatsLink << "\">Server Stats</a></td></tr>\n";
+        
+        stats << "</TABLE><BR />\n";
 
 
     countLock.release();

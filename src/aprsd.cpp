@@ -3,7 +3,7 @@
  *
  * aprsd, Automatic Packet Reporting System Daemon
  * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001-2002 aprsd Dev Team
+ * Copyright (C) 2001-2004 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -126,6 +126,9 @@ const string APRSD_INIT("INIT.APRSD");
 const string SAVE_HISTORY("history.txt");
 const string USER_DENY("user.deny");
 string logDir;
+bool httpStats;
+string httpStatsLink;
+
 //----------------------------------------------------------------------
 
 void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -INT aprsd) */
@@ -164,17 +167,12 @@ void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -IN
     nanosleep(&ts,NULL);
 
     if (tncPresent) {
-        //char *pRestore = new char[CONFPATH.length() + TNC_RESTORE.length() + 1];
-        //strcpy(pRestore, CONFPATH.c_str());
-        //strcat(pRestore, TNC_RESTORE.c_str());
-
         string pRestore = CONFPATH;
         pRestore += TNC_RESTORE;
 
         rfSendFiletoTNC(pRestore);
 
         AsyncClose() ;
-        //delete pRestore;
     }
 
     ShutDownServer = true;
@@ -210,13 +208,6 @@ int serverConfig(const string& configFile)
     posit_rfcall_idx = 0;
     stsmDest_rfcall_idx = 0;
 
-    //for (int i = 0; i < MAXRFCALL; i++) {
-    //  cout << "serverConf: line 214" << endl;
-    //    rfcall[i] = "";//string("");         //clear the rfcall arrays
-    //  cout << "serverConf: line 216" << endl;
-    //    posit_rfcall[i] = "";//string("");
-    //    stsmDest_rfcall[i] = "";//string("");
-    //}
     try {
         cout << "Reading " << configFile << endl;
         ConfigFile cf(configFile);
@@ -467,8 +458,12 @@ int serverConfig(const string& configFile)
         traceMode = (trim(cs["trace"]) == "yes" ? true : false );   // Full Internet path tracing
         ConvertMicE = (trim(cs["convertmice"]) == "yes" ? true : false );
         APRS_PASS_ALLOW = (trim(cs["allowaprspass"]) == "yes" ? true : false );
-        cerr << "config: aprs_pass_allow == " << (APRS_PASS_ALLOW ? " true " : " false ") << endl;
 
+        httpStats = (trim(cs["serverstats"]) == "yes" ? true : false);
+        if (httpStats) {
+            httpStatsLink = trim(cs["serverstatslink"]);
+            cout << "Using HTTP Stats Page at: " << httpStatsLink << endl;
+        }
 
 
         // IGATE Section
@@ -514,7 +509,6 @@ int serverConfig(const string& configFile)
         ackRepeatTime = mc;
 
         igateMyCall = (trim(cs["igatemycall"]) == "yes" ? true : false );
-        cout << "serverConf: line 515" << endl;
         vec = split(trim(cs["gatetorf"]), ",");
         if (vec[0].size() > 0) {
             vector<string>::iterator it = vec.begin();

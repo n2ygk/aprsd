@@ -62,6 +62,8 @@ extern const std::string SAVE_HISTORY;
 extern const std::string USER_DENY;
 
 extern std::string logDir;
+extern bool httpStats;
+extern std::string httpStatsLink;
 
 
 
