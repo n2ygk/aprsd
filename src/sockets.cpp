@@ -91,15 +91,20 @@ int SocketOpen (char *rfport, char *destcall)
 {
     char* portcall;
 
+    if (destcall == NULL) {
+        cerr << "aprsd: no APRSPATH specified, required for sockets" << endl;
+        return 1;
+    }
+
     /* Open network sockets here */
 
     ax25port = strdup(rfport);
 
     if (ax25_config_load_ports() == 0)
-        cerr << "aprsmon: no AX.25 port data configured" << endl;
+        cerr << "aprsd: no AX.25 port data configured" << endl;
 
     if ((ax25dev = ax25_config_get_dev(ax25port)) == NULL) {
-        cerr << "aprsmon: invalid port name - " << ax25port << endl;
+        cerr << "aprsd: invalid port name - " << ax25port << endl;
         return 1;
     }
 
