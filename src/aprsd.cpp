@@ -638,7 +638,7 @@ void SendToAllClients(TAprsString* p)
                     if (rc == -1) {
                         if (errno == EAGAIN) {
                             sessions[i].overruns++;
-                            cerr << "Session overrun (" << sessions[i].userCall << ends << endl;
+                            cerr << "Session overrun (" << sessions[i].userCall << ")" << ends << endl;
                         }
                         if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
                             sessions[i].EchoMask = 0;   // No more data for you!
@@ -1495,6 +1495,7 @@ void *TCPSessionThread(void *p)
                     } else {
                         cerr << "Ignored IGATE query from " << atemp.ax25Source << ends << endl;
                     }
+
                     if ((respondToAprsdQueries) && (stricmp(szServerCall.c_str(), atemp.stsmDest.c_str()) == 0)
                             && (stricmp("aprsd", atemp.stsmDest.c_str()) == 0))  {
                         queryResp(session, &atemp);  // Yes, respond.
