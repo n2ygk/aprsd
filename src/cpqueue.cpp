@@ -53,7 +53,7 @@ cpQueue::cpQueue(int n, bool d)
     write_p = 0;
     read_p = 0;
     itemsQueued = 0;
-    HWitemsQueued = 0;
+    HWItemsQueued = 0;
     pmtxQ = new pthread_mutex_t;
     pthread_mutex_init(pmtxQ,NULL);
     lock = 0;
@@ -110,8 +110,8 @@ int cpQueue::write(char *cp, int n)
         base_p[idx].rdy = TRUE;         // Set the ready flag
         idx++;
         itemsQueued++;
-	if (itemsQueued > HWitemsQueued)
-	    HWitemsQueued = itemsQueued;
+	if (itemsQueued > HWItemsQueued)
+	    HWItemsQueued = itemsQueued;
 
         if (idx >= size)
             idx = 0;
@@ -194,6 +194,8 @@ int cpQueue::write(TAprsString* cs, int n)
         base_p[idx].qcmd = n;           // put int (cmd) on queue
         base_p[idx].rdy = TRUE;         // Set the ready flag
         itemsQueued++;
+	if (itemsQueued > HWItemsQueued)
+	    HWItemsQueued = itemsQueued;
         idx++;
 
         if (idx >= size)
@@ -297,10 +299,21 @@ int cpQueue::getHWItemsQueued(void)
     int HWinq;
     if(pthread_mutex_lock(pmtxQ) != 0)
     	cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
-    HWinq = HWitemsQueued;
+    HWinq = HWItemsQueued;
     if(pthread_mutex_unlock(pmtxQ) != 0)
     	cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
     return(HWinq);
+}
+
+int cpQueue::getQueueSize(void)
+{
+    int Qsize;
+    if(pthread_mutex_lock(pmtxQ) != 0)
+    	cerr << "Unable to lock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+    Qsize = size;
+    if(pthread_mutex_unlock(pmtxQ) != 0)
+    	cerr << "Unable to unlock pmtxQ - cpQueue:getItemsQueued.\n" << flush;
+    return(Qsize);
 }
 
 

@@ -606,7 +606,7 @@ int SendHistory(int session, int em)
                     }
                     retrys++;
                 } else
-                    if (throttle > 7.5) {   // max speed of about 1mbaud
+                    if (throttle > 30) {   // max speed of about 250kbaud
                         throttle = throttle * 0.98;     // Speed up 2%
                     }
 

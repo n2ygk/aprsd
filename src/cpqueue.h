@@ -43,7 +43,7 @@ class cpQueue
 public:
     int overrun;			// times queue has overrun
     int itemsQueued;			// number of items currently in queue
-    int HWitemsQueued;			// HighWater mark for queue
+    int HWItemsQueued;			// HighWater mark for queue
     cpQueue(int n, bool d);             // fifo Queue constructor
     ~cpQueue(void);                     // destructor
 
@@ -60,6 +60,7 @@ public:
     int getReadPtr(void);
     int getItemsQueued(void);
     int getHWItemsQueued(void);
+    int getQueueSize(void);
 
 private:
     queueData *base_p;

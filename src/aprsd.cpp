@@ -504,7 +504,7 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
         if(pthread_mutex_lock(pmtxAddDelSess) != 0)
             cerr << "Unable to lock pmtxAddDelSess - AddSessionInfo.\n" << flush;
 
-        if(pthread_mutex_lock(pmtxSend) != 0)    //N5VFF testing
+        if(pthread_mutex_lock(pmtxSend) != 0) 
             cerr << "Unable to lock pmtxSend - AddSessionInfo.\n" << flush;
 
         DBstring = "AddSessionInfo - top of loop";
@@ -520,7 +520,7 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
         }
         DBstring = "AddSessionInfo - out of loop";
 
-        if(pthread_mutex_unlock(pmtxSend) != 0)      // N5VFF testing
+        if(pthread_mutex_unlock(pmtxSend) != 0)   
             cerr << "Unable to unlock pmtxSend - AddSessionInfo.\n" << flush;
 
         if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
@@ -762,7 +762,7 @@ void *DeQueue(void *)
 
     //nice(-10);                        // Increase priority of this thread by
                                         // 10 (only works if run as root)
-                                        // n5VFF - let's try it without this..
+                                        // N5VFF - let's try it without this..
 
     while (!ShutDownServer) {
         DBstring = "Top of DeQueue thread main loop";
@@ -3639,11 +3639,12 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>TAprsString Objects</TD><TD>" << TAprsString::getObjCount() << "</TD></TR>\n"
         << "<TR><TD>Frame Count</TD><TD>" << frame_cnt << "</TD></TR>\n"
         << "<TR><TD><a href=\"http://first.aprs.net/aprsd/badpacket.log\">Frame Errors</a></TD><TD>" << error_cnt << "</TD></TR>\n"
-        << "<TR><TD>Items in InetQ</TD><TD>" << sendQueue.getItemsQueued() << "</TD></TR>\n"
-        << "<TR><TD>InetQ overflows</TD><TD>" << sendQueue.overrun << "</TD></TR>\n"
-        << "<TR><TD>TncQ overflows</TD><TD>" << tncQueue.overrun << "</TD></TR>\n"
-        << "<TR><TD>ConQ overflows</TD><TD>" << conQueue.overrun << "</TD></TR>\n"
-        << "<TR><TD>charQ overflows</TD><TD>" << charQueue.overrun << "</TD></TR>\n"
+// Commented out for experimental report below
+//        << "<TR><TD>Items in InetQ</TD><TD>" << sendQueue.getItemsQueued() << "</TD></TR>\n"
+//        << "<TR><TD>InetQ overflows</TD><TD>" << sendQueue.overrun << "</TD></TR>\n"
+//        << "<TR><TD>TncQ overflows</TD><TD>" << tncQueue.overrun << "</TD></TR>\n"
+//        << "<TR><TD>ConQ overflows</TD><TD>" << conQueue.overrun << "</TD></TR>\n"
+//        << "<TR><TD>charQ overflows</TD><TD>" << charQueue.overrun << "</TD></TR>\n"
         << "<TR><TD>History dump aborts</TD><TD>" << dumpAborts << "</TD></TR>\n"
         << "<TR><TD>HTTP Access Counter</TD><TD>" << webCounter << "</TD></TR>\n"
         << "<TR><TD>?IGATE? Querys</TD><TD>" << queryCounter << "</TD></TR>\n"
@@ -3662,6 +3663,65 @@ void segvHandler(int signum)  //For debugging seg. faults
     strcpy(html2send[idx],htmlbuf);                //copy data
     idx++;                                         //increment index 
     
+    // Experimental Queue report
+
+    // build the header
+    char queueheader[] =
+
+               "<P><TABLE BORDER=2 BGCOLOR=\"#C0C0C0\"><TR BGCOLOR=\"#FFD700\">"
+               "<TH COLSPAN=10>Internal Queue Report</TH></TR>"
+               "<TR><TH>Name</TH><TH>Items</TH><TH>HWmark</TH><TH>Size</TH><TH>Overflows</TH></TR>";
+
+    
+    html2send[idx] = new char[strlen(queueheader)+1];
+    strcpy(html2send[idx],queueheader);
+    idx++;
+
+// now build the individual queue stat lines
+
+    ostrstream qstats(htmlbuf, HTMLSIZE-1);
+    string bgcolor = "\"#C0C0C0\"";
+
+
+
+    qstats << "<TR ALIGN=center BGCOLOR=" << bgcolor << ">"
+        << "<TD>" << "Inet" << "</TD>"
+        << "<TD>" << sendQueue.getItemsQueued() << "</TD>"
+        << "<TD>" << sendQueue.getHWItemsQueued() << "</TD>"
+        << "<TD>" << sendQueue.getQueueSize() << "</TD>"
+        << "<TD>" << sendQueue.overrun << "</TD>"
+        << "</TR>\n"
+        << "<TR ALIGN=center BGCOLOR=" << bgcolor << ">"
+        << "<TD>" << "TNC" << "</TD>"
+        << "<TD>" << tncQueue.getItemsQueued() << "</TD>"
+        << "<TD>" << tncQueue.getHWItemsQueued() << "</TD>"
+        << "<TD>" << tncQueue.getQueueSize() << "</TD>"
+        << "<TD>" << tncQueue.overrun << "</TD>"
+        << "</TR>\n"
+        << "<TR ALIGN=center BGCOLOR=" << bgcolor << ">"
+        << "<TD>" << "Con" << "</TD>"
+        << "<TD>" << conQueue.getItemsQueued() << "</TD>"
+        << "<TD>" << conQueue.getHWItemsQueued() << "</TD>"
+        << "<TD>" << conQueue.getQueueSize() << "</TD>"
+        << "<TD>" << conQueue.overrun << "</TD>"
+        << "</TR>\n"
+        << "<TR ALIGN=center BGCOLOR=" << bgcolor << ">"
+        << "<TD>" << "Char" << "</TD>"
+        << "<TD>" << charQueue.getItemsQueued() << "</TD>"
+        << "<TD>" << charQueue.getHWItemsQueued() << "</TD>"
+        << "<TD>" << charQueue.getQueueSize() << "</TD>"
+        << "<TD>" << charQueue.overrun << "</TD>"
+        << "</TR>\n"
+	<< "</TABLE>"
+        << ends;
+
+            
+     if(idx < HSIZE){
+         html2send[idx] = new char[strlen(htmlbuf)+1];
+         strcpy(html2send[idx],htmlbuf);
+         idx++;
+    }
+
     // Now send the Igate connection report.
 
     char igateheader[] =
@@ -3778,6 +3838,9 @@ void segvHandler(int signum)  //For debugging seg. faults
     if(pthread_mutex_lock(pmtxAddDelSess) != 0)		// comment this out to allow viewing if mutex is locked
         cerr << "Unable to lock pmtxAddDelSess HTTPStats4- .\n" << flush;
                 
+    if(pthread_mutex_lock(pmtxSend) != 0)
+        cerr << "Unable to lock pmtxSend - HTTPStats4.\n" << flush;
+
     if(pthread_mutex_lock(pmtxCount) != 0)
         cerr << "Unable to lock pmtxCount - HTTPStats4.\n" << flush;
     
@@ -3864,6 +3927,9 @@ void segvHandler(int signum)  //For debugging seg. faults
     
     if(pthread_mutex_unlock(pmtxCount) != 0)
         cerr << "Unable to unlock pmtxCount - HTTPStats4.\n" << flush;
+
+    if(pthread_mutex_unlock(pmtxSend) != 0)
+        cerr << "Unable to unlock pmtxSend - HTTPStats4.\n" << flush;
 
     if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
         cerr << "Unable to unlock pmtxAddDelSess - HTTPStats4.\n" << flush;
@@ -4535,7 +4601,7 @@ int main(int argc, char *argv[])
             tLastDel = Time;
         }
 
-    /*    					// N5VFF This was commented out -- why??
+    /*    	
     if ((Time - tLast) > 900)		//Save history list every 15 minutes
     {
       SaveHistory(pSaveHistory);
