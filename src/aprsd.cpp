@@ -2260,6 +2260,7 @@ void *TCPConnectThread(void *p)
                 gotID = false;
                 state = 0;
             } else {
+
                 state++;
                 pcp->connected = true;
                 pcp->starttime = time(NULL);
@@ -2276,6 +2277,7 @@ void *TCPConnectThread(void *p)
                 ostrstream msg(cp,256);
                 msg <<  szLog << endl << ends;
                 conQueue.write(cp, 0);               // cp deleted in queue reader
+
             }
         }
 
@@ -2318,7 +2320,18 @@ void *TCPConnectThread(void *p)
                     if (sp == NULL) {   // Grab an output session now. Note: This takes away 1 avalable user connection
                         sp = AddSession(clientSocket, pcp->EchoMask);    // Add this to list of sockets to send on
                     } else {            // else already had an output session
+
+			if(pthread_mutex_lock(pmtxAddDelSess) != 0) //need locking as initSessionParams has none
+	    		    cerr << "Unable to lock pmtxAddDelSess - SessionParams.\n" << flush;
+			if(pthread_mutex_lock(pmtxSend) != 0)
+	    		    cerr << "Unable to lock pmtxSend - SessionParams.\n" << flush;
                         initSessionParams(sp, clientSocket, pcp->EchoMask);   // Restore output session for sending
+			if(pthread_mutex_unlock(pmtxSend) != 0)
+	    		    cerr << "Unable to unlock pmtxSend - SessionParams.\n" << flush;
+			if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
+	    		    cerr << "Unable to unlock pmtxAddDelSess - SessionParams.\n" << flush;
+
+
                     }
 
                     if (sp == NULL) {
@@ -2485,8 +2498,10 @@ void *TCPConnectThread(void *p)
                 }
             } while (rc > 0);           // Loop while rc is greater than zero else disconnect
 
+	    if(pthread_mutex_lock(pmtxAddDelSess) != 0)
+    		cerr << "Unable to lock pmtxAddDelSess - TCPConnectThread.\n" << flush;
 	    if(pthread_mutex_lock(pmtxSend) != 0)
-	    	cerr << "Unable to lock pmtxSend - TCPConnectThread.\n" << flush;
+    		cerr << "Unable to lock pmtxSend - TCPConnectThread.\n" << flush;
 
             if (sp)
                 sp->EchoMask = 0;       // Turn off the session output data stream if it's enabled
@@ -2494,8 +2509,6 @@ void *TCPConnectThread(void *p)
             shutdown(clientSocket,2);
             close(clientSocket);
 
-	    if(pthread_mutex_unlock(pmtxSend) != 0)
-    		cerr << "Unable to unlock pmtxSend - TCPConnectThread.\n" << flush;
 
             pcp->connected = false;     // set status to unconnected
             connectTime = time(NULL) - pcp->starttime ;     // Save how long the connection stayed up
@@ -2514,6 +2527,12 @@ void *TCPConnectThread(void *p)
                 ostrstream msg(cp,256);
                 msg <<  szLog << endl << ends;
                 conQueue.write(cp,0);
+
+	    if(pthread_mutex_unlock(pmtxSend) != 0)
+    		cerr << "Unable to unlock pmtxSend - TCPConnectThread.\n" << flush;
+	    if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
+    		cerr << "Unable to unlock pmtxAddDelSess - TCPConnectThread.\n" << flush;
+
             }
         }
 
