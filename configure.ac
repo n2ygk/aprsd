@@ -73,5 +73,6 @@ AC_CONFIG_FILES([Makefile \
     support/Makefile \
     doc/Makefile \
     admin/Makefile \
-    aprspass/Makefile])
+    aprspass/Makefile \
+    aprsd.spec])
 AC_OUTPUT
