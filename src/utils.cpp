@@ -292,7 +292,6 @@ int freq( string& s, char c)
 //returns zero if error.
 //Each token copied into the 'sa' array.
 //Stops when no more delimiters are found or saSize is reached.
-
 int split( string& s, string sa[],  int saSize,  const char* delim)
 {
     int wordcount;
@@ -305,7 +304,7 @@ int split( string& s, string sa[],  int saSize,  const char* delim)
         start = s.find_first_not_of(delim);  //find first token
         end = 0;
         wordcount = 0;
-        while ((start != (string::npos & 0xffffffff)) && (wordcount < saSize)) {  
+        while ((start != string::npos) && (wordcount < saSize)) {  
             end = s.find_first_of(delim,start+1);
             if (end == string::npos) 
                 end = s.length();
