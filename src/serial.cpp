@@ -43,7 +43,7 @@ using namespace std;
 
 int ttySread;
 int ttySwrite;
-int PortIsFifo;
+int PortIsFile;
 
 termios newSettings, originalSettings;
 speed_t newSpeed, originalOSpeed, originalISpeed;
@@ -91,23 +91,23 @@ int AsyncOpen (char *szPort)
     APIRET rc;
     struct stat buf;
 
-    // Check to see if the device is by any chance a pipe instead of a device;
-    // if so, act a bit differently. Then we can use pipes as dummy ports.
+    // Check to see if the device is a file instead of a device;
+    // if so, act a bit differently. Then we can use files as dummy ports.
 
     if (stat(szPort, &buf) == -1) {
         cerr << "Error: could not find device " << szPort << endl;
         return -1;
     }
 
-    PortIsFifo = S_ISFIFO(buf.st_mode);
+    PortIsFile = S_ISREG(buf.st_mode);
 
-    if (S_ISFIFO(buf.st_mode)) {
+    if (PortIsFile) {
         cerr << "Note: detected that the serial device is a pipe" << endl;
 
-        ttySwrite = open (szPort, O_NONBLOCK | O_WRONLY);
+        ttySwrite = open (szPort, O_WRONLY | O_SYNC);
         if (ttySwrite == -1) {
             perror(szPort);
-            cerr << "Error: could not open the pipe for non-blocking write" << endl;
+            cerr << "Error: could not open the file " << szPort << " for write" << endl;
             return -1;
         }
 
@@ -151,7 +151,7 @@ int AsyncOpen (char *szPort)
 
 int AsyncClose (void)
 {
-    if (!PortIsFifo) {
+    if (!PortIsFile) {
 
         if (tcsetattr (ttySread, TCSANOW, &originalSettings) != 0)
             cerr << " Error: Could not reset input serial port attrbutes\n";
@@ -184,7 +184,7 @@ bool AsyncReadWrite (char* buf)
         if (txrdy) {          //Check for data to Transmit
             size_t len = strlen (tx_buffer);
             write(ttySwrite, tx_buffer, len);       //Send TX data to TNC
-            if (PortIsFifo)
+            if (PortIsFile)
                 write(ttySwrite, "\n", 1);
             txrdy = 0;      //Indicate we sent it.
         }
