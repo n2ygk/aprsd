@@ -3563,10 +3563,11 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "MIME-version: 1.0\n"
         << "Content-type: text/html\n"
         << "Expires: " << szTime << "\n"
-        << "Refresh: 300\n"             // uncomment to activate 5 minute refresh time
-        << "\n<HTML>"
+        << "Refresh: 300\n\n"             // uncomment to activate 5 minute refresh time
+        << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n"
+        << "<HTML>"
         << "<HEAD><TITLE>" << szServerCall << " Server Status Report</TITLE></HEAD>"
-        << "<BODY ALINK=#0000FF VLINK=#800080 ALINK=#FF0000 BGCOLOR=\"#606060\"><CENTER>"
+        << "<BODY LINK=\"#0000FF\" VLINK=\"#800080\" ALINK=\"#FF0000\" BGCOLOR=\"#606060\"><CENTER>"
         << "<P><TABLE BORDER=2 BGCOLOR=\"#D0D0D0\">"
         << "<TR BGCOLOR=\"#FFD700\">"
         << "<TH COLSPAN=2>" << szServerCall << " " << MyLocation << "</TH>"
@@ -3597,7 +3598,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>?IGATE? Querys</TD><TD>" << queryCounter << "</TD></TR>\n"
         << "<TR><TD>Server Version</TD><TD>" << VERS << "</TD></TR>\n"
         << "<TR><TD>Sysop email</TD><TD><A HREF=\"mailto:" << MyEmail << "\">" << MyEmail << "</A></TD></TR>\n"
-        << "</TABLE></P>"
+        << "</TABLE>"
         << ends;
 
     
@@ -3711,7 +3712,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         cerr << "Unable to unlock pmtxCount - HTTPStats3.\n" << flush;
 
     char userheader[] =
-        "</TABLE></P><P><TABLE  BORDER=2 BGCOLOR=\"#C0C0C0\">"       // Start of user list table
+        "</TABLE><P><TABLE  BORDER=2 BGCOLOR=\"#C0C0C0\">"       // Start of user list table
         "<TR BGCOLOR=\"#FFD700\"><TH COLSPAN=10>Users</TH></TR>\n"
         "<TR><TH>IP Address</TH><TH>Port</TH><TH>Call</TH><TH>Vrfy</TH>"
         "<TH>Program Vers</TH><TH>Last Active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes <BR>Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>\n" ;
@@ -3735,13 +3736,13 @@ void segvHandler(int signum)  //For debugging seg. faults
     string TpgmVers;
     string TlastActive;
     string TtimeStr;
-    //string Tpid;
+    
     int bytesout = 0;
     int bytesin = 0;
     int npid = -1;
 
     
-    for (i=0;i<MaxClients;i++) {        // Create a html table with user information
+    for (i=0;i<MaxClients;i++) {        // Create html table with user information
         
         if ((sessions[i].Socket != -1) && (sessions[i].ServerPort != -1)) {
 
@@ -3750,17 +3751,15 @@ void segvHandler(int signum)  //For debugging seg. faults
             strElapsedTime(sessions[i].starttime, timeStr);      // Compute elapsed time
             char lastActiveTime[32];
             strElapsedTime(sessions[i].lastActive, lastActiveTime);  // Compute elapsed time from last input char
-            //char* szVrfy;
+            
             string szVrfy;
             TszPeer = sessions[i].szPeer;
-            //TserverPort = sessions[i].ServerPort;
             TuserCall = sessions[i].userCall;
             TpgmVers = sessions[i].pgmVers;
             TlastActive = lastActiveTime;
             TtimeStr = timeStr;
 
             removeHTML(TszPeer);
-            //removeHTML(TserverPort);
             removeHTML(TuserCall);
             removeHTML(TpgmVers);
             removeHTML(TlastActive);
@@ -3784,17 +3783,17 @@ void segvHandler(int signum)  //For debugging seg. faults
 
             userinfo << "<TR ALIGN=center><TD>"
                      << "<A HREF=\"http://"
-                     << TszPeer.c_str() /*sessions[i].szPeer*/
-                     << ":14501/\">" << TszPeer.c_str() /*sessions[i].szPeer*/
+                     << TszPeer
+                     << ":14501/\">" << TszPeer
                      << "</A></TD>"
                      << "<TD>" << sessions[i].ServerPort << "</TD>"
-                     << "<TD>" << TuserCall.c_str() /*sessions[i].userCall*/ << "</TD>"
+                     << "<TD>" << TuserCall  << "</TD>"
                      << "<TD>"  << szVrfy << "</TD>"
-                     << "<TD>" << TpgmVers.c_str() /*sessions[i].pgmVers*/ << "</TD>"
-                     << "<TD>" << TlastActive.c_str() /*lastActiveTime*/ << "</TD>"
+                     << "<TD>" << TpgmVers  << "</TD>"
+                     << "<TD>" << TlastActive  << "</TD>"
                      << "<TD>" << bytesin << " K</TD>"
                      << "<TD>" << bytesout << " K</TD>"
-                     << "<TD>" << TtimeStr.c_str() /*timeStr*/ << "</TD>"
+                     << "<TD>" << TtimeStr  << "</TD>"
                      << "<TD>" << npid << "</TD>"
                      << "</TR>" << endl
                      << ends ;
@@ -3818,7 +3817,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
         cerr << "Unable to unlock pmtxAddDelSess - HTTPStats4.\n" << flush;
     
-    char endpage[] = "</TABLE></P></CENTER></BODY></HTML>";
+    char endpage[] = "</TABLE></CENTER></BODY></HTML>";
 
     if(idx < HSIZE){
         html2send[idx] = new char[strlen(endpage)+1];
@@ -3827,22 +3826,30 @@ void segvHandler(int signum)  //For debugging seg. faults
     }
 
     //Now read all the  char strings from html2send to the tcpip socket.
+
+    data = 0;                           // Set socket for blocking
+    ioctl(sock,FIONBIO,(char*)&data,sizeof(int));
+
     char* cp;
     int ecnt = 0;
-    rc = 0;
+    rc = 1;
     i = 0;
-    while((rc != -1) && (i < idx)){             //Loop until  rc shows an error or done
+    while((rc > 0) && (i < idx)){             //Loop until  rc shows an error or done
        cp = html2send[i++];                     //Get a char string pointer 
        rc = 0;
        ecnt = 0;
 
-       do{
+       rc = send(sock, cp, strlen(cp), 0);       //for blocking socket
+
+       /*
+       do{                                       //For non-blocking socket
             rc = send(sock, cp, strlen(cp), 0);  //Send the string
             if(rc == -1){                        //check for send error
                  sleep(1);                       //if error then sleep for a second
                  ecnt++;                         //...and bump the error counter.
             }
        }while((rc == -1) && (ecnt < 5));         //Retry for 5 secs max.
+       */
        
     }
 
