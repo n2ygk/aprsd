@@ -127,9 +127,9 @@ public:
 
    unsigned long ID;                   //Unique ID number for this object
    int instances ;             //Number of pointers to this object that exist in user queues
-   int tcpxx;                 //true = TCPXX or TCPXX* was in the path
-   int reformatted;           //true = packet has been reformatted into 3rd party format
-   int normalized;            //true = packet has been converted to normal from 3rd party
+   bool tcpxx;                 //true = TCPXX or TCPXX* was in the path
+   bool reformatted;           //true = packet has been reformatted into 3rd party format
+   bool normalized;            //true = packet has been converted to normal from 3rd party
    bool cci;                  //true = converted from CallSign,I to qAR.
    time_t timestamp;          // time it was created
    int ttl;                   // time to live (minutes) in history list
@@ -137,8 +137,8 @@ public:
    time_t timeRF;             // time this was sent on RF (0 = never)
    aprsString* next;          //Only used if this is part of a linked list
    aprsString* last;          // ditto..
-   int localSource;           //true = source station is local
-   int nogate;                //true = do not igate this packet
+   bool localSource;           //true = source station is local
+   bool nogate;                //true = do not igate this packet
    int aprsType;              //Type of packet (comment, 3rdparty etc.)
    int cmdType;               //User command code
    bool valid_ax25;           //Validated as a good ax25 packet with PATH and DATA parts
@@ -158,7 +158,7 @@ public:
    int IjpOffset;             //Offset in characters from start of packet of the Injection point
    
   
-   int allowdup;              //true or false, object is a duplicate (for redundent ACKs)
+   bool allowdup;              //true or false, object is a duplicate (for redundent ACKs)
    int msgType;               //Indicates if message is an ACK or just text
    //bool Expired;              //True indicates this packet has expired (time-to-Live is zero)
                 

@@ -182,7 +182,7 @@ bool SocketReadWrite(char buf[])
 
     do {
         if (txrdy) {        //Check for data to Transmit
-            cerr << "DEBUG: SocketReadWrite: Sending " << buf << " to Socket" << endl;
+            //cerr << "DEBUG: SocketReadWrite: Sending " << buf << " to Socket" << endl;
             if ((rc = sendto(tx_socket, tx_buffer, strlen(tx_buffer), 0, (struct sockaddr *)&tx_dest, tx_dest_len)) < 0)
                 cerr << "DEBUG: SocketReadWrite: Error sending to TNC" << endl;
             txrdy = false;      //Indicate we sent it.

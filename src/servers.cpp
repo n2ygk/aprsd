@@ -790,9 +790,9 @@ void BroadcastString(const char* sp)
 }
 
 //---------------------------------------------------------------------
-//This is a thread.  It removes items from the send queue and transmits
-//them to all the clients.  Also handles checking for items in the TNC queue
-//and calling the tnc dequeue routine.
+// This is a thread.  It removes items from the send queue and transmits
+// them to all the clients.  Also handles checking for items in the TNC queue
+// and calling the tnc dequeue routine.
 void *DeQueue(void* vp)
 {
     bool Hist,dup;
@@ -823,7 +823,7 @@ void *DeQueue(void* vp)
         if ((usNow - usLastTime) >= tncPktSpacing) {  //Once every 1.5 second or user defined
             usLastTime = usNow;
             if (tncQueue.ready())
-                dequeueTNC(); //Check the TNC queue
+                dequeueTNC();  //Check the TNC queue
         }
 
         while (!sendQueue.ready()) {    //Loop here till somethings in the send queue
@@ -1004,7 +1004,7 @@ void *DeQueue(void* vp)
             }
 
             // The following code filters input to the History List
-            if (((abuff->EchoMask & src3RDPARTY)&&((abuff->aprsType == APRSPOS)) /* No Posits fetched from history list */
+            if (((abuff->EchoMask & src3RDPARTY) && ((abuff->aprsType == APRSPOS)) /* No Posits fetched from history list */
                     || (abuff->aprsType == COMMENT)               /* No comment packets in the history buffer*/
                     || (abuff->aprsType == CONTROL)               /* No user commands */
                     || (abuff->msgType == APRSMSGSERVER)          /* No user Server control messages */
@@ -1030,7 +1030,7 @@ void *DeQueue(void* vp)
             if (dup)
                 abuff->EchoMask |= sendDUPS; //If it's a duplicate mark it.
 
-            if ((abuff->aprsType == APRSQUERY) && (!dup)){
+            if ((abuff->aprsType == APRSQUERY) && (!dup)) {
                 if (abuff->EchoMask & srcUSERVALID)
                     queryResp(abuff->sourceSock,abuff);
 
@@ -2782,7 +2782,7 @@ ConnectParams* getNextHub(ConnectParams* pcp)
 
                     pcp->lastActive = time(NULL); //record time of this input
 
-                    bool sentOnRF=false;
+                    bool sentOnRF = false;
                     aprsString atemp(buf, clientSocket, srcIGATE, pcp->RemoteName.c_str(), "IGATE");
                     atemp.call = os_iphex.str(); //string(ip_hex_alias);   //Tag packet with alias of this hub or server
 
@@ -2799,8 +2799,9 @@ ConnectParams* getNextHub(ConnectParams* pcp)
                     if ((atemp.aprsType == APRSMSG)
                             && (!atemp.tcpxx)
                             && configComplete
-                            && (!RFalways)) {
+                            && (RFalways)) {
 
+                        cout << "DEBUG: TCPConnectThread - Sending to RF..." << endl;
                         sentOnRF = sendOnRF(atemp, pcp->RemoteName, "IGATE", srcIGATE);   // Try to send on RF
 
                         if (sentOnRF) {     //Now find the posit for this guy in the history list
@@ -2889,7 +2890,7 @@ ConnectParams* getNextHub(ConnectParams* pcp)
             } while (rc > 0);  //Loop while rc is greater than zero else disconnect
 
             sendLock.get();
-            if(sp)
+            if (sp)
                 sp->EchoMask = 0;   //Turn off the session output data stream if it's enabled
 
             shutdown(clientSocket,2);

@@ -888,18 +888,13 @@ bool aprsString::queryLocal(void)
 {
     bool localSource = false;
 
-    if (valid_ax25 == false) 
-        return false;
-
-    if (valid_ax25 == false) 
-        return false;
+    if (!valid_ax25) 
+        return localSource;	// false
    
-    if ((EchoMask & srcTNC)
-            && (path.find("GATE*") == npos )
-            && (freq(path,'*') < 3))
+    if ((EchoMask & srcTNC) && (path.find("GATE*") == npos ) && (freq(path,'*') < 3))
         localSource = true;
     
-    return localSource;
+    return localSource;		// true
 }
 
 //-------------------------------------------------------------------------------

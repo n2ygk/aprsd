@@ -288,14 +288,13 @@ bool StationLocal(const string& sp, int em)
 
     aprsString *hp = pTail;                     // point to end of history list
 
-    while ((retval == false) && (hp != NULL)) {      // Loop while no match and not at beginning of list
+    while ((!retval) && (hp != NULL)) {      // Loop while no match and not at beginning of list
         if (hp->EchoMask & em) {
             if (hp->ax25Source.compare(sp) == 0)    // Find the source call sign
                 retval = hp->queryLocal();           // then see if it's local
-        }
+	}
         hp = hp->last;
     }
-
     return retval;                                   // return true or false
 }
 
