@@ -271,11 +271,11 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 AEA = true;
             }
 
-            if (path.find(">") == npos) {   // If there isn't a ">" in the packet
+            if ((sourceSock != SRC_INTERNAL) && (path.find(">") == npos)) {   // If there isn't a ">" in the packet
                 aprsType = APRSERROR;         // then it's bogus
                 return;
             }
-
+ 
             if ((pIdx+1) < length())
                 data = substr(pIdx+1, MAXPKT);  //The data portion of the packet
 
