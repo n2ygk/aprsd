@@ -82,6 +82,7 @@ bool TncSysopMode;                      // Set true when sysop wants direct TNC 
 
 int AsyncPort;
 char* AprsPath;
+char* ComBaud;
 
 //--------------------------------------------------------------------
 // Set APRS path (before the port is opened)
@@ -89,6 +90,14 @@ char* AprsPath;
 void rfSetPath (char* path)
 {
     AprsPath = strdup(path);
+}
+
+//--------------------------------------------------------------------
+// Set serial port speed (before the port is opened)
+//
+void rfSetBaud (char* baud)
+{
+    ComBaud = strdup(baud);
 }
 
 

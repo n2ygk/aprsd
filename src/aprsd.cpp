@@ -227,6 +227,7 @@ time_t serverStartTime;
 ULONG TotalTNCtxChars;
 int msgsn;
 char *szComPort;
+string szComBaud;
 extern int queryCounter;
 
 bool respondToIgateQueries;
@@ -3005,6 +3006,11 @@ int serverConfig(const string& cf)
                         n = 1;
                     }
 
+                    if ((cmd.compare("TNCBAUD") == 0) && (nTokens >= 2)) {
+                        szComBaud = string(strdup(token[1].c_str()));
+                        n = 1;
+                    }
+
                     if ((cmd.compare("UDPPORT") == 0) && (nTokens >= 2)) {
                         upUdpServer.ServerPort = atoi(token[1].c_str());
                         n = 1;
@@ -4173,6 +4179,7 @@ int main(int argc, char *argv[])
     szAprsPath = NULL;
 
     szServerCall = "aprsd";             // default server FROM CALL used in system generated pkts.
+    szComBaud = "9600";                 // default to 9600 bps
 
     szAPRSDPATH = new char[64];
     memset(szAPRSDPATH, NULLCHR, 64);
@@ -4388,6 +4395,9 @@ int main(int argc, char *argv[])
         rfSetPath(szAprsPath);
     }
 
+    rfSetBaud(szComBaud.c_str());
+    cout << "Serial port speed (where applicable) = " << szComBaud << endl;
+    
     if (szComPort != NULL) {            // Initialize TNC Com port if specified in config file
         cout  << "Opening device "
             << szComPort

@@ -40,6 +40,7 @@ int rfSendFiletoTNC(char* szName);
 void* rfReadCom(void* vp);        //Com port read thread
 int rfWrite(char* cp);
 void rfSetPath(char* path);
+void rfSetBaud(char* baud);
 
 #endif
 

@@ -32,6 +32,7 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <fstream>                      // ifstream
+#include <termios.h>
 
 #include "constant.h"
 #include "serial.h"
@@ -51,12 +52,14 @@ speed_t newSpeed, originalOSpeed, originalISpeed;
 extern ULONG TotalTncChars;
 extern cpQueue charQueue;
 extern string MyCall;
+extern char* ComBaud;
 
 //---------------------------------------------------------------------
 // Sets various parameters on a COM port for use with TNC
 
 int AsyncSetupPort (int fIn, int fOut)
 {
+    speed_t baud = B0;
 
     tcgetattr (fIn, &originalSettings);
     newSettings = originalSettings;
@@ -68,8 +71,32 @@ int AsyncSetupPort (int fIn, int fOut)
     newSettings.c_oflag = 0;
     newSettings.c_iflag = IGNBRK | IGNPAR;
 
-    cfsetispeed (&newSettings, B1200);
-    cfsetospeed (&newSettings, B1200);
+    // Work out the serial port speed from the ComBaud string
+    if (strcmp(ComBaud, "300") == 0)
+        baud = B300;
+    else if (strcmp(ComBaud, "1200") == 0)
+        baud = B1200;
+    else if (strcmp(ComBaud, "2400") == 0)
+        baud = B2400;
+    else if (strcmp(ComBaud, "4800") == 0)
+        baud = B4800;
+    else if (strcmp(ComBaud, "9600") == 0)
+        baud = B9600;
+    else if (strcmp(ComBaud, "19200") == 0)
+        baud = B19200;
+    else if (strcmp(ComBaud, "38400") == 0)
+        baud = B38400;
+    else if (strcmp(ComBaud, "57600") == 0)
+        baud = B57600;
+    else if (strcmp(ComBaud, "115200") == 0)
+        baud = B115200;
+    else {
+        cerr << " Error: unrecognised baud rate \"" << baud << "\"\n";
+        return -1;
+    }
+
+    cfsetispeed (&newSettings, baud);
+    cfsetospeed (&newSettings, baud);
 
     if (tcsetattr (fIn, TCSANOW, &newSettings) != 0) {
         cerr << " Error: Could not set input serial port attrbutes\n";
