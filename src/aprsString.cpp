@@ -283,7 +283,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 aprsType = APRSERROR;         // then it's bogus
                 return;
             }
- 
+
             if ((pIdx+1) < length())
                 data = substr(pIdx+1, MAXPKT);  //The data portion of the packet
 
@@ -294,8 +294,15 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             if (pathSize >= 1) {
                 ax25Source = ax25Path[0];           //AX25 Source
 
-                if (ax25Source.find("cmd:") == 0)
-                    ax25Source = ax25Source.substr(4, ax25Source.length());
+                if (int nfind = ax25Source.find_first_of('}') <= ax25Source.length()) {
+                    cerr << "Found } in source at position: " << nfind << endl;
+                    ax25Source.erase(nfind);
+                }
+
+                if (int nfind = ax25Source.find_first_of('*') <= ax25Source.length()) {
+                    cerr << "Found * in source at position: " << nfind << endl;
+                    ax25Source.erase(nfind);
+                }
 
                 if ((ax25Source.length() > 10) || (ax25Source.length() < 3)) {
                     // 10 v 9 to allow for src*
