@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2004 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,19 +22,34 @@
  * Look at the README for more information on the program.
  */
 
-#ifndef __SOCKETS_H
-#define __SOCKETS_H
+#ifndef DUPCHECK_H
+#define DUPCHECK_H
 
-#include "constant.h"
+#include <string>
 
-// TCP Wrappers
-int inet_ptons(int family, const char *strptr, void *addrptr);
+#include "constant.hpp"
+#include "aprsString.hpp"
+#include "mutex.hpp"
 
-int SocketOpen (const char *rfport, const char *destcall);
-int SocketClose (void);
-int SocketWrite (const char *cp);
-int SocketWrite (void);
-bool SocketReadWrite (char buf[]);
+using namespace std;
+using namespace aprsd;
 
-#endif
+class dupCheck
+{
+public:
 
+    dupCheck();
+    ~dupCheck();
+
+    bool check(aprsString* s, int t);
+    void clear(void);
+
+private:
+    Mutex mutex;
+
+    time_t*  hashtime;
+    INT16*   hashhash;
+    unsigned long seed;
+} ;
+
+#endif      // DUPCHECK__H

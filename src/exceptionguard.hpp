@@ -3,7 +3,7 @@
  *
  * aprsd, Automatic Packet Reporting System Daemon
  * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001-2002 aprsd Dev Team
+ * Copyright (C) 2001-2004 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@
 #ifndef EXCEPTIONGUARD_H
 #define EXCEPTIONGUARD_H
 
-#include "aprsdexception.h"
+#include "aprsdexception.hpp"
 
 namespace aprsd
 {

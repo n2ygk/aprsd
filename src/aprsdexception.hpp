@@ -26,7 +26,7 @@
 #ifndef APRSD_EXCEPTION_H
 #define APRSD_EXCEPTION_H
 
-#include "osdep.h"
+#include "osdep.hpp"
 #include <exception>
 #include <string>
 

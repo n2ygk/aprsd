@@ -3,7 +3,7 @@
  *
  * aprsd, Automatic Packet Reporting System Daemon
  * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001-2002 aprsd Dev Team
+ * Copyright (C) 2001-2004 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,34 +23,28 @@
  */
 
 
-#ifndef SNIPTYPE__H
-#define SNIPTYPE__H
+#ifndef HISTORY_H
+#define HISTORY_H
 
-#include <stdlib.h>                             /* For free()           */
-#include <string.h>                             /* For NULL & strlen()  */
+#include "aprsString.hpp"
 
-typedef enum {Error_ = -1, Success_, False_ = 0, True_} Boolean_T;
+extern int dumpAborts;  //Number of history dumps aborted
+extern int ItemCount;   //number of items in History list
 
-#if !defined(WIN32) && !defined(_WIN32) && !defined(__NT__) \
-      && !defined(_WINDOWS)
- #if !defined(OS2)
-  typedef unsigned char  BYTE;
-  typedef unsigned long  DWORD;
- #endif
- typedef unsigned short WORD;
-#else
- #define WIN32_LEAN_AND_MEAN
- #define NOGDI
- #define NOSERVICE
- #undef INC_OLE1
- #undef INC_OLE2
- #include <windows.h>
- #define HUGE
-#endif
+void CreateHistoryList();
+bool AddHistoryItem(aprsd::aprsString *hp);
+void DeleteHistoryItem(aprsd::aprsString *hp);
+int DeleteOldItems(int x);
+int DeleteItem(aprsd::aprsString* ref);
+bool DupCheck(aprsd::aprsString* ref, time_t t);
+int SendHistory(int session,int em);
+int SaveHistory(const std::string& name);
+int ReadHistory(const std::string& name);
+bool StationLocal(const std::string& sp, int em);
+aprsd::aprsString* getPosit(const std::string& call, int em);
+bool timestamp(unsigned long sn, time_t t);
+int localCount();
 
-#define NUL '\0'
-#define LAST_CHAR(s) (((char *)s)[strlen(s) - 1])
-#define TOBOOL(x) (!(!(x)))
-#define FREE(p) (free(p),(p)=NULL)
 
-#endif /* SNIPTYPE__H */
+#endif      // HISTORY_H
+

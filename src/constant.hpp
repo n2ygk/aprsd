@@ -3,7 +3,7 @@
  *
  * aprsd, Automatic Packet Reporting System Daemon
  * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001-2002 aprsd Dev Team
+ * Copyright (C) 2001-2004 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -32,9 +32,8 @@
 
 
 
-//If you really must convert Mic-E packets to traditional APRS
-//change this to TRUE and add "ConvertMicE yes" to your aprsd.conf file.
-//#define CONVERT_MIC_E FALSE
+// If you really must convert Mic-E packets to traditional APRS
+// change this to TRUE and add "ConvertMicE yes" to your aprsd.conf file.
 const bool CONVERT_MIC_E = false;
 
 /* Define this to write 3rd party pkts to debug.log */
@@ -76,8 +75,6 @@ const bool CONVERT_MIC_E = false;
 //Defines duplicate detection window time in seconds
 #define DUPWINDOW 20
 
-
-
 #define RUNTSIZE 0
 #define MAXRETRYS 7
 
@@ -85,10 +82,6 @@ const bool CONVERT_MIC_E = false;
 
 #define destINET 1
 #define destTNC  2
-
-
-
-
 
 
 /* These are for Linux user/pass logons.  They define the group used by

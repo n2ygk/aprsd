@@ -3,7 +3,7 @@
  *
  * aprsd, Automatic Packet Reporting System Daemon
  * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 2001-2004 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,26 +22,20 @@
  * Look at the README for more information on the program.
  */
 
-#ifndef RF_H
-#define RF_H
+#ifndef AX25SOCKETS_H
+#define AX25SOCKETS_H
 
-#include <string>
-#include "constant.h"
+#include "constant.hpp"
 
-extern int CloseReader, threadAck;
-extern bool txrdy;
-extern char tx_buffer[];
-extern bool TncSysopMode;
+using namespace aprsd;
 
-/*--------------------------------------------------------------*/
+// TCP Wrappers
+int inet_ptons(int family, const char *strptr, void *addrptr);
 
-int rfOpen(const std::string& szPort, const std::string& baudrate);
-int rfClose(void);
-int rfSendFiletoTNC(const std::string& szName);
-void* rfReadCom(void* vp);        //Com port read thread
-int rfWrite(const char* cp);
-void rfSetPath(const std::string& path);
-void rfSetBaud(const char *baud);
+int SocketOpen (const string& rfport, const string& destcall);
+int SocketClose (void);
+int SocketWrite (const char *cp);
+int SocketWrite (void);
+bool SocketReadWrite (char buf[]);
 
-#endif  // RF_H
-
+#endif      // AX25SOCKETS_H

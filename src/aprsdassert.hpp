@@ -26,7 +26,7 @@
 #ifndef ASSERT_H
 #define ASSERT_H
 
-#include "osdep.h"
+#include "osdep.hpp"
 #include <string>
 
 #ifndef DEBUG

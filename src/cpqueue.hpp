@@ -3,7 +3,7 @@
  *
  * aprsd, Automatic Packet Reporting System Daemon
  * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001-2002 aprsd Dev Team
+ * Copyright (C) 2001-2004 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -26,12 +26,13 @@
 #ifndef CPQUEUE_H
 #define CPQUEUE_H
 
-#include "aprsString.h"
-#include "mutex.h"
+#include "aprsString.hpp"
+#include "mutex.hpp"
+#include "refcount.hpp"
 
 using namespace aprsd;
 
-class  queueData
+class queueData : public RefCounted
 {
 public:
     void* qcp;      //Pointer to dynamically allocated aprsString or char string.
@@ -39,11 +40,12 @@ public:
     bool rdy;
 };
 
+typedef RefHandle<queueData> QueueDataHandle;
 
 class cpQueue
 {
 private:
-    queueData *base_p;
+    queueData* base_p;
     int write_p;
     int read_p;
     int size, lock, inRead, inWrite;
@@ -71,4 +73,3 @@ public:
 };
 
 #endif      // CPQUEUE_H
-

@@ -3,7 +3,7 @@
  *
  * aprsd, Automatic Packet Reporting System Daemon
  * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001-2002 aprsd Dev Team
+ * Copyright (C) 2001-2004 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,34 +22,34 @@
  * Look at the README for more information on the program.
  */
 
-#ifndef DUPCHECK_H
-#define DUPCHECK_H
+#ifndef REGEX_IMPL_HPP
+#define REGEX_IMPL_HPP
 
-#include <string>
+#include "regexresult.hpp"
 
-#include "constant.h"
-#include "aprsString.h"
-#include "mutex.h"
-
-using namespace std;
-using namespace aprsd;
-
-class dupCheck
+namespace aprsd
 {
-public:
+    using std::string;
 
-    dupCheck();
-    ~dupCheck();
+    class RegexImpl : public RefCounted
+    {
+    public:
+        RegexImpl(const string& pattern, int flags);
 
-    bool check(aprsString* s, int t);
-    void clear(void);
+        ~RegexImpl() throw();
 
-private:
-    Mutex mutex;
+        RegexResult match(const string& text,
+                          string::size_type offset,
+                          int flags) const;
 
-    time_t*  hashtime;
-    INT16*   hashhash;
-    unsigned long seed;
-} ;
+        RegexResult match(const char* text, int flags) const;
 
-#endif      // DUPCHECK__H
+        int getSubExprCount() const;
+
+    private:
+        string getErrMsg(int errCode) const;
+        regex_t reg;
+    };
+}
+
+#endif // REGEX_IMPL_HPP
