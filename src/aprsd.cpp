@@ -404,25 +404,30 @@ SessionParams* AddSession(int s, int echo)
 {
     SessionParams *rv = NULL;
     int i;
+    try {
+        pthread_mutex_lock(pmtxAddDelSess);
+        pthread_mutex_lock(pmtxSend);       // Don't add during send, walks on session queue
+        for (i=0; i<MaxClients; i++)
+            if (sessions[i].Socket == -1)
+                break;                      // Find available unused session
 
-    pthread_mutex_lock(pmtxAddDelSess);
-    pthread_mutex_lock(pmtxSend);       // Don't add during send, walks on session queue
-    for (i=0;i<MaxClients;i++)
-        if (sessions[i].Socket == -1)
-            break;                      // Find available unused session
+        if (i < MaxClients) {
+            rv = &sessions[i];
+            initSessionParams(rv,s,echo);
+            pthread_mutex_lock(pmtxCount);
+            ConnectedClients++;
+            pthread_mutex_unlock(pmtxCount);
+        } else
+            rv = NULL;
 
-    if (i < MaxClients) {
-        rv = &sessions[i];
-        initSessionParams(rv,s,echo);
-        pthread_mutex_lock(pmtxCount);
-        ConnectedClients++;
-        pthread_mutex_unlock(pmtxCount);
-    } else
-        rv = NULL;
-
-    pthread_mutex_unlock(pmtxSend);
-    pthread_mutex_unlock(pmtxAddDelSess);
-    return(rv);
+        pthread_mutex_unlock(pmtxSend);
+        pthread_mutex_unlock(pmtxAddDelSess);
+        return(rv);
+    }
+    catch (TAprsdException except) {
+        cout << except.what() << endl;
+        return(rv);
+    }
 }
 
 
@@ -435,26 +440,31 @@ bool DeleteSession(int s)
 
     if (s == -1)
         return false;
+    try {
+        pthread_mutex_lock(pmtxAddDelSess);
+        for (i=0; i<MaxClients; i++) {
+            if (sessions[i].Socket == s ) {
+                sessions[i].Socket = -1;
+                sessions[i].EchoMask = 0;
+                sessions[i].pid = 0;
+                sessions[i].dead = true;
+                pthread_mutex_lock(pmtxCount);
+                ConnectedClients--;
+                pthread_mutex_unlock(pmtxCount);
 
-    pthread_mutex_lock(pmtxAddDelSess);
-    for (i=0; i<MaxClients; i++) {
-        if (sessions[i].Socket == s ) {
-            sessions[i].Socket = -1;
-            sessions[i].EchoMask = 0;
-            sessions[i].pid = 0;
-            sessions[i].dead = true;
-            pthread_mutex_lock(pmtxCount);
-            ConnectedClients--;
-            pthread_mutex_unlock(pmtxCount);
+                if ( ConnectedClients < 0)
+                    ConnectedClients = 0;
 
-            if ( ConnectedClients < 0)
-                ConnectedClients = 0;
-
-            rv = true;
+                rv = true;
+            }
         }
+        pthread_mutex_unlock(pmtxAddDelSess);
+        return(rv);
     }
-    pthread_mutex_unlock(pmtxAddDelSess);
-    return(rv);
+    catch (TAprsdException except) {
+        cout << except.what() << endl;
+        return(false);
+    }
 }
 
 //-------------------------------------------------
@@ -518,10 +528,10 @@ void SendToAllClients(TAprsString* p)
                 fubarmsg = new char[2049];
                 ostrstream msg(fubarmsg, 2048);
 
-                msg << "FUBARPKT " << p->srcHeader.c_str()
-                    << " " << p->c_str()
-                    << endl
-                    << ends;
+                //msg << "FUBARPKT " << p->srcHeader.c_str()
+                //    << " " << p->c_str()
+                //    << endl
+                //    << ends;
 
                 WriteLog(fubarmsg, FUBARLOG);
                 cerr << fubarmsg;
@@ -620,9 +630,9 @@ void SendToAllClients(TAprsString* p)
             DBstring = "SendToAllClients: cp is NULL!";
         }*/
 
-        //pthread_mutex_lock(pmtxCount);
+        pthread_mutex_lock(pmtxCount);
         bytesSent += (n * ccount);
-        //pthread_mutex_unlock(pmtxCount);
+        pthread_mutex_unlock(pmtxCount);
 
         /*
             gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
@@ -2541,8 +2551,6 @@ char* getStats()
     aprsStreamRate =  (TotalTncChars + TotalIgateChars
                          + TotalUserChars - last_chars) / (time_now - last_time);
 
-    pthread_mutex_unlock(pmtxCount);
-
     tncStreamRate = (TotalTncChars - last_tnc_chars) / (time_now - last_time);
 
     serverLoad =  bytesSent / (time_now - last_time);
@@ -2576,7 +2584,7 @@ char* getStats()
 
     bytesSent = 0;                      // Reset this
 
-    //pthread_mutex_unlock(pmtxCount);
+    pthread_mutex_unlock(pmtxCount);
 
     return(cbuf);  // cbuf deleted by calling function... or should be :)
 }
