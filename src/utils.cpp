@@ -27,6 +27,7 @@
 #include "config.h"
 #endif
 
+#include <sys/time.h>
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
@@ -556,8 +557,35 @@ bool matchCallsign(const string& s1, const string& s2)
    // Else failed
    else
        return FALSE;
-
-
 }
+
+//---------------------------------------------------------------------
+void reliable_usleep (int usecs)
+{
+    timeval now, end;
+
+    gettimeofday (&now, NULL);
+    end = now;
+    end.tv_sec  += usecs / 1000000;
+    end.tv_usec += usecs % 1000000;
+
+    while ((now.tv_sec < end.tv_sec) || ((now.tv_sec == end.tv_sec) && (now.tv_usec < end.tv_usec))) {
+        timeval tv;
+        tv.tv_sec = end.tv_sec - now.tv_sec;
+
+        if (end.tv_usec >= now.tv_usec)
+            tv.tv_usec = end.tv_usec - now.tv_usec;
+        else {
+            tv.tv_sec--;
+            tv.tv_usec = 1000000 + end.tv_usec - now.tv_usec;
+        }
+
+        select(0, NULL, NULL, NULL, &tv);
+        gettimeofday (&now, NULL);
+    }
+}
+
+
+
 
 // eof: utils.cpp
