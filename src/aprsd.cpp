@@ -380,6 +380,8 @@ double upTime;
 
 bool RF_ALLOW = false;                  // TRUE to allow Internet to RF message passing.
 
+int timeBetweenPosits = 15;             // Time between Posit2rf transmissions
+
 //--------------------------------------------------------------------------------------------
 ConnectParams cpIGATE[maxIGATES];
 
@@ -3218,6 +3220,15 @@ int serverConfig(const string& cf)
 
                 }
 
+                if (cmd.compare("TIMEBETWEENPOSITS") == 0) {       // Set time between posit2rf transmissions
+                    int t = atoi(token[1].c_str());
+
+                    if (t > 0)
+                        timeBetweenPosits = t;
+
+                    n = 1;
+                }
+
                 if (cmd.compare("MSGDEST2RF") == 0) {   // Destination call signs
                                                         // of station to station messages
                     for (int i=1; i < nTokens;i++) {    // always gated to RF
@@ -3940,8 +3951,8 @@ void schedule_posit2RF(time_t t)
     static time_t last_t = 0;
     TAprsString* abuff;
 
-    if (difftime(t,last_t) < 14)
-        return;                         // return if not time yet (14 seconds)
+    if (difftime(t,last_t) < timeBetweenPosits)
+        return;                         // return if not time yet (default 15 seconds)
 
     last_t = t;
 
@@ -3951,7 +3962,6 @@ void schedule_posit2RF(time_t t)
         abuff = getPositAndUpdate(*posit_rfcall[ptr] , srcIGATE | srcUSERVALID | srcUSER, t - (15 * 60), t);
 
         if (abuff) {
-            cout << "Found position ready for tx: " << abuff << endl;
             abuff->stsmReformat(MyCall);    // Convert to 3rd party format
             tncQueue.write(abuff);          // Send to TNC
 
@@ -4297,6 +4307,8 @@ int main(int argc, char *argv[])
             cout << "APRS packet path = " << szAprsPath << endl;
             rfSetPath(szAprsPath);
         }
+
+        cout << "Time between posit2rf transmissions = " << timeBetweenPosits << endl;
 
         rfSetBaud(szComBaud.c_str());
         cout << "Serial port speed (where applicable) = " << szComBaud << endl;
