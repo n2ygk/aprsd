@@ -20,7 +20,7 @@ NEWMODE OFF
 #MYCALL must match MyCall in aprsd.conf
 MYCALL N0CALL
 #You may turn off BTEXT here and use the "tncbeacon" command in aprsd.conf instead.
-BTEXT _0000.00N/00000.00WI APRS Linux Internet Server 
+BTEXT !0000.00N/00000.00WI APRS Linux Internet Server 
 BEACON EVERY 15
 #Note: The "APRS" in the next line will be overwritten by APDxxx where xxx is the version number.
 #      So, it matters not what you put there.
