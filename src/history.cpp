@@ -690,7 +690,7 @@ int ReadHistory(char *name)
     int expiredCount = 0;
     int ttl,EchoMask,aprsType;
     char *data = new char[257];
-    memset(data, NULLCHR, sizeof(&data));
+    //memset(data, NULLCHR, sizeof(&data));
     time_t now, timestamp;
 
     ifstream hf(name);                  // Create ifstream instance "hf" and open the input file

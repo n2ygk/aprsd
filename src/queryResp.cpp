@@ -69,12 +69,12 @@ void queryResp(int session, const TAprsString* pkt)
 
     TAprsString *rfpacket, *ackRFpacket;
     char* hostname = new char[81];
-    memset(hostname, NULLCHR, sizeof(&hostname));
+    //memset(hostname, NULLCHR, sizeof(&hostname));
     unsigned char hip[5];
     char* cp = new char[257];
-    memset(cp, NULLCHR, sizeof(&cp));
+    //memset(cp, NULLCHR, sizeof(&cp));
     char* cpAck = new char[257];
-    memset(cpAck, NULLCHR, sizeof(&cpAck));
+    //memset(cpAck, NULLCHR, sizeof(&cpAck));
     ostrstream reply(cp, 256);
     ostrstream ack(cpAck, 256);
     bool wantAck = false;

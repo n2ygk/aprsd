@@ -71,7 +71,7 @@ int WriteLog(const char *pch, const char *LogFile)
     pthread_mutex_lock(pmtxLog);
 
     char *pLogFile = new char[strlen(LOGPATH) + strlen(LogFile) +1];
-    memset(pLogFile, NULLCHR, sizeof(&pLogFile));
+    //memset(pLogFile, NULLCHR, sizeof(&pLogFile));
     strcpy(pLogFile,LOGPATH);
     strcat(pLogFile,LogFile);
 
@@ -142,7 +142,7 @@ bool CmpDest(const char *line, const char *ref)
 {
     bool rv = false;
     char *cp = new char[strlen(ref)+3];
-    memset(cp, NULLCHR, sizeof(&cp));
+    //memset(cp, NULLCHR, sizeof(&cp));
     strcpy(cp,">");
     strcat(cp,ref);
     strcat(cp,",");
@@ -160,7 +160,7 @@ bool CmpPath(const char *line, const char *ref)
 {
     bool rv = false;
     char *cp = new char[strlen(line)+1];
-    memset(cp, NULLCHR, sizeof(&cp));
+    //memset(cp, NULLCHR, sizeof(&cp));
     strcpy(cp, line);
     char *path_end = strchr(cp,':');    // find colon
 

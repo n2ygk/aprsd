@@ -559,8 +559,9 @@ void SendToAllClients(TAprsString* p)
                 || (p->find("has disconnected") <= p->length())
                 || (p->find("Connected to") <= p->length()))) {
             if (p->aprsType == APRSERROR) {
-                char *fubarmsg;
-                fubarmsg = new char[2049](0);
+                //char *fubarmsg;
+                fubarmsg = new char[2049];
+                //memset(fubarmsg, NULLCHR, sizeof(&fubarmsg));
                 ostrstream msg(fubarmsg, 2048);
 
                 msg << "FUBARPKT " << p->srcHeader.c_str()
@@ -911,7 +912,7 @@ void dequeueTNC(void)
     }
 
     rfbuf = new char[301];
-    memset(rfbuf, NULLCHR, sizeof(rfbuf));
+    //memset(rfbuf, NULLCHR, sizeof(rfbuf));
 
     if (rfbuf != NULL) {
         if (tncPresent ) {
@@ -933,7 +934,7 @@ void dequeueTNC(void)
             rfbuf[256] = NULLCHR;          // Make sure there's a null on the end
             strcat(rfbuf,"\r");         // append a CR to the end
             char* cp = new char[301];   // Will be deleted by conQueue reader.
-            memset(cp, NULLCHR, sizeof(&cp));
+            //memset(cp, NULLCHR, sizeof(&cp));
             ostrstream msg(cp, 300);
 
             msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
@@ -1027,7 +1028,7 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 
     {
         char* cp = new char[129];
-        memset(cp, NULLCHR, sizeof(&cp));
+        //memset(cp, NULLCHR, sizeof(&cp));
         ostrstream msg(cp, 128);
         msg << szPeer << " " << userCall
             << " has disconnected\n"
@@ -1165,7 +1166,7 @@ void *TCPSessionThread(void *p)
 
     {
         char *cp = new char[257];
-        memset(cp, NULLCHR, sizeof(&cp));
+        //memset(cp, NULLCHR, sizeof(&cp));
         ostrstream msg(cp, 256);
         msg << szPeer << " has connected to port " << serverport << endl << ends;
         conQueue.write(cp, 0);           // queue reader deletes cp
@@ -1216,14 +1217,14 @@ void *TCPSessionThread(void *p)
 
         {
             char *cp = new char[257];
-            memset(cp, NULLCHR, sizeof(&cp));
+            //memset(cp, NULLCHR, sizeof(&cp));
             ostrstream msg(cp, 256);
             msg << "Sent " << n << " history items to " << szPeer << endl << ends;
             conQueue.write(cp, 0);       // queue reader deletes cp
         }
     }
     char *pWelcome = new char[strlen(CONFPATH) + strlen(WELCOME) + 1];
-    memset(pWelcome, NULLCHR, sizeof(&pWelcome));
+    //memset(pWelcome, NULLCHR, sizeof(&pWelcome));
     strcpy(pWelcome, CONFPATH);
     strcat(pWelcome, WELCOME);
 
@@ -1259,7 +1260,7 @@ void *TCPSessionThread(void *p)
         cerr << "Can't find free session.\n" << flush;		// debug stuff
         endSession(session,szPeer,userCall,starttime);
         char *cp = new char[257];
-        memset(cp, NULLCHR, sizeof(&cp));
+        //memset(cp, NULLCHR, sizeof(&cp));
         ostrstream msg(cp, 256);
         msg <<  "Can't add client to session list, too many users - closing connection.\n"
             << ends;
@@ -1531,7 +1532,7 @@ void *TCPSessionThread(void *p)
                     } else {
                         if (idxInvalid != string::npos) {
                             char *cp = new char[257];
-                            memset(cp, NULLCHR, sizeof(&cp));
+                            //memset(cp, NULLCHR, sizeof(&cp));
                             ostrstream msg(cp, 256);
 
                             msg << szPeer
@@ -1799,7 +1800,7 @@ void *TCPSessionThread(void *p)
                 } else {
                     if (idxInvalid != string::npos) {
                         char *cp = new char[257];
-                        memset(cp, NULLCHR, sizeof(&cp));
+                        //memset(cp, NULLCHR, sizeof(&cp));
                         ostrstream msg(cp, 256);
 
                         msg << szPeer
@@ -2295,7 +2296,7 @@ void *TCPConnectThread(void *p)
 
         if (!hostinfo) {
             char* cp = new char[257];
-            memset(cp, NULLCHR, sizeof(&cp));
+            //memset(cp, NULLCHR, sizeof(&cp));
             ostrstream msg(cp, 256);
             msg << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends;
             WriteLog(cp, MAINLOG);
@@ -2322,7 +2323,7 @@ void *TCPConnectThread(void *p)
 
                 {
                     char* cp = new char[257];
-                    memset(cp, NULLCHR, sizeof(&cp));
+                    //memset(cp, NULLCHR, sizeof(&cp));
                     ostrstream msg(cp, 256);
                     msg <<  szLog << endl << ends;
                     conQueue.write(cp, 0);      // cp deleted by conQueue
@@ -2345,7 +2346,7 @@ void *TCPConnectThread(void *p)
                 WriteLog(szLog, MAINLOG);
 
                 char* cp = new char[257];
-                memset(cp, NULLCHR, sizeof(&cp));
+                //memset(cp, NULLCHR, sizeof(&cp));
                 ostrstream msg(cp, 256);
                 msg <<  szLog << endl << ends;
                 conQueue.write(cp, 0);               // cp deleted in queue reader
@@ -2603,7 +2604,7 @@ void *TCPConnectThread(void *p)
 
             {
                 char* cp = new char[257];
-                memset(cp, NULLCHR, sizeof(&cp));
+                //memset(cp, NULLCHR, sizeof(&cp));
                 ostrstream msg(cp, 256);
                 msg <<  szLog << endl << ends;
                 conQueue.write(cp, 0);
@@ -2744,8 +2745,8 @@ char* getStats()
     double serverRate = 0;
     double inetRate = 0;
     string inetRateX, serverRateX;
-    char *cbuf = new char[1024];
-    memset(cbuf, NULLCHR, sizeof(&cbuf));
+    char *cbuf = new char[1025];
+    //memset(cbuf, NULLCHR, sizeof(&cbuf));
 
     time(&time_now);
     upTime = ((double)(time_now - serverStartTime) / 3600);
@@ -2849,7 +2850,7 @@ void serverQuit(termios* initial_settings)
     tcsetattr(fileno(stdin), TCSANOW, initial_settings); //restore terminal mode
 
     char *pSaveHistory = new char[strlen(VARPATH) + strlen(SAVE_HISTORY) + 1];
-    memset(pSaveHistory, NULLCHR, sizeof(&pSaveHistory));
+    //memset(pSaveHistory, NULLCHR, sizeof(&pSaveHistory));
     strcpy(pSaveHistory, VARPATH);
     strcat(pSaveHistory, SAVE_HISTORY);
     int n = SaveHistory(pSaveHistory);
@@ -3502,7 +3503,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         cerr << "Unable to lock pmtxCount - HTTPStats2.\n" << flush;
 
     htmlbuf = new char[HTMLSIZE];
-    memset(htmlbuf, NULLCHR, sizeof(htmlbuf));
+    //memset(htmlbuf, NULLCHR, sizeof(htmlbuf));
     ostrstream stats(htmlbuf, HTMLSIZE - 1);
 
     stats << setiosflags(ios::showpoint | ios::fixed)
@@ -3920,7 +3921,7 @@ int main(int argc, char *argv[])
     szServerCall = "aprsd";             // default server FROM CALL used in system generated pkts.
 
     szAPRSDPATH = new char[65];
-    memset(szAPRSDPATH, NULLCHR, 64);
+    //memset(szAPRSDPATH, NULLCHR, 64);
     strcpy(szAPRSDPATH,">");
     strncat(szAPRSDPATH, PGVERS, 64);
     strncat(szAPRSDPATH, ",TCPIP*:", 64); // ">APD215,TCPIP*:"
@@ -3949,7 +3950,7 @@ int main(int argc, char *argv[])
    //fdump = fopen("dump.txt","w+");  //debug
 
     pSaveHistory = new char[strlen(VARPATH) + strlen(SAVE_HISTORY) + 1];
-    memset(pSaveHistory, NULLCHR, sizeof(pSaveHistory));
+    //memset(pSaveHistory, NULLCHR, sizeof(pSaveHistory));
     strcpy(pSaveHistory, VARPATH);
     strcat(pSaveHistory, SAVE_HISTORY);
 
@@ -4148,7 +4149,7 @@ int main(int argc, char *argv[])
         cout << "Setting up TNC\n" << flush;
 
         char *pInitTNC = new char[strlen(CONFPATH) + strlen(TNC_INIT) + 1];
-        memset(pInitTNC, NULLCHR, sizeof(&pInitTNC));
+        //memset(pInitTNC, NULLCHR, sizeof(&pInitTNC));
         strcpy(pInitTNC, CONFPATH);
         strcat(pInitTNC, TNC_INIT);
 
