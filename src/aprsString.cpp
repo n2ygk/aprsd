@@ -220,11 +220,6 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             return;
         }
 
-        //if ((find("cmd:") == 0 || find("CMD:") == 0)) { // TNC commands
-        //    aprsType = APRSERROR;
-        //    return;
-        //}
-
         if ((find("user ") == 0 || find("USER ") == 0)) {   // Must be a logon string
             int n = split(*this, words, MAXWORDS, RXwhite);
             if (n > 1)
@@ -259,7 +254,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             size_type gtIdx = path.find(">");  //find first ">" in path
             size_type gt2Idx = path.find_last_of(">"); // find last ">" in path
 
-            if ((gtIdx != gt2Idx)&&(gtIdx != npos)) {
+            if ((gtIdx != gt2Idx) && (gtIdx != npos)) {
                 //This is in AEA TNC format because it has more than 1 ">"
 
                 //cout << "AEA " << *this << endl << flush;
@@ -269,8 +264,8 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
 
                 // Replace AEA path with TAPR path
                 pIdx = rs.find(":");
-                string rsPath = rs.substr(0,pIdx);
-                replace(0,savepIdx,rsPath);
+                string rsPath = rs.substr(0, pIdx);
+                replace(0, savepIdx, rsPath);
                 path = rsPath;
 
                 AEA = TRUE;
@@ -282,71 +277,28 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             }
 
             if ((pIdx+1) < length())
-                data = substr(pIdx+1,MAXPKT);  //The data portion of the packet
+                data = substr(pIdx+1, MAXPKT);  //The data portion of the packet
 
-            pathSize = split(path ,ax25Path, MAXPATH, pathDelm);
+            pathSize = split(path, ax25Path, MAXPATH, pathDelm);
             if (pathSize >= 2)
                 ax25Dest = ax25Path[1]; // AX25 destination
 
-            if (ax25Dest.find("cmd:") <= ax25Dest.length()) {
-                aprsType = APRSERROR;
-                return;
-            }
-
             if (pathSize >= 1) {
                 ax25Source = ax25Path[0];           //AX25 Source
-                //upcase(ax25Source);
 
                 if ((ax25Source.length() > 10) || (ax25Source.length() < 3)) {
                     // 10 v 9 to allow for src*
                     // discard runts
                     aprsType = APRSERROR;
-                    //print(cout);
                     return;
                 }
-/*
-                if (ax25Source.find("$") <= ax25Source.length()) {
-                    aprsType = APRSERROR;
-                    return;
-                }
-
-                if (ax25Source.find("Tickle") <= ax25Source.length()) {
-                    aprsType = APRSERROR;
-                    //print(cout);
-                    return;
-                }
-
-                if (ax25Source.find("cmd:") <= ax25Source.length()) {
-                    aprsType = APRSERROR;
-                    //print(cout);
-                    return;
-                }
-                if (ax25Source.find("CMD:") <= ax25Source.length()) {
-                    aprsType = APRSERROR;
-                    //print(cout);
-                    return;
-                }
-                if (ax25Source.find("EH?") <= ax25Source.length()) {
-                    aprsType = APRSERROR;
-                    //print(cout);
-                    return;
-                }
-
-                if (ax25Source.find("?EH") <= ax25Source.length()) {
-                    aprsType = APRSERROR;
-                    //print(cout);
-                    return;
-                }
-
-                if (ax25Source.find("UNPROTO") <= ax25Source.length()) {
-                    aprsType = APRSERROR;
-                    //print(cout);
-                    return;
-                }
-*/
             }
-            if (data.length() == 0)
+            if ((data.length() < 7) || (data.length() > 253)) {
+                // need some data to be of some use...
+                // then again too much of a good thing is bad as well
+                aprsType = APRSERROR;
                 return;
+            }
 
             size_type idx,qidx;
 
