@@ -1,30 +1,60 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(acinclude.m4)
+AC_INIT(src/assert.h)
 
-AC_DEFINE_UNQUOTED(APRSDTOCALL, "APD221")
-#AC_SUBST(APRSDTOCALL)
-AC_CANONICAL_SYSTEM
-AC_ARG_PROGRAM
+AC_CONFIG_AUX_DIR(support)
+AM_INIT_AUTOMAKE(aprsd, [2.2.3])
 
-AM_INIT_AUTOMAKE(aprsd, [2.2.1])
-
-dnl Generate the config header
 AM_CONFIG_HEADER(config.h)
+AM_MAINTAINER_MODE
+
+AC_DEFINE_UNQUOTED(APRSDTOCALL, "APD223")
 
 dnl Checks for programs.
-AC_CHECK_COMPILERS
-APRSD_CHECK_THREADING
-APRSD_MISC_TESTS
-CHECK_AX25
-CHECK_FHS
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_CPP
+AC_PROG_RANLIB
+dnl AC_LANG_CPLUSPLUS
+if test "$GCC" = "yes"; then
+	CXXFLAGS="$CXXFLAGS -Wall -pipe"
+fi
+APRSD_CHECK_NAMESPACES
 
-AC_DEFINE(_GNU_SOURCE, 1, [This is GNU compliant source.  Use GNU extensions.])
-AC_CHECK_HEADERS(unistd.h fcntl.h time.h sys/time.h sys/select.h sys/socket.h)
-AC_CHECK_HEADERS(sys/resource.h getop.h)
+dnl Checks for libraries.
+AC_CHECK_LIB(pthread, pthread_create)
+AC_CHECK_LIB(dce, pthread_create)
+AC_CHECK_LIB(cma, pthread_create)
+case "$host_os" in
+hpux*)
+	AC_CHECK_LIB(gcc, main)
+	AC_DEFINE(_CMA_NOWRAPPERS_, 1, HP/UX specific stuff.)
+	;;
+esac
+AC_CHECK_LIB(ax25, ax25_config_load_ports)
+AC_CHECK_LIB(crypt, main)
+
+
+dnl Checks for header files.
+AC_STDC_HEADERS
+AC_CHECK_HEADERS(fcntl.h unistd.h time.h sys/time.h sys/select.h sys/socket.h)
+AC_CHECK_HEADERS(pthread.h sys/resource.h getopt.h)
+AC_CHECK_HEADERS(string.h)
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_TYPE_SIZE_T
+AC_HEADER_TIME
+AC_DEFINE(_GNU_SOURCE, 1, [This is a GNU compliant source, use GNU extensions.])
+AC_DEFINE(_REENTRANT, 1, Use reentrant code if available.)
 APRSD_CHECK_TYPE(socklen_t, int, sys/socket.h)
 APRSD_CHECK_TYPE(sa_family_t, unsigned short, sys/socket.h)
 
-dnl Perform program name transformation
-AC_ARG_PROGRAM
+dnl Checks for library functions.
+AC_HEADER_STDC
+AC_TYPE_SIGNAL
+AC_FUNC_SELECT_ARGTYPES
+AC_REPLACE_FUNCS(getopt_long)
+AC_CHECK_FUNCS(regcomp select socket uname hstrerror)
+AC_CHECK_FUNCS(pthread_attr_setdetachstate pthread_attr_getdetachstate)
+AC_CHECK_FUNCS(getrlimit setsid setpgrp sigaction signal sigprocmask sigblock)
 
 AC_OUTPUT(Makefile admin/Makefile doc/Makefile src/Makefile)

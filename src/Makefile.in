@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4-p4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -57,38 +57,29 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-build_alias = @build_alias@
-build_triplet = @build@
-host_alias = @host_alias@
-host_triplet = @host@
-target_alias = @target_alias@
-target_triplet = @target@
-APRSD_CXXFLAGS = @APRSD_CXXFLAGS@
 CC = @CC@
 CPP = @CPP@
 CXX = @CXX@
-CXXCPP = @CXXCPP@
-EXTRA_LIBS = @EXTRA_LIBS@
-LIBCOMPAT = @LIBCOMPAT@
-LIBCRYPT = @LIBCRYPT@
-LIBDL = @LIBDL@
-LIBPTHREAD = @LIBPTHREAD@
-LIBSOCKET = @LIBSOCKET@
-LIBS_AX25 = @LIBS_AX25@
-LIBUCB = @LIBUCB@
-NOOPT_CXXFLAGS = @NOOPT_CXXFLAGS@
+MAINT = @MAINT@
+MAKEINFO = @MAKEINFO@
 PACKAGE = @PACKAGE@
-USE_EXCEPTIONS = @USE_EXCEPTIONS@
-USE_RTTI = @USE_RTTI@
-USE_THREADS = @USE_THREADS@
+RANLIB = @RANLIB@
 VERSION = @VERSION@
 
 bin_PROGRAMS = aprsd aprspass
-aprsd_SOURCES = aprsString.cpp aprsString.h aprsd.cpp constant.h 	cpqueue.cpp cpqueue.h crc.h crc32.c dupCheck.cpp dupCheck.h 	except.hpp history.cpp history.h mic_e.cpp mic_e.h queryResp.cpp queryResp.h    	rf.cpp rf.h serial.cpp serial.h sniptype.h sockets.cpp sockets.h 	utils.cpp utils.h validate.cpp validate.h
+aprsd_SOURCES = aprsString.cpp aprsString.h aprsd.cpp constant.h \
+	cpqueue.cpp cpqueue.h crc.h crc32.c dupCheck.cpp dupCheck.h \
+	history.cpp history.h mic_e.cpp mic_e.h queryResp.cpp queryResp.h \
+   	rf.cpp rf.h serial.cpp serial.h sniptype.h sockets.cpp sockets.h \
+	utils.cpp utils.h validate.cpp validate.h mutex.cpp mutex.h \
+	exception.cpp exception.h Assert.h exceptionguard.cpp \
+	exceptionguard.h osdep.cpp osdep.h
 
+
+# consolequeue.cpp consolequeue.h
 
 aprspass_SOURCES = validate.cpp aprspass.cpp
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(SHELL) $(top_srcdir)/support/mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
 PROGRAMS =  $(bin_PROGRAMS)
@@ -100,7 +91,7 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 aprsd_OBJECTS =  aprsString.o aprsd.o cpqueue.o crc32.o dupCheck.o \
 history.o mic_e.o queryResp.o rf.o serial.o sockets.o utils.o \
-validate.o
+validate.o mutex.o exception.o exceptionguard.o osdep.o
 aprsd_LDADD = $(LDADD)
 aprsd_DEPENDENCIES = 
 aprsd_LDFLAGS = 
@@ -121,11 +112,12 @@ DIST_COMMON =  Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = tar
+TAR = gtar
 GZIP_ENV = --best
 DEP_FILES =  .deps/aprsString.P .deps/aprsd.P .deps/aprspass.P \
-.deps/cpqueue.P .deps/crc32.P .deps/dupCheck.P .deps/history.P \
-.deps/mic_e.P .deps/queryResp.P .deps/rf.P .deps/serial.P \
+.deps/cpqueue.P .deps/crc32.P .deps/dupCheck.P .deps/exception.P \
+.deps/exceptionguard.P .deps/history.P .deps/mic_e.P .deps/mutex.P \
+.deps/osdep.P .deps/queryResp.P .deps/rf.P .deps/serial.P \
 .deps/sockets.P .deps/utils.P .deps/validate.P
 SOURCES = $(aprsd_SOURCES) $(aprspass_SOURCES)
 OBJECTS = $(aprsd_OBJECTS) $(aprspass_OBJECTS)
@@ -133,7 +125,7 @@ OBJECTS = $(aprsd_OBJECTS) $(aprspass_OBJECTS)
 all: all-redirect
 .SUFFIXES:
 .SUFFIXES: .S .c .cpp .o .s
-$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
 	cd $(top_srcdir) && $(AUTOMAKE) --gnu src/Makefile
 
 Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status $(BUILT_SOURCES)
