@@ -689,7 +689,7 @@ int ReadHistory(char *name)
     int icount = 0;
     int expiredCount = 0;
     int ttl,EchoMask,aprsType;
-    char *data = new char[257];
+    char *data = new char[256];
     //memset(data, NULLCHR, sizeof(&data));
     time_t now, timestamp;
 

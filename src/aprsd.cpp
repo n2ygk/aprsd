@@ -559,7 +559,7 @@ void SendToAllClients(TAprsString* p)
                 || (p->find("has disconnected") <= p->length())
                 || (p->find("Connected to") <= p->length()))) {
             if (p->aprsType == APRSERROR) {
-                //char *fubarmsg;
+                char *fubarmsg;
                 fubarmsg = new char[2048](0);
                 //memset(fubarmsg, NULLCHR, sizeof(&fubarmsg));
                 ostrstream msg(fubarmsg, 2047);
