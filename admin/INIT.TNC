@@ -18,15 +18,15 @@ FILTER ON
 CD SOFTWARE
 NEWMODE OFF
 #MYCALL must match MyCall in aprsd.conf
-MYCALL NOCALL
+MYCALL KG4IJB-3
 #You may turn off BTEXT here and use the "tncbeacon" command in aprsd.conf instead.
-BTEXT _3802.21N/07830.61W& aprsd Linux APRS Server 
+#BTEXT _0000.00NI00000.00W& APRS Linux Internet Server 
 BEACON EVERY 10
 #Note: The "APRS" in the next line will be overwritten by APDxxx where xxx is the version number.
 #      So, it matters not what you put there.
 UNPROTO APRS VIA WIDE,WIDE
 HEADERLN OFF
-DIGI OFF 
+DIGI OFF
 HID OFF
 PACLEN 0
 SCREENL 0

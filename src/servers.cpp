@@ -111,22 +111,17 @@ const int maxIGATES = 100;   //Defines max number of IGATES/Servers you can conn
 #define UMSG_SIZE MAX+BUFSIZE+3
 
 //---------------------------------------------------
-cpQueue sendQueue(256,true);        // Internet transmit queue
-cpQueue tncQueue(64,true);          // TNC RF transmit queue
-cpQueue charQueue(256,false);       // A queue of single characters
-cpQueue conQueue(256,true);         // data going to the console from various threads
+cpQueue sendQueue(256, true);        // Internet transmit queue
+cpQueue tncQueue(64, true);          // TNC RF transmit queue
+cpQueue charQueue(256, false);       // A queue of single characters
+cpQueue conQueue(256, true);         // data going to the console from various threads
 
 struct sLogon logon;
 char *passDefault = "-1";
-//char *MyCall;
 string MyCall;
-//char *MyLocation;
 string MyLocation;
-//char *MyEmail;
 string MyEmail;
-//char *NetBeacon;
 string NetBeacon;
-//char *TncBeacon;
 string TncBeacon;
 char *TncBaud;
 int TncBeaconInterval, NetBeaconInterval;
@@ -144,23 +139,20 @@ bool sendOnRF(aprsString& atemp,  string szPeer, char* userCall, const int src);
 
 //-------------------------------------------------------------------
 
-//char* szServerCall;             //  This servers "AX25 Source Call" (user defined)
-string szServerCall;
-//char* szAPRSDPATH;              //  Servers "ax25 dest address + path" eg: >APD213,TCPIP*:
-string szAPRSDPATH;
+string szServerCall;            //  This servers "AX25 Source Call" (user defined)
+string szAPRSDPATH;             //  Servers "ax25 dest address + path" eg: >APD213,TCPIP*:
 
 
-char szServerID[] = "APRS Server: ";
-//const char szJAVAMSG[] = ">JAVA::javaMSG  :";
+string szServerID = string("APRS Server: ");
 string szJAVAMSG = string(">JAVA::javaMSG  :");
 
-const char szUSERLISTMSG[]  = ":USERLIST :";
-const char szUNVERIFIED[]   = "Unverified ";
-const char szVERIFIED[]     = "Verified ";
-const char szRM1[]          = "You are an unverified user, Internet access only.\r\n";
-const char szRM2[]          = "Send Access Denied. Access is Read-Only.\r\n";
-const char szRM3[]          = "RF access denied, Internet access only.\r\n";
-const char szACCESSDENIED[] = "Access Denied ";
+const string szUSERLISTMSG  = string(":USERLIST :");
+const string szUNVERIFIED   = string("Unverified ");
+const string szVERIFIED     = string("Verified ");
+const string szRM1          = string("You are an unverified user, Internet access only.\r\n");
+const string szRM2          = string("Send Access Denied. Access is Read-Only.\r\n");
+const string szRM3          = string("RF access denied, Internet access only.\r\n");
+const string szACCESSDENIED = string("Access Denied");
 
 Mutex pmtxSendFile;
 Mutex pmtxSend;                         // socket send
@@ -277,14 +269,11 @@ int initDefaults(void)
 
     szServerCall = "aprsd";    //default server FROM CALL used in system generated pkts.
 
-    //szAPRSDPATH = new char[64];     //Don't put more than 63 chars in here
-    //memset(szAPRSDPATH, 0, 64);
-    //strcpy(szAPRSDPATH,">");
-    //strcat(szAPRSDPATH,PGVERS);
-    //strcat(szAPRSDPATH,",TCPIP*:");  // ">APD215,TCPIP*:"
     szAPRSDPATH = string(">");
     szAPRSDPATH += PGVERS;
     szAPRSDPATH += ",TCPIP*:";
+    if (szAPRSDPATH.size() > 64)    // Limit data path to 64 bytes
+        szAPRSDPATH.resize(64);
     
     spOmniServer.ServerPort = 0;
     spLinkServer.ServerPort = 0;      //Ports are set in aprsd.conf file
@@ -513,7 +502,7 @@ int getConnectedClients(void)
             count++;
 
     for (int i = 0; i < nIGATES; i++)
-        if (cpIGATE[i].connected != true)
+        if (!cpIGATE[i].connected)
             count--;
 
 
@@ -561,7 +550,7 @@ bool DeleteSession(int s)
     bool rv = false;
 
     if (s == -1)
-        return false;
+        return rv;
 
     Lock addDelLock(pmtxAddDelSess);
     
@@ -629,7 +618,7 @@ void SendToAllClients(aprsString* p)
     if (p == NULL)
         return;
 
-    if (p->length() < 3)
+    if (p->size() < 3)
         return;         //Silently reject runts
 
     if ((p->aprsType == CONTROL) || (p->msgType == APRSMSGSERVER))
@@ -644,7 +633,7 @@ void SendToAllClients(aprsString* p)
     }
 
     bool bad_ax25 = ((((p->EchoMask & srcSTATS) == 0) //Don't flag system status text stream
-                    && (p->valid_ax25 == false))   //invalid ax25
+                    && (!p->valid_ax25))  //invalid ax25
                     || (p->aprsType == APRSREJECT)   // reject
                     || (p->EchoMask == 0));         //EchoMask is zero
 
@@ -653,7 +642,7 @@ void SendToAllClients(aprsString* p)
         p->EchoMask |= wantREJECTED ;  //For those who want to see them
     }
 
-    if ((bad_ax25 == false) && (p->EchoMask & srcSTATS) == 0) {
+    if ((!bad_ax25) && (p->EchoMask & srcSTATS) == 0) {
         countLock.get();
         countIGATED++;     //Count good packets
 
@@ -663,7 +652,7 @@ void SendToAllClients(aprsString* p)
         countLock.release();
     }
 
-    if ((p->aprsType == APRSREJECT) && (dup == false))
+    if ((p->aprsType == APRSREJECT) && (!dup))
         WriteLog(p->raw, string(REJECTLOG));     // Log rejected packets
 
     sendLock.get();
@@ -703,8 +692,8 @@ void SendToAllClients(aprsString* p)
             Em = p->EchoMask & 0x7ff;
 
             if ((sessions[i].EchoMask & Em)   //Echo inet data if source mask bits match session mask
-                    && (ShutDownServer == false)
-                    && (sessions[i].dead == false)) {//Send NO data to a dead socket (added vers. 215a6)
+                    && (!ShutDownServer)
+                    && (!sessions[i].dead)) {//Send NO data to a dead socket (added vers. 215a6)
 
                 rc = tc = 0;
                 // User wants raw tnc data
@@ -743,8 +732,8 @@ void SendToAllClients(aprsString* p)
 
                 // Error Port 14503: User wants source header plus Rejected packets ONLY.
                 if (wantrej  && bad_ax25
-                        && (echo == false)
-                        && (dup == false)
+                        && (!echo)
+                        && (!dup)
                         && ((p->EchoMask & srcSTATS) == 0) ){
 
                     rc = send(sessions[i].Socket,p->srcHeader.c_str(),nsh,0);
@@ -900,7 +889,7 @@ void *DeQueue(void* vp)
                     // Convert UI-View "CALLSIGN,I" style packets
                     string Icall = abuff->removeI();  //If present remove I or I* and preceeding call sign
                                                      //Also saves callsign in abuff->icall
-                    if (abuff->cci == true)
+                    if (abuff->cci)
                         src_call = Icall; //Use preceeding call as source call
 
                     // Add the q string path elemement
@@ -945,7 +934,7 @@ void *DeQueue(void* vp)
             if (((abuff->EchoMask) & (srcSTATS | srcSYSTEM)) == 0 )
                 dup  = dupFilter.check(abuff,DUPWINDOW);  //Check for duplicates within N second window
 
-            if (dup == false){                           //Packet is NOT a duplicate
+            if (!dup){                           //Packet is NOT a duplicate
                 //pthread_mutex_lock(pmtxCount);
                 countLock.get();
                 TotalFullStreamChars += abuff->length();  //Tally all non-duplicate bytes
@@ -1026,7 +1015,7 @@ void *DeQueue(void* vp)
                     || (abuff->EchoMask & (srcSTATS | srcSYSTEM)) /* No internally generated packets */
                     || (dup)                                      /* No duplicates */
                     || (NOGATE_FILTER && abuff->nogate)           /* No NOGATE flagged packets, new in v2.1.5 */
-                    || (abuff->valid_ax25 == false)               /* No invalid ax25 packets */
+                    || (!abuff->valid_ax25)                       /* No invalid ax25 packets */
                     || (abuff->reformatted))){                    /* No 3rd party reformatted pkts */
 
                 Hist = false;    //None of the above allowed in history list
@@ -1041,7 +1030,7 @@ void *DeQueue(void* vp)
             if (dup)
                 abuff->EchoMask |= sendDUPS; //If it's a duplicate mark it.
 
-            if ((abuff->aprsType == APRSQUERY) && (dup == false)){
+            if ((abuff->aprsType == APRSQUERY) && (!dup)){
                 if (abuff->EchoMask & srcUSERVALID)
                     queryResp(abuff->sourceSock,abuff);
 
@@ -1138,7 +1127,7 @@ void dequeueTNC(void)
 
     if (rfbuf != NULL) {
         if (tncPresent ) {
-            if ((abuff->allowdup == false)          //Prevent infinite loop!
+            if ((!abuff->allowdup)          //Prevent infinite loop!
                     && (abuff->msgType == APRSMSGACK) //Only ack packets
                     && (ackRepeats > 0) ) {           //Only if repeats greater than zero
 
@@ -1166,7 +1155,7 @@ void dequeueTNC(void)
             memset(cp, 0, 301);
             ostrstream msg(cp,300);
             msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
-            conQueue.write(cp,0);
+            conQueue.write(cp, 0);
 
             TotalTNCtxChars += strlen(rfbuf);
 
@@ -1247,7 +1236,6 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         char* cp = new char[128];
         memset(cp, 0, 128);
         ostrstream msg(cp, 127);
-        //ostringstream msg;
         msg << szPeer << " " << userCall
             << " has disconnected" << endl
             << ends;
@@ -1255,10 +1243,6 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         conQueue.write(cp, 0);
     }
 
-    //strncpy(szLog, szPeer, 16);
-    //strcat(szLog, " ");
-    //strcat(szLog, userCall);
-    //strcat(szLog, " disconnected ");
     ostringstream sLog;
     sLog << szPeer << " " << userCall << " disconnected";
     time_t endtime = time(NULL);
@@ -1269,7 +1253,6 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
     int iSecond = (int)dConnecttime % 60;
     char timeStr[32];
     sprintf(timeStr, "%3d:%02d:%02d", iHour, iMinute, iSecond);
-    //strcat(szLog, timeStr);
     sLog << timeStr;        // time already adds CFLF
 
     WriteLog(sLog.str(), MAINLOG);
@@ -1296,7 +1279,6 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
     if (strlen(userCall) > 0) {
         memset(infomsg, 0, MAX);
         ostrstream msg(infomsg,MAX-1);
-        //ostringstream msg;
 
         msg  << szServerCall
             << szAPRSDPATH
@@ -1309,7 +1291,6 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << ends;
 
         BroadcastString(infomsg); //Say call sign of disconnected client
-        //BroadcastString(msg.str());
     }
 
     pthread_exit(0);
@@ -1318,13 +1299,11 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 //Sends an aprs unnumbered message.  No acknowledgement expected.
 void sendMsg(int session, const string& from, const string& to, const string& text)
 {
-    //char buff[256];
     string dest;
-    //ostrstream msg(buff,255);
     dest = to;
     ostringstream msg;
 
-    while (dest.length() < 9)
+    while (dest.size() < 9)
         dest += " ";  //Pad destination with spaces
 
     msg << from
@@ -1335,22 +1314,19 @@ void sendMsg(int session, const string& from, const string& to, const string& te
         << ":"
         << text
         << "\r\n";
-        //<< ends;
 
-    SendSessionStr(session, msg.str().c_str()); //buff);//Send ack to user
+    SendSessionStr(session, msg.str().c_str());     //Send ack to user
 }
 
 //-----------------------------------------------------------------------
 //Sends an aprs ack message
 void sendAck(int session, const string& from, const string& to, const string& acknum)
 {
-    // char buff[64];
     string dest;
-    //ostrstream msg(buff,63);
     dest = to;
     ostringstream msg;
 
-    while (dest.length() < 9)
+    while (dest.size() < 9)
         dest += " ";  //Pad destination with spaces
 
     msg << from
@@ -1361,9 +1337,8 @@ void sendAck(int session, const string& from, const string& to, const string& ac
         << ":ack"
         << acknum
         << "\r\n";
-        //<< ends;
 
-    SendSessionStr(session, msg.str().c_str()); //buff);//Send ack to user
+    SendSessionStr(session, msg.str().c_str());     //Send ack to user
      // cerr << "ACK: " << buff;    //DEBUG
 }
 
@@ -1394,7 +1369,8 @@ void *TCPSessionThread(void *p)
     struct sockaddr_in peer_adr;
     char szPeer[MAX], szErrorUsers[MAX], szErrorLoad[MAX], szLog[MAX], infomsg[MAX], logmsg[MAX];
 
-    const char *szUserStatus;
+    //const char *szUserStatus;
+    string szUserStatus;
     unsigned char c;
     char star = '*';
 
@@ -1404,8 +1380,7 @@ void *TCPSessionThread(void *p)
     ULONG State = BASE;
     char userCall[10];
     char tc, checkdeny;
-    const char *szRestriction;
-    //int dummy;
+    string szRestriction;
 
     //These deal with Telnet protocol option negotiation suppression
     int iac,sbEsc;
@@ -1516,7 +1491,6 @@ void *TCPSessionThread(void *p)
             msg << szPeer
                 << " aborted during history dump on "
                 << serverport;
-                //<< ends;
 
             WriteLog(msg.str(), MAINLOG);
             endSession(session, szPeer, userCall, starttime);
@@ -1536,6 +1510,7 @@ void *TCPSessionThread(void *p)
         strcpy(pWelcome, CONFPATH.c_str());
         strcat(pWelcome, WELCOME.c_str());
         rc = SendFiletoClient(session, pWelcome);		 //Read Welcome message from file
+        
         if (rc < 0) {
             ostringstream msg;
             msg << szPeer
@@ -1668,8 +1643,8 @@ void *TCPSessionThread(void *p)
             }
 
             if (i != -1) {  //Got a real character from the net
-                if (loggedon == false) {
-                    if ((c == IAC) && (sbEsc == false))
+                if (!loggedon) {
+                    if ((c == IAC) && (!sbEsc))
                         iac = 3;  //This is a Telnet IAC byte.  Ignore the next 2 chars
 
                     if ((c == SB) && (iac == 2))
@@ -1683,13 +1658,13 @@ void *TCPSessionThread(void *p)
                 bool cLFCR =  (( c == LF) || ( c == CR));
                 bool rejectCH = (((BytesRead == 0) && cLFCR) || (c == 0)) ;  //also discard NULLs
 
-                if ((rejectCH == false) && (iac == 0)) {
+                if ((!rejectCH) && (iac == 0)) {
                     if (BytesRead < BUFSIZE-3) 
                         buf[BytesRead] = c;
 
                     BytesRead += i;
                     //Only enable control char interpreter if user is NOT logged on in client mode
-                    if (loggedon == false){
+                    if (!loggedon){
                         switch (c) {
                             case 0x04:
                                 i = 0;  //Control-D = disconnect
@@ -1747,13 +1722,13 @@ void *TCPSessionThread(void *p)
             }else
                 c = 0;
 
-            if (loggedon == false){
+            if (!loggedon){
                 if (c == SE) { 
                     sbEsc = false; 
                     iac = 0;
                 }  //End of telnet suboption string
                 
-                if (sbEsc == false) 
+                if (!sbEsc) 
                     if(iac-- <= 0) 
                         iac = 0;  //Count the bytes in the Telnet command string
             }
@@ -1810,8 +1785,8 @@ void *TCPSessionThread(void *p)
                 // User stream filter request commands processed here
                 if((atemp.aprsType == APRSMSG)     //Server command in a message
                         && (atemp.msgType == APRSMSGSERVER)
-                        && (omniPort == true)          //This only works on omniPort
-                        && (cmd_lock == false)) {       //Commands not locked out
+                        && (omniPort)          //This only works on omniPort
+                        && (!cmd_lock)) {       //Commands not locked out
 
                     if (atemp.ax25Source.compare(userCall) == 0){ // From logged on user ONLY
                         string s;
@@ -1835,9 +1810,9 @@ void *TCPSessionThread(void *p)
                 }
 
                 if((atemp.aprsType == CONTROL)   //Naked control command
-                        && (omniPort == true)         //To omniport only
-                        && (cmd_lock == false)        //Commands not locked out
-                        && (loggedon == false)){      //Execute only prior to logon!
+                        && (omniPort)         //To omniport only
+                        && (!cmd_lock)        //Commands not locked out
+                        && (!loggedon)){      //Execute only prior to logon!
 
                     if(atemp.cmdType == CMDPORTFILTER){
                         EchoMask = atemp.EchoMask;  //Set user requested EchoMask
@@ -2077,7 +2052,7 @@ void *TCPSessionThread(void *p)
                 sendQueue.write(inetpacket); //note: inetpacket is deleted in DeQueue
             }
 
-            if ((atemp.aprsType == APRSMSG) && (RFalways == false) ) {
+            if ((atemp.aprsType == APRSMSG) && (!RFalways) ) {
                 aprsString* posit = getPosit(atemp.ax25Source, srcIGATE | srcUSERVALID | srcTNC);
                 if (posit != NULL) {
                     posit->EchoMask = src3RDPARTY;
@@ -2089,8 +2064,8 @@ void *TCPSessionThread(void *p)
             if (configComplete
                     && verified
                     && RFalways
-                    && (StationLocal(atemp.ax25Source, srcTNC) == false)
-                    && (atemp.tcpxx == false)
+                    && (!StationLocal(atemp.ax25Source, srcTNC))
+                    && (!atemp.tcpxx)
                     && (checkdeny == '+')) {
                      
                 aprsString* RFpacket = new aprsString(buf, session, srcUSER, szPeer, userCall);
@@ -2173,7 +2148,7 @@ void *TCPSessionThread(void *p)
                     verified_tnc = true;
 
                 if (verified_tnc) { 
-                    if(TncSysopMode == false) { 
+                    if (!TncSysopMode) { 
                         TncSysopMode = true;
                         State = REMOTE;
                         tncMute = true;
@@ -2415,7 +2390,7 @@ void *UDPServerThread(void *p)
                 sourceOK = true;
 
             n++;
-        } while((n < nTrusted) && (sourceOK == false)) ;
+        } while((n < nTrusted) && (!sourceOK)) ;
 
         if (sourceOK && configComplete && (i > 0)){
             int j = strlen(buf);
@@ -2517,7 +2492,7 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
 
     //cerr << "Bytes received=" << BytesRead << " abort=" << abort << endl;   //debug code
 
-    if ((BytesRead > 0) && (abort == false) ) { // 1 or more bytes needed
+    if ((BytesRead > 0) && (!abort) ) { // 1 or more bytes needed
         i = BytesRead -1 ;
         buf[i++] = (char)CR;  //make end-of-line CR-LF
         buf[i++] = (char)LF;
@@ -2672,7 +2647,7 @@ ConnectParams* getNextHub(ConnectParams* pcp)
             //pcp->alias = ip_hex_alias;
             pcp->alias = os_iphex.str();
 
-            if ((rc = connect(clientSocket,(struct sockaddr *)&host, length)) == -1) {
+            if ((rc = connect(clientSocket,(struct sockaddr *)&host, length)) < 0) {
                 close(clientSocket);
                 ostringstream os;
                 os << "Connection attempt failed " << pcp->RemoteName
@@ -2822,7 +2797,7 @@ ConnectParams* getNextHub(ConnectParams* pcp)
                     */
 
                     if ((atemp.aprsType == APRSMSG)
-                            && (atemp.tcpxx == false)
+                            && (!atemp.tcpxx)
                             && configComplete
                             && (!RFalways)) {
 
@@ -2854,12 +2829,12 @@ ConnectParams* getNextHub(ConnectParams* pcp)
                         OR TCPXX is in path .
                     */
 
-                    if((configComplete) && (atemp.aprsType != COMMENT)) { /* Send everything except COMMENT pkts back out to tcpip users */
+                    if ((configComplete) && (atemp.aprsType != COMMENT)) { /* Send everything except COMMENT pkts back out to tcpip users */
                         aprsString* inetpacket = new aprsString(buf, clientSocket, srcIGATE, pcp->RemoteName.c_str(), "IGATE");
                         inetpacket->changePath("TCPIP*","TCPIP");
                         inetpacket->call = os_iphex.str(); //string(ip_hex_alias);  //tag pkt with alias of this hub or server
 
-                        if(inetpacket->aprsType == APRSMIC_E)   //Reformat Mic-E packets
+                        if (inetpacket->aprsType == APRSMIC_E)   //Reformat Mic-E packets
                             reformatAndSendMicE(inetpacket,sendQueue);
                         else
                             sendQueue.write(inetpacket);    // send data to users.
@@ -2877,8 +2852,9 @@ ConnectParams* getNextHub(ConnectParams* pcp)
                     //Here's where the priviledged get their posits sent to RF full time.
                     if (configComplete
                             && RFalways
-                            && (StationLocal(atemp.ax25Source, srcTNC) == false)
-                            && (atemp.tcpxx == false)) {
+                            && (!StationLocal(atemp.ax25Source, srcTNC))
+                            && (!atemp.tcpxx)) {
+                            
                         aprsString* RFpacket = new aprsString(buf, clientSocket, srcIGATE, pcp->RemoteName.c_str(), "IGATE");
                         RFpacket->changePath("TCPIP*","TCPIP");
 
@@ -2962,7 +2938,7 @@ ConnectParams* getNextHub(ConnectParams* pcp)
             pcp = getNextHub(pcp);
             retryTimer = 60;      //Try next hub in 60 sec
         }
-    } while (ShutDownServer == false);
+    } while (!ShutDownServer);
 
     pthread_exit(0);
 }
@@ -2974,13 +2950,13 @@ bool sendOnRF(aprsString& atemp,  string szPeer, char* userCall, const int src)
     bool sentOnRF = false;
     bool stsmRFalways =  find_rfcall(atemp.stsmDest, stsmDest_rfcall); //Always send on RF ?
 
-    if ((atemp.tcpxx == false) && (atemp.aprsType == APRSMSG)) {
+    if ((!atemp.tcpxx) && (atemp.aprsType == APRSMSG)) {
         if (checkUserDeny(atemp.ax25Source) != '+')
             return false; //Reject if no RF or login permitted
 
         //Destination station active on VHFand source not?
-        if (((StationLocal(atemp.stsmDest, srcTNC) == true) || stsmRFalways)
-                && (StationLocal(atemp.ax25Source, srcTNC) == false)) {
+        if (((!StationLocal(atemp.stsmDest, srcTNC)) || stsmRFalways)
+                && (!StationLocal(atemp.ax25Source, srcTNC))) {
             aprsString* rfpacket = new aprsString(atemp.getChar(),atemp.sourceSock, src, szPeer.c_str(), userCall);
             //ofstream debug("rfdump.txt");
             //debug << rfpacket->getChar << endl ;  //Debug
@@ -3037,7 +3013,7 @@ int SendFiletoClient(int session, char *szName)
                     nanosleep(&ts,NULL);
                     retrys++;
                 } //0.1 sec between retrys
-            }while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
+            } while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
 
             if (rc == -1) {
                 perror("SendFileToClient()");
@@ -3047,7 +3023,7 @@ int SendFiletoClient(int session, char *szName)
             sendLock.release();
         }
 
-    }while (file.good() && (rc >= 0));
+    } while (file.good() && (rc >= 0));
 
     file.close();
     sendFileLock.release();

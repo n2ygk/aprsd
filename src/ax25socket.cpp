@@ -51,6 +51,7 @@
 #include "ax25socket.h"
 #include "constant.h"
 #include "rf.h"
+#include "servers.h"
 
 using std::cerr;
 using std::endl;
@@ -95,7 +96,7 @@ int SocketOpen(const string& rfport, const string& destcall)
 {
     char* portcall;
 
-    if (destcall.length() == 0) {
+    if (destcall.size() == 0) {
         cerr << "aprsd: no APRSPATH specified, required for sockets" << endl;
         return 1;
     }
@@ -172,20 +173,20 @@ bool SocketReadWrite(char buf[])
     struct ifreq ifr;
     int asize;
     int result;
-    int size;
+    int size = 0;
     unsigned char rxbuf[1500];
     unsigned char *textbuf;
+    int rc;
 
     lineTimeout = false;
 
     do {
-
         if (txrdy) {        //Check for data to Transmit
-            sendto(tx_socket, tx_buffer, strlen(tx_buffer), 0,
-                (struct sockaddr *)&tx_dest, tx_dest_len);
+            cerr << "DEBUG: SocketReadWrite: Sending " << buf << " to Socket" << endl;
+            if ((rc = sendto(tx_socket, tx_buffer, strlen(tx_buffer), 0, (struct sockaddr *)&tx_dest, tx_dest_len)) < 0)
+                cerr << "DEBUG: SocketReadWrite: Error sending to TNC" << endl;
             txrdy = false;      //Indicate we sent it.
         }
-
 
         pfd.fd = rx_socket;
         pfd.events = 0x040;             // Read normal data -- should be POLLRDNORM
@@ -196,11 +197,10 @@ bool SocketReadWrite(char buf[])
             asize = sizeof(sa);
 
             if ((size = recvfrom(rx_socket, rxbuf, sizeof(rxbuf), 0, &sa, (socklen_t*)&asize)) == -1) {
-                perror("recv");
+                perror("AX25 Socket recvfrom error");
                 result = -1;
 
             } else {
-
                 if (ax25dev != NULL && strcmp(ax25dev, sa.sa_data) != 0)
                     result = 0;
 
@@ -214,7 +214,7 @@ bool SocketReadWrite(char buf[])
                 if (result == 1) {
                     fmt(rxbuf, size, &textbuf);     // convert to text
                     strncpy(buf, (char*)textbuf, BUFSIZE);
-
+                    TotalTncChars += BUFSIZE;
                 }
             }
         }
@@ -223,6 +223,7 @@ bool SocketReadWrite(char buf[])
             lineTimeout = true; // Error has occurred
 
     } while (result == 0);
+    //cout << "DEBUG: AX25SockReadWrite: " << buf << endl;
     return lineTimeout;
 }
 

@@ -189,7 +189,7 @@ extern std::string NetBeacon;
 //extern char *TncBeacon;
 extern std::string TncBeacon;
 extern char *TncBaud;
-extern char szServerID[];
+extern string szServerID;
 
 extern cpQueue sendQueue;       // Internet transmit queue
 extern cpQueue tncQueue;        // TNC RF transmit queue

@@ -159,7 +159,7 @@ void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -IN
         string pRestore = CONFPATH;
         pRestore += TNC_RESTORE;
 
-        SendFiletoTNC(pRestore.c_str());
+        rfSendFiletoTNC(pRestore);
 
         AsyncClose() ;
         //delete pRestore;
@@ -919,7 +919,6 @@ int daemonInit(void)
 int main(int argc, char *argv[])
 {
     int rc, di;
-    //char *szConfFile;
     string sConfFile;
     timespec ts;
     string stats;
@@ -978,11 +977,6 @@ int main(int argc, char *argv[])
 
     //fdump = fopen("dump.txt","w+");  //debug
 
-        //pSaveHistory = new char[CONFPATH.length() + SAVE_HISTORY.length() +1];
-        //strcpy(pSaveHistory, CONFPATH.c_str());
-        //strcat(pSaveHistory, SAVE_HISTORY.c_str());
-
-        //ReadHistory(pSaveHistory);
         string histFile = CONFPATH;
         histFile += SAVE_HISTORY;
         ReadHistory(histFile);
@@ -1029,9 +1023,8 @@ int main(int argc, char *argv[])
 
         
         /*Initialize TNC Com port if specified in config file */
-        if (szComPort.length() > 0) {
+        if (szComPort.size() > 0) {
             cout  << "Opening serial port device " << szComPort << endl;
-            //if ((rc = AsyncOpen(szComPort, TncBaud)) != 0) {  
             if ((rc = rfOpen(szComPort, TncBaud)) != 0) {
                 ts.tv_sec = 2;
                 ts.tv_nsec = 0;
@@ -1043,8 +1036,8 @@ int main(int argc, char *argv[])
 
             string pInitTNC = CONFPATH;
             pInitTNC += TNC_INIT;
-            cerr << "AsyncSendFiletoTNC..." <<  "filename: " << pInitTNC << endl;
-            SendFiletoTNC(pInitTNC);    //Setup TNC from initialization file
+            //cerr << "AsyncSendFiletoTNC..." <<  "filename: " << pInitTNC << endl;
+            rfSendFiletoTNC(pInitTNC);    //Setup TNC from initialization file
             tncPresent = true;
         } else
             cout << "TNC com port not defined." << endl;

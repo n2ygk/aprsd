@@ -88,12 +88,12 @@ int rfOpen(const string& szPort, const string& baudrate)
     //cout << "Debug: szPort == " << szPort << endl;
     
     if (AsyncPort) {
-        cout << "AsyncPort is true" << endl;
+        //cout << "AsyncPort is true" << endl;
         result = AsyncOpen(szPort, baudrate);
     }
 #ifdef HAVE_LIBAX25
     else {
-        cout << "AsyncPort is false" << endl;
+        //cout << "AsyncPort is false, using AX25" << endl;
         result = SocketOpen(szPort, AprsPath);
     }
 #else
@@ -111,10 +111,8 @@ int rfOpen(const string& szPort, const string& baudrate)
 
     // Now start the serial port reader thread
 
-    rc = pthread_create (&tidReadCom, NULL, rfReadCom, NULL);
-    if (rc) {
+    if ((rc = pthread_create(&tidReadCom, NULL, rfReadCom, NULL)) < 0) {
         cerr << "Error: ReadCom thread creation failed. Error code = " << rc << endl;
-
         CloseAsync = true;
     }
     return(0);
@@ -127,7 +125,7 @@ int rfClose(void)
 {
     CloseAsync = true;                  // Tell the read thread to quit
     
-    while (threadAck == false)
+    while (!threadAck)
         reliable_usleep (1000);                  // wait till it does
 
      if (AsyncPort)
@@ -150,7 +148,7 @@ int rfWrite(const char *cp)
     Lock writeTNCLock(mtxWriteTNC);
 
     strncpy(tx_buffer, cp, 256);
-    txrdy = false;
+    txrdy = true;
     while (txrdy)
         reliable_usleep(10000);                  // The rfReadCom thread will clear txrdy when it takes data
 
@@ -164,7 +162,7 @@ int rfWrite(const char *cp)
 //
 void* rfReadCom(void *vp)
 {
-    USHORT i;
+    unsigned short i;
     // APIRET rc;
     char buf[BUFSIZE];
     // unsigned char c;
@@ -176,21 +174,25 @@ void* rfReadCom(void *vp)
     i = 0;
 
     pidlist.SerialInp = getpid ();
-    cerr << "Async Comm thread started." << endl;
+    //cerr << "Async Comm thread started." << endl;
+    //cerr << "Debug: AsyncPort is " << (AsyncPort ? "true":"false") << endl;
     while (!CloseAsync) {
         if (AsyncPort)
             lineTimeout = AsyncReadWrite(buf);
 #ifdef HAVE_LIBAX25
-        else
+        else {
+            //cout << "DEBUG: Using SocketReadWrite" << endl;
             lineTimeout = SocketReadWrite(buf);
+        }
 #endif
         WatchDog++;
         tickcount = 0;
 
         i = strlen((char*)buf);
+        //cout << "DEBUG: buf length is: " << i << endl;
 
         if ((i > 0) && ((buf[0] != 0x0d) && (buf[0] != 0x0a))) {
-            if (lineTimeout == false) {
+            if (!lineTimeout) {
                 TotalLines++;
                 buf[i - 1] = 0x0d;
                 buf[i++] = 0x0a;
@@ -215,7 +217,6 @@ void* rfReadCom(void *vp)
                             || (stricmp("igate", abuff->stsmDest.c_str()) == 0)) {    // Is query for us?
                             queryResp(SRC_TNC, abuff);         // Yes, respond.
                         }
-
                     }
 
                     if (logAllRF || abuff->ax25Source.compare(MyCall) == 0)
@@ -228,9 +229,7 @@ void* rfReadCom(void *vp)
                         abuff = NULL;        // ... and/or originated from our own TNC
 
                     } else {  // Not reformatted and not from our own TNC
-
-                        if (abuff->aprsType == APRSMSG)        //find matching posit for 3rd party msg
-                        {
+                        if (abuff->aprsType == APRSMSG) {       //find matching posit for 3rd party msg
                             aprsString *posit =
                                 getPosit(abuff->ax25Source,
                                           srcIGATE | srcUSERVALID | srcTNC);
@@ -242,21 +241,18 @@ void* rfReadCom(void *vp)
                             }
                         }
 
-
-                        if (abuff->aprsType == APRSMIC_E)        //Reformat if it's a Mic-E packet
-                        {
+                        if (abuff->aprsType == APRSMIC_E) {       //Reformat if it's a Mic-E packet
                             reformatAndSendMicE(abuff, sendQueue);
-                        } else
+                        } else {
                             sendQueue.write(abuff, 0);        // Now put it in the Internet send queue.
-                        // *** abuff must be freed by Queue reader ***.
-
+                            // *** abuff must be freed by Queue reader ***.
+                            //cout << "DEBUG: sent to Inet " << endl;
+                        }
                     }
                 }
             }
         }
-
         i = 0;                        //Reset buffer pointer
-
     }                                // Loop until server is shut down
 
     cerr << "Exiting Async com thread\n" << endl;
@@ -272,14 +268,17 @@ void* rfReadCom(void *vp)
 // Send a text file to the TNC for configuration
 int rfSendFiletoTNC(const std::string& szName)
 {
-    if (AsyncPort)
+    if (AsyncPort) {
         return(SendFiletoTNC(szName));
 #ifdef HAVE_LIBAX25
-    else
+    } else {
+	//cout << "DEBUG: rfSendFiletoTNC(): AsyncPort == " << (AsyncPort ? "true":"false") << " using libAX25" << endl;
         return(0); // Not applicable for sockets
+    }
 #else
-    else
+    } else {
         return(0);                      // quite compiler
+    }
 #endif
 }
 

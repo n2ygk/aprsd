@@ -1271,7 +1271,7 @@ string aprsString::removeI(void)
 char aprsString::getPktSource(void)
 {
     if(EchoMask & srcUSERVALID) {
-        if(cci){                           //Converted from callsign,I construct
+        if (cci){                           //Converted from callsign,I construct
             if(call.compare(icall) == 0)
                 return 'R';                      //call preceeding I == login so return R
             else
