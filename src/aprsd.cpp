@@ -1134,7 +1134,8 @@ void *TCPSessionThread(void *p)
             perror("AddSession");
 
         WriteLog("Error, too many users",MAINLOG);
-        endSession(session,szPeer,userCall,starttime);
+        //cerr << "Can't find free session.\n" << flush;		// debug stuff
+	endSession(session,szPeer,userCall,starttime);
         char *cp = new char[256];
         ostrstream msg(cp,256);
         msg <<  "Can't add client to session list, too many users - closing connection.\n"
@@ -1160,9 +1161,12 @@ void *TCPSessionThread(void *p)
 
         //BroadcastString(infomsg);
     }
-
-    if (ConnectedClients > MaxConnects)
-        MaxConnects = ConnectedClients;
+    
+    if (ConnectedClients > MaxConnects) {
+	pthread_mutex_lock(pmtxCount);
+	MaxConnects = ConnectedClients;
+	pthread_mutex_unlock(pmtxCount);
+    }
 
     iac = 0;
     sbEsc = false;
@@ -1210,6 +1214,8 @@ void *TCPSessionThread(void *p)
             if (sp->dead) {             // force disconnect if connection is dead
                 BytesRead = 0;
                 i = 0;
+		//cerr << "Kill session via sp->dead.\n" << flush;
+                endSession(session,szPeer,userCall,starttime);
             }
 
             if (i != -1) {              // Got a real character from the net
