@@ -25,14 +25,14 @@ README
 
      (0) NOTICE
 
-          Please read this file carefully before trying to set up Xastir.
+          Please read this file carefully before trying to set up aprsd.
           This software was developed to be used by licensced amateur radio
           operators.  You are responsible for any information transmitted
           or propogated on any network.
 
      (1) WHAT IS APRSD?
 
-          APRSd is an APRS server program that uses amateur radio and internet
+          APRSd is an APRS server program that uses amateur radio and internet#
           services to convey GPS mapping, weather, and positional data.  
           It has been developed by and for amateur radio enthusiasts to provide 
           real-time data in an easy to use package.
@@ -97,9 +97,10 @@ README
 
           As of aprsd 2.2.0 all changes made by the aprsd
           development team to the aprsd source code and any related
-          files are Copyright © 2002-2003 by The Xastir Group. The source
-          code will still be distributed according to the GNU General
-          Public License as Dale A. Heatherington did in the past.
+          files are Copyright © 2002-2003 by The aprsd DevTeam. The 
+          source code will still be distributed according to the GNU 
+          General Public License as Dale A. Heatherington did in the 
+          past.
 
           There is no warranty, implied or whatever. You use this
           software at your own risk, no matter what purpose you put
@@ -111,7 +112,7 @@ README
 
           There are currently a couple of mailing lists about aprsd.
           aprsd-users@lists.sourceforge.net is the one relevant for 
-          posts about Xastir 2.2.x and up (and bug fixes, and 
+          posts about aprsd 2.2.x and up (and bug fixes, and 
           suggestions, etc).
 
           To subscribe to the aprsd mailing list, send email to:
@@ -132,7 +133,7 @@ README
 
           The aprsd-users@lists.sourceforge.net maillist is dedicated to 
           Bug reports, technical questions, your thoughts or suggestions 
-          on new features being added to Xastir, things that should be 
+          on new features being added to aprsd, things that should be 
           removed or fixed, amazing problems that even stump the guru's, 
           etc... are what we want to see here.
 

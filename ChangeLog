@@ -1,3 +1,8 @@
+2003-05-14	Chuck Byam, KG4IJB
+	-  Added bootstrap.sh to CVS.  Will help generate
+	   needed autostuff for CVS builds.
+	-  Updated README... well actually it was null bytes.
+
 2003-05-13	Chuck Byam, KG4IJB
 	-  Added missing include; ax25socket.cpp
 	-  split() now should handle ia64 int more gracefully
