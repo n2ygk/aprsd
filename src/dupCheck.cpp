@@ -67,9 +67,11 @@ dupCheck::dupCheck()
 
 dupCheck::~dupCheck()
 {
-    delete hashtime;
+    delete[] hashtime;
+    hashtime = NULL;
     pthread_mutex_destroy(pmtxdupCheck);
     delete pmtxdupCheck;
+    pmtxdupCheck = NULL;
 }
 
 

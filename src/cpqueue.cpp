@@ -83,7 +83,9 @@ cpQueue::~cpQueue(void)
     }
     pthread_mutex_destroy(pmtxQ);
     delete pmtxQ;
+    pmtxQ = NULL;
     delete base_p;
+    base_p = NULL;
 }
 
 
@@ -119,7 +121,8 @@ int cpQueue::write(char *cp, int n)
         overrun++ ;
 
         if (dyn)
-            delete cp;
+            delete[] cp;
+            cp = NULL;
 
         rc = -1;
     }
@@ -200,8 +203,10 @@ int cpQueue::write(TAprsString* cs, int n)
     } else {
         overrun++ ;
 
-        if (dyn)
+        if (dyn) {
             delete cs;                  // Delete the object that couldn't be put in the queue
+            cs = NULL;
+        }
 
         rc = -1;
     }

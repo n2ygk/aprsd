@@ -159,6 +159,7 @@ void DeleteHistoryItem(TAprsString *hp)
             pTail  = li;
 
         delete hp;                      // Delete the TAprsString object
+        hp = NULL;
         ItemCount--;                    // Reduce ItemCount by 1
     }
 
@@ -497,10 +498,13 @@ void deleteHistoryArray(histRec* hr)
         int arraySize = hr[0].count;
 
         for (i = 0;i<arraySize;i++) {
-            if (hr[i].data != NULL)
+            if (hr[i].data != NULL) {
                 delete hr[i].data;
+                hr[i].data = NULL;
+            }
         }
-        delete hr;
+        delete[] hr;
+        hr = NULL;
     }
 }
 
@@ -724,6 +728,7 @@ int ReadHistory(char *name)
                 icount++;
             } else {
                 delete hist;
+                hist = NULL;
                 expiredCount++;
             }
         }

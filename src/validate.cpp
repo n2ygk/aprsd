@@ -97,7 +97,8 @@ int  checkSystemPass(const char *szUser, const char *szPass, const char *szGroup
    
    			  
 	if (pgrp == NULL) {
-      delete buffer1;
+      delete[] buffer1;
+      buffer1 = NULL;
       return rc;	  /* return BADGROUP if not */
    }
 
@@ -115,8 +116,10 @@ int  checkSystemPass(const char *szUser, const char *szPass, const char *szGroup
    
   
 	if (ppw == NULL){ 
-      delete buffer2;
-      delete buffer1;
+      delete[] buffer2;
+      buffer2 = NULL;
+      delete[] buffer1;
+      buffer1 = NULL;
       return BADUSER ; /* return BADUSER if no such user */
    }
    
@@ -132,8 +135,10 @@ int  checkSystemPass(const char *szUser, const char *szPass, const char *szGroup
 		}
 	
 	if(usrfound == 0){ 
-      delete buffer1;
-      delete buffer2;
+      delete[] buffer1;
+      buffer1 = NULL;
+      delete[] buffer2;
+      buffer1 = NULL;
       return BADGROUP;	 /* return BADGROUP if user not in group */
    }
 
@@ -181,8 +186,10 @@ int  checkSystemPass(const char *szUser, const char *szPass, const char *szGroup
       pspwd = getspnam(szUser);  //Get shadow password file data for user
       if (pspwd == NULL) {
          cout << "validate: Can't read shadowed password file.  This program must run as root\n";
-         delete buffer1;
-         delete buffer2;
+         delete[] buffer1;
+         buffer1 = NULL;
+         delete[] buffer2;
+         buffer2 = NULL;
          return MUSTRUNROOT;
       }
 
@@ -232,8 +239,10 @@ int  checkSystemPass(const char *szUser, const char *szPass, const char *szGroup
 #endif
 
    }
-   delete buffer1;
-   delete buffer2;
+   delete[] buffer1;
+   buffer1 = NULL;
+   delete[] buffer2;
+   buffer1 = NULL;
 	return rc;
 
 

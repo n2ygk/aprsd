@@ -149,6 +149,7 @@ int rfClose(void)
 
     pthread_mutex_destroy(pmtxWriteTNC);
     delete pmtxWriteTNC;
+    pmtxWriteTNC = NULL;
 
     if (AsyncPort)
         return(AsyncClose());

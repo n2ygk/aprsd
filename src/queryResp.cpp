@@ -195,9 +195,12 @@ void queryResp(int session, const TAprsString* pkt)
         }
     }
 
-    delete cp;
-    delete cpAck;
-    delete hostname;
+    delete[] cp;
+    cp = NULL;
+    delete[] cpAck;
+    cpAck = NULL;
+    delete[] hostname;
+    hostname = NULL;
 }
 
 // eof: queryResp.cpp

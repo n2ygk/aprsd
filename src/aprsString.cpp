@@ -219,7 +219,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
         pathSize = 0;
 
         if (length() <= 0) {
-            cerr << "Zero or neg string Length\n";
+            cerr << "Zero or neg string Length\n" << flush;
             return;
         }
 
@@ -517,8 +517,9 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             << ends ;
 
         WriteLog(errormsg, ERRORLOG);
-        cerr << errormsg;
-        delete errormsg;
+        cerr << errormsg << flush;
+        delete[] errormsg;
+        errormsg = NULL;
         aprsType = APRSERROR;
         return;
     }
@@ -686,7 +687,8 @@ void TAprsString::mic_e_Reformat(TAprsString** posit, TAprsString** telemetry)
             TAprsString* Posit = new TAprsString(buf1,sourceSock,EchoMask,peer.c_str(),call.c_str());
             Posit->raw = string(raw);   // Save a copy of the raw mic_e packet
             Posit->changePath(APRSDTOCALL,ax25Dest.c_str());
-            delete buf1;
+            delete[] buf1;
+            buf1 = NULL;
             *posit = Posit;
         }
 
@@ -698,7 +700,8 @@ void TAprsString::mic_e_Reformat(TAprsString** posit, TAprsString** telemetry)
             TAprsString* Telemetry = new TAprsString(buf2,sourceSock,EchoMask,peer.c_str(),call.c_str());
             Telemetry->raw = string(raw);   // Save a copy of the raw mic_e packet
             Telemetry->changePath(APRSDTOCALL,ax25Dest.c_str());
-            delete buf2;
+            delete[] buf2;
+            buf2 = NULL;
             *telemetry = Telemetry;
         }
     }

@@ -480,6 +480,7 @@ bool DeleteSession(int s)
             }
         }
         DBstring = "DeleteSession - out of loop";
+
         if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
             cerr << "Unable to unlock pmtxAddDelSess - DeleteSession.\n" << flush;
 
@@ -517,6 +518,7 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
 
         if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
             cerr << "Unable to unlock pmtxAddDelSess - AddSessionInfo.\n" << flush;
+
         return(rv);
     }
     catch (TAprsdException except) {
@@ -574,6 +576,7 @@ void SendToAllClients(TAprsString* p)
 
                     WriteLog(fubarmsg, FUBARLOG);
                     delete[] fubarmsg;
+                    fubarmsg = NULL;
                 }
             }
         }
@@ -586,8 +589,8 @@ void SendToAllClients(TAprsString* p)
 
         if(pthread_mutex_lock(pmtxSend) != 0)
             cerr << "Unable to lock pmtxSend - SendToAllClients.\n" << flush;
-
         DBstring = "Mutexes locked for send";
+
         n = p->length();
         nraw = p->raw.length();
         nsh = p->srcHeader.length();
@@ -653,6 +656,7 @@ void SendToAllClients(TAprsString* p)
 
                         sessions[i].overruns = 0;       // Clear users overrun counter if he accepted packet
                         sessions[i].bytesOut += rc;     // Add these bytes to his bytesOut total
+
                         if(pthread_mutex_unlock(pmtxCount) != 0)
                             cerr << "Unable to unlock pmtxCount - SessionOverrun.\n" << flush;
                     }
@@ -660,6 +664,7 @@ void SendToAllClients(TAprsString* p)
                         cerr << "Unable to lock pmtxCount - SessionOverrun2.\n" << flush;
 
                     ccount++;
+
                     if(pthread_mutex_unlock(pmtxCount) != 0)
                         cerr << "Unable to unlock pmtxCount - SessionOverrun2.\n" << flush;
                 }
@@ -694,6 +699,7 @@ void SendToAllClients(TAprsString* p)
             cerr << "Unable to lock pmtxCount - SendToAlClients.\n" << flush;
 
         bytesSent += (n * ccount);
+
         if (pthread_mutex_unlock(pmtxCount) != 0)
             cerr << "Unable to unlock pmtxCount - SendToAllClients.\n" << flush;
 
@@ -828,6 +834,7 @@ void *DeQueue(void *)
                     cerr << "Unable to lock pmtxCount - DeQueue-AddHistoryItem.\n" << flush;
 
                 AddHistoryItem(abuff);  // Put item in history list.
+
                 if(pthread_mutex_unlock(pmtxCount) != 0)
                     cerr << "Unable to unlock pmtxCount - DeQueue-AddHistoryItem.\n" << flush;
 
@@ -875,6 +882,7 @@ void *ACKrepeaterThread(void *p)
         tncQueue.write(ack);            // ack TAprsString  will be deleted by TNC queue reader
     }
     delete abuff;
+    abuff = NULL;
     pthread_exit(0);
 }
 
@@ -899,6 +907,7 @@ void dequeueTNC(void)
     if ((RF_ALLOW == false)             // See if sysop allows Internet to RF traffic
             && ((abuff->EchoMask & srcUDP) == false)){  // UDP packets excepted
         delete abuff;                   // No RF permitted, delete it and return.
+        abuff = NULL;
         return;
     }
 
@@ -910,6 +919,7 @@ void dequeueTNC(void)
 
     if (dup) {
         delete abuff;                   // kill the duplicate here
+        abuff = NULL;
         return;
     }
 
@@ -955,6 +965,7 @@ void dequeueTNC(void)
                         cerr << "Unable to lock pmtxCount - SendToTNC - Msg.\n" << flush;
 
                     msg_cnt++;
+
                     if(pthread_mutex_unlock(pmtxCount) != 0)
                         cerr << "Unable to unlock pmtxCount - SendToTNC - Msg.\n" << flush;
 
@@ -978,11 +989,13 @@ void dequeueTNC(void)
             reliable_usleep(10);                 // wait 'till it's safe to delete this...
 
         delete abuff;                   // ...ack repeater thread will set ttl to zero
-    }                                   // ...Perhaps the ack repeater should delete this?
+        abuff = NULL;                   // ...Perhaps the ack repeater should delete this?
+    }
 
-    if (rfbuf)
+    if (rfbuf) {
         delete[] rfbuf;
-
+        rfbuf = NULL;
+    }
     return ;
 }
 
@@ -1114,6 +1127,7 @@ void *TCPSessionThread(void *p)
     int serverport = psp->ServerPort;
 
     delete psp;
+    psp = NULL;
 
     int BytesRead, i;
     struct sockaddr_in peer_adr;
@@ -1244,11 +1258,14 @@ void *TCPSessionThread(void *p)
 
         WriteLog(szLog, MAINLOG);
         delete[] pWelcome;
+        pWelcome = NULL;
         endSession(session, szPeer, userCall, starttime);
     }
 
-    if (pWelcome != NULL)
+    if (pWelcome != NULL) {
         delete[] pWelcome;
+        pWelcome = NULL;
+    }
 
     DBstring = "TCPSessionThread - get session pointer via AddSession";
     SessionParams* sp =  AddSession(session, EchoMask);
@@ -1690,8 +1707,10 @@ void *TCPSessionThread(void *p)
                                 timestamp(posit->ID,Time);          // Time stamp the original in hist. list
                                 posit->stsmReformat(MyCall);        // Reformat it for RF delivery
                                 tncQueue.write(posit);              // posit will be deleted elsewhere
-                            } else
+                            } else {
                                 delete posit;
+                                posit = NULL;
+                            }
                         } /*else cout << "Can't find matching posit for "
                                                 << atemp.ax25Source
                                                 << endl
@@ -1773,6 +1792,7 @@ void *TCPSessionThread(void *p)
                             }
 
                             delete RFpacket;
+                            RFpacket = NULL;
                         } else {
                             RFpacket->stsmReformat(MyCall);
                             tncQueue.write(RFpacket);   // Raw MIC-E data to RF
@@ -1994,6 +2014,7 @@ void *TCPServerThread(void *p)
 
             cerr << "Ending TCP server thread\n" << flush;
             delete session;
+            session = NULL;
 
             if (ShutDownServer)
                 raise(SIGTERM);                 // Terminate this process
@@ -2002,6 +2023,7 @@ void *TCPServerThread(void *p)
         if (session->Socket < 0) {
             perror( "Error in accepting a connection");
             delete session;
+            session = NULL;
         } else {
             if (session->EchoMask & wantHTML) {
                 rc = pthread_create(&SessionThread, NULL, HTTPServerThread, session);  //Added in 2.1.2
@@ -2014,6 +2036,7 @@ void *TCPServerThread(void *p)
             shutdown(session->Socket,2);
             rc = close(session->Socket);        // Close it if thread didn't start
             delete session;
+            session = NULL;
 
             if (rc < 0)
                 perror("Session Thread close()");
@@ -2523,8 +2546,10 @@ void *TCPConnectThread(void *p)
                                     timestamp(posit->ID, Time);      // Time stamp the original in hist. list
                                     posit->stsmReformat(MyCall);    // Reformat it for RF delivery
                                     tncQueue.write(posit);          // posit will be deleted elsewhere?
-                                } else
+                                } else {
                                     delete posit;
+                                    posit = NULL;
+                                }
                             } /*else  cout << "Can't find matching posit for "
                                                << atemp.ax25Source
                                                << endl
@@ -2583,6 +2608,7 @@ void *TCPConnectThread(void *p)
                                 }
 
                                 delete RFpacket;
+                                RFpacket = NULL;
                             } else {
                                 RFpacket->stsmReformat(MyCall);
                                 tncQueue.write(RFpacket);   // send raw MIC-E data to RF
@@ -2880,6 +2906,7 @@ void serverQuit(termios* initial_settings)
         << endl << flush ;
 
     delete[] pSaveHistory;
+    pSaveHistory = NULL;
 
     if (broadcastJavaInfo) {
         //char *ShutDown = new char[255];
@@ -2911,6 +2938,7 @@ void serverQuit(termios* initial_settings)
 
         rfSendFiletoTNC(pRestore);
         delete[] pRestore;
+        pRestore = NULL;
         rfClose() ;
     }
 
@@ -3450,7 +3478,10 @@ void segvHandler(int signum)  //For debugging seg. faults
     char buf[BUFSIZE];
     SessionParams *psp = (SessionParams*)p;
     int sock = psp->Socket;
+
     delete psp;
+    psp = NULL;
+
     int  i,idx;
     char  szError[MAX];
     int n, rc,data;
@@ -3509,6 +3540,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     gmt = gmtime_r(&localtime,gmt);
     strftime(szTime,64,"%a, %d %b %Y %H:%M:%S GMT",gmt);    // Date in RFC 1123 format
     delete gmt;
+    gmt = NULL;
 
     data = 1;                           // Set socket for non-blocking
     ioctl(sock,FIONBIO,(char*)&data,sizeof(int));
@@ -3857,12 +3889,15 @@ void segvHandler(int signum)  //For debugging seg. faults
 
     //Free up all the memory we allocated
    
-    if(htmlbuf)     delete[] htmlbuf;
-
+    if(htmlbuf) {     
+        delete[] htmlbuf;
+        htmlbuf = NULL;
+    }
     for(i=0; i<idx; i++){
         if(html2send[i]) delete[] html2send[i];
     }
     delete[] html2send;
+    html2send = NULL;
 
     pthread_exit(0);
 }
@@ -4288,6 +4323,7 @@ int main(int argc, char *argv[])
         rfSendFiletoTNC(pInitTNC);      // Setup TNC from initialization file
         tncPresent = true;
         delete (char*)pInitTNC;
+        pInitTNC = NULL;
     } else
         cout << "TNC com port not defined.\n" << flush;
 
@@ -4373,6 +4409,7 @@ int main(int argc, char *argv[])
                 sendQueue.write(monStats);
 
                 delete cp;
+                cp = NULL;
             }
         }
 
@@ -4447,6 +4484,7 @@ int main(int argc, char *argv[])
             TAprsString* monStats = new TAprsString(stats, SRC_INTERNAL, srcSTATS);
             sendQueue.write(monStats);
             delete stats;
+            stats = NULL;
 
           /*
             for(int i=0;i<MaxClients;i++)

@@ -102,7 +102,9 @@ int WriteLog(const char *pch, const char *LogFile)
         rc = 0;
     }
     delete cp;
-    delete pLogFile;
+    cp = NULL;
+    delete[] pLogFile;
+    pLogFile = NULL;
     pthread_mutex_unlock(pmtxLog);
 
     return(rc);
@@ -148,7 +150,8 @@ bool CmpDest(const char *line, const char *ref)
     if (strstr(line,cp) !=	NULL)
         rv = true;
 
-    delete cp;
+    delete[] cp;
+    cp = NULL;
     return(rv);
 }
 //----------------------------------------------------------------------
@@ -167,7 +170,8 @@ bool CmpPath(const char *line, const char *ref)
             rv = true;
     }
 
-    delete cp;
+    delete[] cp;
+    cp = NULL;
     return(rv);
 }
 
@@ -294,7 +298,8 @@ void RemoveCtlCodes(char *cp)
 
     temp[j] = ucp[i];                   // copy terminating NULL
     strcpy(cp,(char*)temp);             // copy result back to original
-    delete temp;
+    delete[] temp;
+    temp = NULL;
 }
 
 
@@ -317,7 +322,8 @@ void makePrintable(char *cp) {
 
     temp[j] = ucp[i];                   // copy terminating NULL
     strcpy(cp,(char*)temp);             // copy result back to original
-    delete temp;
+    delete[] temp;
+    temp = NULL;
 }
 
 void removeHTML(string& sp) {
@@ -412,6 +418,7 @@ void reformatAndSendMicE(TAprsString* inetpacket, cpQueue& sendQueue)
             sendQueue.write(telemetry);
 
         delete inetpacket; //Note: Malformed Mic_E packets that failed to convert are discarded
+        inetpacket = NULL;
     } else
         sendQueue.write(inetpacket);  //Send raw Mic-E packet
 }
@@ -457,8 +464,10 @@ int stricmp(const char* szX, const char* szY)
     b[i]='\0';
 
     int rc = strcmp(a,b);
-    delete a;
-    delete b;
+    delete[] a;
+    a = NULL;
+    delete[] b;
+    b = NULL;
     return(rc);
 }
 
