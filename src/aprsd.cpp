@@ -234,6 +234,7 @@ bool respondToIgateQueries;
 bool respondToAprsdQueries;
 bool broadcastJavaInfo;
 bool logBadPackets;
+bool checknogate;                // Honor NOGATE or RFONLY in ax25Path
 
 //----------------------------
 
@@ -503,6 +504,9 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
         if(pthread_mutex_lock(pmtxAddDelSess) != 0)
             cerr << "Unable to lock pmtxAddDelSess - AddSessionInfo.\n" << flush;
 
+        if(pthread_mutex_lock(pmtxSend) != 0)    //N5VFF testing
+            cerr << "Unable to lock pmtxSend - AddSessionInfo.\n" << flush;
+
         DBstring = "AddSessionInfo - top of loop";
         for (i = 0; i<MaxClients; i++) {
             if (sessions[i].Socket == s ) {
@@ -514,7 +518,10 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
                 rv = true;
             }
         }
-        DBstring = "AddSession - out of loop";
+        DBstring = "AddSessionInfo - out of loop";
+
+        if(pthread_mutex_unlock(pmtxSend) != 0)      // N5VFF testing
+            cerr << "Unable to unlock pmtxSend - AddSessionInfo.\n" << flush;
 
         if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
             cerr << "Unable to unlock pmtxAddDelSess - AddSessionInfo.\n" << flush;
@@ -2467,7 +2474,7 @@ void *TCPConnectThread(void *p)
                 if (connectTime > 30)
                     retryTimer = 60;        // Retry connection in 60 seconds if it breaks
 
-                rc = recvline(clientSocket, buf, BUFSIZE, &err, 900);  // 900 sec (15 min) timeout value
+                rc = recvline(clientSocket, buf, BUFSIZE, &err, 300);  // 300 sec (5 min) timeout value
 
                 if (sp) {
                     if (sp->dead)
@@ -3379,6 +3386,18 @@ int serverConfig(const string& cf)
 
                     n = 1;
                 }
+
+                if (cmd.compare("CHECKNOGATE") == 0) {
+                    upcase(token[1]);
+
+                    if (token[1].compare("YES") == 0)
+                        checknogate = true;
+                    else
+                        checknogate = false;
+
+                    n = 1;
+                }
+
                 if (n == 0)
                     cout << "Unknown command: " << Line << endl << flush;
             }
@@ -4035,6 +4054,7 @@ int main(int argc, char *argv[])
     respondToAprsdQueries = true;
     broadcastJavaInfo = false;
     logBadPackets = false;
+    checknogate = true;                  // Default is to honor NOGATE and RFONLY in ax25Path
 
     ackRepeats = 2;                     // Default extra acks to TNC
     ackRepeatTime = 5;                  // Default time between extra acks to TNC in seconds.
@@ -4430,10 +4450,12 @@ int main(int argc, char *argv[])
         lastSec = Time;
         Time = time(NULL);
 
-        if (difftime(Time,lastSec) > 0)
-            schedule_posit2RF(Time);    // Once per second
+        if (tncPresent) {
+            if (difftime(Time,lastSec) > 0)
+                schedule_posit2RF(Time);    // Once per second
+        }
 
-        if (difftime(Time,LastNetBeacon) >= NetBeaconInterval * 60) {   //S end Internet Beacon text
+        if (difftime(Time,LastNetBeacon) >= NetBeaconInterval * 60) {   //Send Internet Beacon text
             LastNetBeacon = Time;
 
             if ((!NetBeacon.empty()) && (NetBeaconInterval > 0)){
@@ -4442,12 +4464,15 @@ int main(int argc, char *argv[])
             }
         }
 
-        if (difftime(Time,LastTncBeacon) >= TncBeaconInterval * 60) {   // Send TNC Beacon text
-            LastTncBeacon = Time;
 
-            if ((!TncBeacon.empty()) && (TncBeaconInterval > 0)) {
-                TAprsString* tncbc = new TAprsString(TncBeacon,SRC_INTERNAL,srcSYSTEM);
-                tncQueue.write(tncbc);
+        if (tncPresent) {
+            if (difftime(Time,LastTncBeacon) >= TncBeaconInterval * 60) {   // Send TNC Beacon text
+                LastTncBeacon = Time;
+
+                if ((!TncBeacon.empty()) && (TncBeaconInterval > 0)) {
+                    TAprsString* tncbc = new TAprsString(TncBeacon,SRC_INTERNAL,srcSYSTEM);
+                    tncQueue.write(tncbc);
+                }
             }
         }
 

@@ -410,9 +410,9 @@ TAprsString* getPosit(const string& call, int em)
 TAprsString* getPositAndUpdate(const string& call, int em, time_t earliestTime, time_t newTime)
 {
 
-   if ((pTail == NULL) || (pHead == NULL)) return NULL ;  //Empty list
+    if ((pTail == NULL) || (pHead == NULL)) return NULL ;  //Empty list
 
-   TAprsString* posit = NULL;
+    TAprsString* posit = NULL;
 
     if(pthread_mutex_lock(pmtxHistory) != 0)
     	cerr << "Unable to lock pmtxHistory - getPositAndUpdate.\n" << flush;
@@ -461,7 +461,7 @@ bool timestamp(long sn, time_t t)
         return false;                   // Empty list
 
     if(pthread_mutex_lock(pmtxHistory) != 0)
-        cerr << "Unable to lock pmtxHistory - timstamp.\n" << flush;
+        cerr << "Unable to lock pmtxHistory - timestamp.\n" << flush;
 
     if (ItemCount == 0) {               // if no data then...
         if(pthread_mutex_unlock(pmtxHistory) != 0)

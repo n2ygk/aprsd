@@ -224,60 +224,6 @@ void GetMaxAgeAndCount( int *MaxAge, int *MaxCount)
 }
 
 
-//------------------------------------------------------------------------
-/* Checks for a valid user/password combination from the
-   Linux etc/passwd file .  Returns ZERO if user/pass is valid.
-   This doesn't work with shadow passwords.
-
-   THIS IS NOT USED ANYMORE AND MAY NOT BE THREAD SAFE
-*/
-int  checkpass(const char *szUser, const char *szGroup, const char *szPass)
-{
-    passwd *ppw;
-    group *pgrp;
-    char *member ;
-    int i;
-    char salt[3];
-    int usrfound = 0 ;
-    int rc = BADGROUP;
-
-    //cout << szUser << " " << szPass << " " << szGroup << endl;  //debug
-
-    pgrp = getgrnam(szGroup);		  /* Does group name szGroup exist? */
-
-    if (pgrp == NULL)
-        return rc;	  /* return BADGROUP if not */
-
-    ppw = getpwnam(szUser);			  /* get the users password information */
-
-    if (ppw == NULL)
-        return BADUSER ; /* return BADUSER if no such user */
-
-    i = 0;
-
-    /* find out if user is a member of szGroup */
-    while(((member = pgrp->gr_mem[i++]) != NULL) && (usrfound == 0 )) {
-        //cerr << member << endl;	 //debug code
-        if (strcmp(member,szUser) == 0)
-            usrfound = 1;
-    }
-
-    if (usrfound == 0)
-        return BADGROUP;    /* return BADGROUP if user not in group */
-
-    /* check the password */
-
-    strncpy(salt,ppw->pw_passwd,2);
-    salt[2] = '\0';
-
-    if (strcmp(crypt(szPass,salt), ppw->pw_passwd) == 0 )
-        rc = 0;
-    else
-        rc = BADPASSWD;
-
-    return rc;
-}
-
 
 //--------------------------------------------------------------------
 //Removes all control codes ( < 1Ch ) from a string and set the 8th bit to zero

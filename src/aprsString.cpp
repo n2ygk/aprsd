@@ -57,7 +57,7 @@ long TAprsString::objCount = 0;
 extern const int srcTNC, src3RDPARTY;
 extern int ttlDefault;
 extern bool ConvertMicE;
-
+extern bool checknogate;
 
 TAprsString::TAprsString(const char* cp, int s, int e, const char* szPeer, const char* userCall) : string(cp)
 {
@@ -307,6 +307,13 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     int nfind = ax25Source.find_first_of("*");
                     //cerr << "Found * in source at position: " << nfind << endl;
                     ax25Source.erase(nfind,1);
+                }
+
+                if (checknogate) {
+                    if ((path.find("NOGATE") != npos) || (path.find("RFONLY") != npos)) {
+                        aprsType = APRSERROR;
+                        return;
+                    }
                 }
 
                 if ((ax25Source.length() > 10) || (ax25Source.length() < 3)) {
