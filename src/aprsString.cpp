@@ -50,7 +50,6 @@ extern "C" {
 using namespace std;
 using namespace aprsd;
 
-//pthread_mutex_t* TAprsString::pmtxCounters = NULL;  // mutex semaphore pointer common to all instances of TAprsString
 Mutex TAprsString::mutex;
 
 int TAprsString::NN = 0;
@@ -110,6 +109,8 @@ TAprsString::TAprsString(string& cp) : string(cp)
 //
 // Copy constructor
 //
+// Note:    This needs to be redone as this* is going away
+//          in GCC 3.x
 TAprsString::TAprsString(TAprsString& as) : string(as)
 {
     *this = as;
@@ -146,8 +147,6 @@ TAprsString::TAprsString(TAprsString& as) : string(as)
     EchoMask = as.EchoMask;
     lastPositTx = as.lastPositTx;
 
-    //if(pthread_mutex_lock(pmtxCounters) != 0)
-    //    cerr << "Unable to lock pmtxCounters - CopyConstructors.\n" << endl;
     lock.get();
     NN++;                               // Increment counters
     objCount++;
@@ -155,482 +154,135 @@ TAprsString::TAprsString(TAprsString& as) : string(as)
     timestamp = time(NULL);             // User current time instead of time in original
     instances = 0;
 
-    //if(pthread_mutex_unlock(pmtxCounters) != 0)
-    //    cerr << "Unable to unlock pmtxCounters - CopyConstructors.\n" << endl;
     lock.release();
 }
 
-
+// Class destructor
 TAprsString::~TAprsString(void)
 {
     Lock lock(mutex);
-    //if(pthread_mutex_lock(pmtxCounters) != 0)
-    //    cerr << "Unable to lock pmtxCounters - ItemDestructor.\n" << endl;
+    
     lock.get();
     NN--;
-
-    //if(pthread_mutex_unlock(pmtxCounters) != 0)
-    //    cerr << "Unable to unlock pmtxCounters - ItemDestructor.\n" << endl;
     lock.release();
 }
-
 
 
 
 void TAprsString::constructorSetUp(const char* cp, int s, int e)
 {
 
-    try {
-        aprsType = APRSUNKNOWN;
-        dest = 0;
-        instances = 0;
-        reformatted = false;
-        allowdup = false;
-        msgType = 0;
-        sourceSock = s;
-        EchoMask = e;
-        last = NULL;
-        next = NULL;
-        ttl = ttlDefault;
-        timeRF = 0;
-        AEA = false;
-        acknum = "";
-        query = "";
-        lastPositTx = 0;
-        msgdata = "";
-        Lock lock(mutex);
-
-        //if (pmtxCounters == NULL) {     // Create mutex semaphore to protect counters if it doesn't exist...
-        //    pmtxCounters = new pthread_mutex_t; // ...This semaphore is common to all instances of TAprsString.
-        //    if (pthread_mutex_init(pmtxCounters,NULL) == -1)
-        //        cerr << "Unable to initialize pmtxCounters." << endl;
-        //}
-
-        //if(pthread_mutex_lock(pmtxCounters) != 0)
-        //    cerr << "Unable to lock pmtxCounters - ConstructorSetup." << endl;
-        lock.get();
-        objCount++;
-        ID = objCount;                  // set unique ID number for this new object
-        NN++;
-        //if(pthread_mutex_unlock(pmtxCounters) != 0)
-        //    cerr << "Unable to unlock pmtxCounters - ConstructorSetup." << endl;
-        lock.release();
-        timestamp = time(NULL);
-
-        for (int i = 0; i<MAXPATH; i++)
-            ax25Path[i] = "";
-
-        for (int i = 0; i< MAXWORDS; i++)
-            words[i] = "";
-
-        ax25Source = "";
-        ax25Dest   = "";
-        stsmDest   = "";
-        raw = string(cp);
-
-        pathSize = 0;
-
-        if (length() <= 0) {
-            cerr << "Zero or neg string Length" << endl;
-            return;
-        }
-
-        if (cp[0] == '#') {
-            aprsType = COMMENT;
-            //print(cout);
-            return;
-        }
-
-        if ((find("user ") == 0 || find("USER ") == 0)) {   // Must be a logon string
-            int n = split(*this, words, MAXWORDS, RXwhite);
-            if (n > 1)
-                user = words[1];
-            else
-                user = "Telnet";
-
-            if (n > 3)
-                pass = words[3];
-            else
-                pass = "-1";
-
-            if (n > 5)
-                pgmName = words[5];
-            else
-                pgmName = "Telnet";
-
-            if (n > 6)
-                pgmVers = words[6];
-
-            EchoMask = 0;               // Don't echo any logon strings
-            aprsType = APRSLOGON;
-
-            return;
-        }                               // else it's a aprs posit packet or something
-
-        if (find(":") > 0) {
-            size_type pIdx = find(":"); // Find location of first ":"
-            path = substr(0,pIdx);      // extract all chars up to the ":" into path
-            dataIdx = pIdx+1;           // remember where data starts
-
-            size_type gtIdx = path.find(">");  // find first ">" in path
-            size_type gt2Idx = path.find_last_of(">"); // find last ">" in path
-
-            if ((gtIdx != gt2Idx) && (gtIdx != npos)) {
-                //This is in AEA TNC format because it has more than 1 ">"
-
-                //cout << "AEA " << *this << endl << flush;
-                size_type savepIdx = pIdx;
-                string rs;
-                AEAtoTAPR(*this, rs);
-
-
-                // Replace AEA path with TAPR path
-                pIdx = rs.find(":");
-                string rsPath = rs.substr(0, pIdx);
-                replace(0, savepIdx, rsPath);
-                path = rsPath;
-
-                AEA = true;
-            }
-
-
-            if ((sourceSock != SRC_INTERNAL) && (path.find(">") == npos)) {
-                // If there isn't a ">" in the packet
-                // and it didn't come from me...
-                aprsType = APRSERROR;         // then it's bogus
-                return;
-            }
-
-            if ((pIdx+1) < length())
-                data = substr(pIdx+1, MAXPKT);  //The data portion of the packet
-
-            pathSize = split(path, ax25Path, MAXPATH, pathDelm);
-
-            if (pathSize >= 2)
-                ax25Dest = ax25Path[1]; // AX25 destination
-
-            if (pathSize >= 1) {
-                ax25Source = ax25Path[0];           //AX25 Source
-
-                while (find_first_of("}") <= ax25Source.length()) {
-                    int nfind = find_first_of("}");
-                    //cerr << "Found } in source at position: " << nfind << endl;
-                    replace(nfind, nfind+1, "");
-                    //cerr << "After } removal: " << ax25Source << endl;
-                }
-
-                while (find_first_of("*") <= ax25Source.length()) {
-                    int nfind = find_first_of("*");
-                    //cerr << "Found * in source at position: " << nfind << endl;
-                    replace(nfind, nfind+1, "");
-                    //cerr << "After * removal: " << ax25Source << endl;
-                }
-
-                if (checknogate) {
-                    if ((path.find("NOGATE") != npos) || (path.find("RFONLY") != npos)) {
-                        aprsType = APRSERROR;
-                        return;
-                    }
-                }
-
-                if ((ax25Source.length() > 10) || (ax25Source.length() < 3)) {
-                    // 10 v 9 to allow for src*
-                    // discard runts
-                    aprsType = APRSERROR;
-                    return;
-                }
-            }
-            if ((data.length() < 4) || (data.length() > 253)) {
-                // need some data to be of some use...
-                // then again too much of a good thing is bad as well
-                // min 4 so we will allow "?WX?" and other querries - do we want to?????
-                aprsType = APRSERROR;
-                return;
-            }
-
-            if ((data.find('\r') > data.length()) || (data.find('\n') > data.length())) {
-                //cerr << "added CRLF to packet " << data << endl;
-                append("\n\r");
-                //data.append('\r');
-            }
-
-            size_type idx,qidx;
-
-            if (ax25Dest.compare("ID") == 0) {      // ax25 ID packet
-                aprsType = APRSID;
-                return;
-            }
-            int mlen = data.length();
-            switch (data[0]) {
-                case ':' :
-                    // Message Packet
-                    // Spec:
-                    // :Addressee (9bytes):Message Text (69 bytes)[{msg ID (1-5bytes)] <-optional
-                    // Message Text may contain any printable data except "|~{"
-                    //
-                    //msgdata = "";
-
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                        break;
-                    }
-
-                    stsmDest = data.substr(1, MAXPKT);
-                    idx = stsmDest.find(":");
-                    if (idx == npos)
-                        break;
-
-                    // Get the adressee
-                    stsmDest = stsmDest.substr(0, idx);
-                    if (stsmDest.length() != 9)
-                        break;
-
-                    idx = stsmDest.find_first_of(RXwhite);
-                    if (idx != npos)
-                        stsmDest = stsmDest.substr(0, idx);
-
-                    // Get the data portion
-                    msgdata = data.substr(11, data.length());
-
-                    // Get the msg id; if available
-                    // Ensure everthing is within spec
-                    unsigned int x;
-                    x = msgdata.find_last_of('{');
-                    if (x <= msgdata.length()) {
-                        msgid = msgdata.substr(x, msgdata.length());
-                        msgdata = msgdata.substr(0, x);
-                        if (msgdata.length() > 69)
-                            msgdata.resize(69);
-                    } else {
-                        msgid = "";
-                        if (msgdata.length() > 69)
-                            msgdata.resize(69);
-                    }
-
-                    if (msgid.length() > 6)
-                        msgid.resize(6);
-
-                    // put it all back together again
-                    data = ":" + stsmDest + ":" + msgdata;
-                    data += msgid;
-                    aprsType = APRSMSG;
-                    EchoMask |= src3RDPARTY;
-                    msgType = APRSMSGTEXT;
-                    if (data.length() >= 15)
-                        if (data.substr(10, 4) == string(":ack"))
-                            msgType = APRSMSGACK ;
-
-                    if (data.substr(10, 2) == string(":?")) {
-                        qidx = data.find('?', 12);
-                        if (qidx != string::npos) {
-                            query = data.substr(12, qidx - 12);
-                            msgType = APRSMSGQUERY;
-                            qidx = data.find('{', qidx);
-
-                            if (qidx != string::npos) {
-                                acknum = data.substr(qidx);
-                            }
-
-                            //cout << "Query=" << query << " qidx=" << qidx << endl;  // debug
-                        }
-                    }
-
-                    break;
-
-                case '_' :              // positionless weather
-                                        // _ (1) Time MDHM (8) data(36) aprs software (1) wx unit (2-4)
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                        //cerr << "Bad weather packet length = " << data.length() << endl << flush;
-                        //cerr << data << endl << flush;
-                    }
-                    else
-                        aprsType = APRSWX ;
-
-                    break;
-
-                case '@' :              // APRS mobile station (with messaging)
-                                        // @ (1), Time DHM/HMS (7), Lat (8), Sym ID (1), Lon (9), Sym Code (1), ;
-                                        //      Speed/Crs/PHG/DF (8), /BRG/NRQ (8), Comment (0-28)
-                                        //
-                                        // Compressed
-                                        // @ (1), Time DHM/HMS (7), Sym ID (1), Lat (4), Lon (4), Sym Code (1), ;
-                                        //      Speed/Crs/PHG/DF (2), Comp Type (1), Comment (0-40)
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                        //cerr << "Bad @ packet; length = " << data.length() << endl << flush;
-                        //cerr << data << endl << flush;
-                    } else
-                        aprsType = APRSPOS;
-
-                    break;
-
-                case '=' :              // APRS fixed station
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                        //cerr << "Bad = packet; length = " << data.length() << endl << flush;
-                        //cerr << data << endl << flush;
-                    } else
-                        aprsType = APRSPOS;
-
-                    break;
-
-                case '!' :              // APRS not runing, fixed short format
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                        //cerr << "Bad ! packet; length = " << data.length() << endl << flush;
-                        //cerr << data << endl << flush;
-                    } else
-                        aprsType = APRSPOS;
-
-                    break;
-
-                case '/' :              // APRS not running, fade to gray in 2 hrs
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                        //cerr << "Bad / packet; length = " << data.length() << endl << flush;
-                        //cerr << data << endl << flush;
-                    } else
-                        aprsType = APRSPOS;
-
-                    break;
-
-                case '>' :
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                        //cerr << "Bad Status packet; length = " << data.length() << endl << flush;
-                        //cerr << data << endl << flush;
-                    } else
-                        aprsType = APRSSTATUS;
-
-                    break;
-
-                case '?' :
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                    } else {
-                        qidx = data.find('?',1);
-                        if (qidx != string::npos) {
-                            query = data.substr(1,qidx-1);
-                            aprsType = APRSQUERY;
-                        }
-                    }
-                    break;
-
-                case ';' :
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                        //cerr << "Bad Object packet; length = " << data.length() << endl << flush;
-                        //cerr << data << endl << flush;
-                    } else
-                        aprsType = APRSOBJECT;
-
-                    break;
-
-                case 0x60:              // These indicate it's a Mic-E packet
-
-                case 0x27:
-
-                case 0x1c:
-
-                case 0x1d:
-                    aprsType = APRSMIC_E;
-                    break;
-
-                case '}' :
-                    {
-                        reformatted = true;
-                        string temp = data.substr(1,MAXPKT);
-                        TAprsString reparse(temp);
-                        aprsType = reparse.aprsType;
-                        //print(cout);    // debug
-                        break;
-                    }
-
-                case '$' :
-                    if (mlen > MAXPKT-5) {
-                        aprsType = APRSERROR;
-                        //cerr << "Bad NMEA sentence packet; length = " << data.length() << endl << flush;
-                        //cerr << data << endl << flush;
-                    } else
-                        aprsType = NMEA;
-
-                    break;
-
-                default:                // check for messages in the old format
-                    if (mlen >= 10) {
-                        if((data.at(9) == ':') && isalnum(data.at(0))) {
-                            idx = data.find(":");
-                            stsmDest = data.substr(0,idx);  //Old format
-                            aprsType = APRSMSG;
-                            EchoMask |= src3RDPARTY;
-                            idx = stsmDest.find_first_of(RXwhite);
-
-                            if (idx != npos)
-                                stsmDest = stsmDest.substr(0,idx);
-
-                            if (data.substr(9,4) == string(":ack"))
-                                msgType = APRSMSGACK ;
-
-                            if (data.substr(9,2) == string(":?")) {
-                                qidx = data.find('?',11);
-
-                                if (qidx != string::npos) {
-                                    query = data.substr(11,qidx-11);
-                                    msgType = APRSMSGQUERY;
-                                    qidx = data.find('{',qidx);
-
-                                    if (qidx != string::npos) {
-                                        acknum = data.substr(qidx);
-                                    }
-
-                                    //cout << "Query=" << query << " qidx=" << qidx << endl; // debug
-                                }
-                            }
-                        }
-
-                        if ((data.at(9) == '*') && isalnum(data.at(0))) {
-                            aprsType = APRSOBJECT;
-                        }
-                    }
-                    break;
-            }; // end switch
-
-            if (path.find("TCPXX") != npos)
-                tcpxx = true;
-            else
-                tcpxx = false;
-        }
-
+    aprsType = APRSUNKNOWN;
+    dest = 0;
+    instances = 0;
+    reformatted = false;
+    allowdup = false;
+    msgType = 0;
+    sourceSock = s;
+    EchoMask = e;
+    last = NULL;
+    next = NULL;
+    ttl = ttlDefault;
+    timeRF = 0;
+    AEA = false;
+    acknum = "";
+    query = "";
+    lastPositTx = 0;
+    msgdata = "";
+    Lock lock(mutex);
+    string as;
+    size_t pSourceIdx;
+    size_t pPathIdx;
+
+    lock.get();
+    objCount++;
+    ID = objCount;                  // set unique ID number for this new object
+    NN++;
+    lock.release();
+
+    timestamp = time(NULL);
+
+    for (int i = 0; i<MAXPATH; i++)
+        ax25Path[i] = "";
+
+    for (int i = 0; i< MAXWORDS; i++)
+        words[i] = "";
+
+    ax25Source = "";
+    ax25Dest   = "";
+    stsmDest   = "";
+    raw = string(cp);
+    as = raw;
+
+    pathSize = 0;
+
+    if ((find("user ") == 0 || find("USER ") == 0)) {   // Must be a logon string
+        int n = split(*this, words, MAXWORDS, RXwhite);
+        if (n > 1)
+            user = words[1];
+        else
+            user = "Telnet";
+
+        if (n > 3)
+            pass = words[3];
+        else
+            pass = "-1";
+
+        if (n > 5)
+            pgmName = words[5];
+        else
+            pgmName = "Telnet";
+
+        if (n > 6)
+            pgmVers = words[6];
+
+        EchoMask = 0;               // Don't echo any logon strings
+        aprsType = APRSLOGON;
         return;
+    }                               // else it's a aprs posit packet or something
 
-    } //end try
+    if ((pSourceIdx = as.find('>')) > 0) {
+        ax25Source = as.substr(0, pSourceIdx);
+    }
 
-    catch (exception& rEx) {
-        char *errormsg;
-        errormsg = new char[500];
-
-        memset(errormsg,0, 500);
-        ostrstream msg(errormsg, 499);
-
-        msg << "Caught exception in TAprsString: "
-            << rEx.what()
-            << endl
-            << " [" << peer << "] " << raw.c_str()
-            << endl
-            << ends ;
-
-        WriteLog(errormsg, ERRORLOG);
-        cerr << errormsg << flush;
-        delete[] errormsg;
-        errormsg = NULL;
-        aprsType = APRSERROR;
+    if (ax25Source[0] == '#') {
+        aprsType = COMMENT;
         return;
     }
+
+    if (!ValidSource(ax25Source)) {
+        aprsType = APRSERROR;
+        cerr << "Bad Source: [" << ax25Source << "]" << endl;
+        return;
+    }
+
+    if ((pPathIdx = as.find(':')) > 0) {
+        path = as.substr(pSourceIdx+1, pPathIdx-(pSourceIdx+1));
+        ax25Dest = path;
+        data = as.substr(pPathIdx+1, as.length());
+    }
+    if (!ValidPath(path)) {
+        aprsType = APRSERROR;
+        cerr << "Bad Path: [" << path << "]" << endl;
+        return;
+    }
+
+    if (!ValidData(data)) {
+        aprsType = APRSERROR;
+        cerr << "Bad Data: [" << data << "]" << endl;
+        return;
+    } else {
+        aprsType = GetMsgType(data);
+    }
+
+    return;
+
+
 }
 
 
 //-------------------------------------------------------------
+// Converts an AEA packet to TAPR2
 void TAprsString::AEAtoTAPR(string& s, string& rs)
 {
     string pathElem[MAXPATH+2];
@@ -674,30 +326,31 @@ void TAprsString::print(ostream& os)
 }
 
 
-//  returns the string as a char*
+//  returns the string as a const char*
 const char* TAprsString::getChar(void)
 {
     return(c_str());
 }
 
-
+// returns the EchoMask
 int TAprsString::getEchoMask(void)
 {
     return(EchoMask);
 }
 
-
+// sets the EchoMask to "m"
 void TAprsString::setEchoMask(int m)
 {
     EchoMask = m;
 }
 
-
+// Returns the AX25Source
 string TAprsString::getAX25Source(void)
 {
     return ax25Path[0];
 }
 
+// Returns the AX25Dest
 string TAprsString::getAX25Dest(void)
 {
     return(ax25Path[1]);
@@ -731,7 +384,9 @@ bool TAprsString::queryPath(char* cp)
 }
 
 
-
+// This routine inspects the station-to-station message
+// packet and converts it the "new" style if it isn't
+// already
 void TAprsString::stsmReformat(string& MyCall)
 {
     //char *co;
@@ -760,7 +415,7 @@ void TAprsString::stsmReformat(string& MyCall)
 //  Converts mic-e packets to 1 or 2 normal APRS packets
 //  Returns pointers to newly allocated TAprsStrings
 //  Pointers remain NULL if conversion fails.
-
+//
 void TAprsString::mic_e_Reformat(TAprsString** posit, TAprsString** telemetry)
 {
     unsigned char mic1[512], mic2[512];
@@ -897,16 +552,315 @@ int TAprsString::getObjCount()
 {
     int n;
     Lock lock(mutex);
-    //if(pthread_mutex_lock(pmtxCounters) != 0)
-    //    cerr << "Unable to lock pmtxCounters - getobjects.\n" << flush;
 
     lock.get();
     n = NN;
     lock.release();
-    //if(pthread_mutex_unlock(pmtxCounters) != 0)
-    //    cerr << "Unable to unlock pmtxCounters - getobjects.\n" << flush;
 
     return(n);
 }
+
+
+// Validates packet source data
+//
+// This simply looks for a valid source header.  The spec says upercase with 
+// a 0-15 SSID, but we look for any alphanumeric plus "-".
+bool TAprsString::ValidSource(string& as)
+{
+    bool retval = false;
+    size_t idx;
+
+    if ((idx = as.find("*"))  <= as.length())
+        as = as.substr(0, idx);
+
+    if ((as.length() < 3) || (as.length() > 9)) {
+        cerr << "Source length error..." << endl;
+        retval = false;
+    }
+
+    int len = as.length();
+    char c;
+    for (int i = 0; i < len; i++) {
+       c = as[i];
+       if ((c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || (c == '-')) {
+           //cerr << c;
+           retval = true;
+       } else {
+           retval = false;
+           break;
+       }
+
+    }
+    return retval;
+}
+
+// Validates packet destination
+//  This simply looks for a vaild destination path.  We look for
+// alphanumeric plus "-,*/".  Actually, according to spec "/" shouldn't
+// be there but some TNC's will insert this to indicated which
+// port it was heard on.
+bool TAprsString::ValidPath(string& as)
+{
+    bool retval = false;
+
+
+
+    int len = as.length();
+    char c;
+    for (int i = 0; i < len; i++) {
+       c = as[i];
+       if ((c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || (c == '-')
+            || (c == ',')
+            || (c == '*')
+            || (c == '/') ) { // This one needed for lame TNC's port stuff
+           retval = true;
+       } else {
+           retval = false;
+           //cerr << "Invalid data in path" << endl;
+           return retval;
+       }
+    }
+
+    // was this packet from a validated TCP user?
+    if (as.find("TCPXX") < as.length())
+                tcpxx = true;
+            else
+                tcpxx = false;
+
+    if (!ValidToCall(as)) {
+        //cerr << "Invalid ToCall: " << toCall << endl;
+        retval = false;
+    }
+    return retval;
+}
+
+// This attempts to ascertain a reasonable To Call.
+// We don't check for the validity of the many tocalls
+// available.  We only make sure that RELAY and WIDE are
+// not inserted before a tocall.
+bool TAprsString::ValidToCall(string& as)
+{
+    bool retval = false;
+    size_t pIdx;
+
+    if ((pIdx = as.find(',')) > 0)
+        toCall = as.substr(0, pIdx);
+
+    if (toCall.substr(0,5) == "RELAY")
+        retval = false;
+    else if (toCall.substr(0,4) == "WIDE")
+        retval = false;
+    else if (toCall.substr(0, 6) == "BEACON") {
+        aprsType = APRSBEACON;
+        retval = true;
+    } else if (toCall.substr(0,2) == "ID") {
+        aprsType = APRSID;
+        retval = true;
+    } else if (toCall.substr(0,4) == "MAIL") {
+        aprsType = APRSMSG;
+        retval = true;
+    } else if (toCall.substr(0,2) == "DX") {
+        aprsType = APRSMSG;
+        retval = true;
+    } else
+        retval = true;
+
+    return retval;
+
+}
+
+// Validates packet data
+//  
+// This method looks for a resonably valid payload.
+// Whay consitutes a valid payload has been a bone of contention 
+// for some time, so we only look at overall length and whether
+// a CRLF has been added to the end of the packet.
+//
+bool TAprsString::ValidData(string& as)
+{
+    bool retval = true;
+    size_t pIdx;
+
+    if (as.length() > 250) {
+        retval = false;
+        cerr << "Data Error: Data too long..." << endl;
+    } else if (as.length() < 3) {
+        retval = false;
+        cerr << "Data Error: No valid data..." << endl;
+    }
+
+    switch (as[0]) {
+        case 0x60:                      // These indicate it's a Mic-E packet
+            break;
+        case 0x27:
+            break;
+        case 0x1c:
+            break;
+        case 0x1d:
+            break;
+        default:
+            char c;
+            for (int i; i = 0; i++) {
+                c = as[i];
+                if ((c < 0x20) || (c == 0x127)) {
+                    cerr << "Non-printable char in data" << endl;
+                    retval = false;
+                    return retval;
+                }
+            }
+    }
+
+    if ((pIdx = as.find('\r')) <= as.length()) {
+        if ((as[pIdx+1] != '\n') || (as[pIdx-1] != '\n'))
+            as.append("\n");
+    } else
+        as.append("\r\n");
+
+    return retval;
+}
+
+// Simply determins the type of APRS packet.
+unsigned int TAprsString::GetMsgType(string& as)
+{
+    unsigned int retval = 0;
+    size_t idx;
+
+    switch (as[0]) {
+        case '!':                       // Fixed short format
+            if (as[1] == '!')
+                retval = APRSWX;        // Ultimeter 2000
+            else
+                retval = APRSPOS;
+            break;
+
+        case '@':                       // APRS mobile with messaging
+            retval = APRSPOS;
+            break;
+
+        case '_':                       // Positionless weather
+            retval = APRSWX;
+            break;
+            
+        case '*':                       // Peet Bros WX
+            retval = APRSWX;
+            break;
+
+        case ':':                       // Message packet
+            stsmDest = as.substr(1, MAXPKT);
+            idx = stsmDest.find(":");
+            if (idx == npos)
+                break;
+
+            // Get the adressee
+            stsmDest = stsmDest.substr(0, idx);
+            if (stsmDest.length() != 9)
+                break;
+
+            idx = stsmDest.find_first_of(RXwhite);
+            if (idx != npos)
+                stsmDest = stsmDest.substr(0, idx);
+
+            // Get the data portion
+            msgdata = data.substr(11, data.length());
+
+            // Get the msg id; if available
+            // Ensure everthing is within spec
+            unsigned int x;
+            x = msgdata.find_last_of('{');
+            if (x <= msgdata.length()) {
+                msgid = msgdata.substr(x, msgdata.length());
+                msgdata = msgdata.substr(0, x);
+                if (msgdata.length() > 69)
+                    msgdata.resize(69);
+            } else {
+                msgid = "";
+                if (msgdata.length() > 69)
+                    msgdata.resize(69);
+            }
+
+            if (msgid.length() > 6)
+                msgid.resize(6);
+
+            // put it all back together again
+            data = ":" + stsmDest + ":" + msgdata;
+            data += msgid;
+            retval = APRSMSG;
+            EchoMask |= src3RDPARTY;
+            msgType = APRSMSGTEXT;
+            if (data.length() >= 15)
+                if (data.substr(10, 4) == string(":ack"))
+                    msgType = APRSMSGACK ;
+
+            if (data.substr(10, 2) == string(":?")) {
+                idx = data.find('?', 12);
+                if (idx != string::npos) {
+                    query = data.substr(12, idx - 12);
+                    msgType = APRSMSGQUERY;
+                    idx = data.find('{', idx);
+
+                    if (idx != string::npos) {
+                        acknum = data.substr(idx);
+                    }
+
+                    //cout << "Query=" << query << " qidx=" << qidx << endl;  // debug
+                }
+            }
+            retval = APRSMSG;
+            break;
+
+        case '=':                       // Fixed station
+            retval = APRSPOS;
+            break;
+
+        case '>':                       // APRS Status
+            retval = APRSSTATUS;
+            break;
+
+        case '?':                       // APRS Query
+            retval = APRSQUERY;
+            break;
+
+        case ';':                       // APRS Object
+            retval = APRSOBJECT;
+            break;
+
+        case '/':                       // APRS not running, fade to grey in 2hrs
+            retval = APRSPOS;
+            break;
+
+        case 0x60:                      // These indicate it's a Mic-E packet
+
+        case 0x27:
+
+        case 0x1c:
+
+        case 0x1d:
+            retval = APRSMIC_E;
+            break;
+            
+        case 'T':
+            retval = APRSTELEMETRY;
+            break;
+
+        case '$':
+            if (as[1] == 'U')
+                retval = APRSWX;        // Ultimeter 2000
+            else
+                retval = NMEA;
+            break;
+
+        default:
+            retval = APRSUNKNOWN;
+    }
+    return retval;
+}
+
+
 
 // eof - aprsString.cpp
