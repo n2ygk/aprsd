@@ -41,13 +41,13 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "constant.h"
-#include "utils.h"
-#include "aprsString.h"
-#include "queryResp.h"
-#include "history.h"
-#include "servers.h"
-#include "mutex.h"
+#include "constant.hpp"
+#include "utils.hpp"
+#include "aprsString.hpp"
+#include "queryResp.hpp"
+#include "history.hpp"
+#include "servers.hpp"
+#include "mutex.hpp"
 
 using namespace std;
 using namespace aprsd;

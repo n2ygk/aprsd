@@ -53,23 +53,24 @@ struct user_info {
 #include <shadow.h>
 #endif
 
-#include "validate.h"
+#include "validate.hpp"
 
 using namespace std;
 
 
-/* Steves servers response to a user logon:
+/*
+    Steves servers response to a user logon:
 
     APRSERV>APRS,TCPIP*:USERLIST :Verified user KE3XY-4 logged on using WinAPRS 2.1.7.{3544
-    
+
     APRSERV>APRS,TCPIP*:USERLIST :Unverified user KE3XY-4 logged on using WinAPRS 2.1.7.{3544
 
-    
- Note:  The doHash(char*) function is Copyright Steve Dimse 1998    
+
+    Note:  The doHash(char*) function is Copyright Steve Dimse 1998
 */
-    
+
 short doHash(const char *theCall);
-   
+
 #define kKey 0x73e2		// This is the key for the data
 
 
@@ -82,8 +83,8 @@ static int my_conv(int num_msg, const struct pam_message **msg,
     struct pam_response *reply;
 
     reply = (struct pam_response *)malloc(num_msg * sizeof(struct pam_response));
-    
-    if (reply == NULL) 
+
+    if (reply == NULL)
         return PAM_CONV_ERR;
 
     for (int count = 0; count < num_msg; count++) {
@@ -103,7 +104,7 @@ static int my_conv(int num_msg, const struct pam_message **msg,
                 for (int i = 0; i < count; i++)
                     if (reply[i].resp != NULL)
                         free(reply[i].resp);
-                
+
                 free(reply);
                 return PAM_CONV_ERR;
         }
@@ -151,13 +152,13 @@ int  checkSystemPass(const string szUser, const string szPass, const string szGr
     int usrfound = 0 ;
     int pwLength = 0;
     int rc = BADGROUP;
-   
+
 
 #ifdef DEBUG
     cout << szUser << " " << szPass << " " << szGroup << endl;  //debug
 #endif
 
-  
+
     size_t bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
     char *buffer1 = new char[bufsize];
     //Thread-Safe getgrnam()
@@ -173,7 +174,7 @@ int  checkSystemPass(const string szUser, const string szPass, const string szGr
     }
 
     bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-   
+
     char *buffer2 = new char[bufsize];
     //Thread-Safe getpwnam()
     getpwnam_r(szUser.c_str(),
@@ -182,12 +183,12 @@ int  checkSystemPass(const string szUser, const string szPass, const string szGr
                 bufsize,
                 &ppw);
 
-    if (ppw == NULL){ 
+    if (ppw == NULL){
         delete buffer2;
         delete buffer1;
         return BADUSER ; /* return BADUSER if no such user */
     }
-   
+
     i = 0;
 
     /* find out if user is a member of szGroup */
@@ -195,11 +196,11 @@ int  checkSystemPass(const string szUser, const string szPass, const string szGr
 #ifdef DEBUG
         cerr << member << endl; //debug code
  #endif
-        if (strcmp(member, szUser.c_str()) == 0)  
+        if (strcmp(member, szUser.c_str()) == 0)
             usrfound = 1	;
     }
 
-    if (usrfound == 0) { 
+    if (usrfound == 0) {
         delete buffer1;
         delete buffer2;
         return BADGROUP;	 /* return BADGROUP if user not in group */
@@ -220,11 +221,11 @@ int  checkSystemPass(const string szUser, const string szPass, const string szGr
         salt[2] = '\0';
     } else {   /* MD5 salt */
         int i;
-        for (i = 0; i < 3; i++) 
-            if (i < pwLength) 
+        for (i = 0; i < 3; i++)
+            if (i < pwLength)
                 salt[i] = ppw->pw_passwd[i];
 
-        while ((i < 14) && (ppw->pw_passwd[i] != '$')) 
+        while ((i < 14) && (ppw->pw_passwd[i] != '$'))
             salt[i++] = ppw->pw_passwd[i];
 
         salt[i++] = '$';
@@ -234,9 +235,9 @@ int  checkSystemPass(const string szUser, const string szPass, const string szGr
     cout << "salt=" << salt << endl;
 #endif
 
-    if (strcmp(crypt(szPass.c_str(), salt), ppw->pw_passwd) == 0 ) 
-        rc = 0; 
-    else 
+    if (strcmp(crypt(szPass.c_str(), salt), ppw->pw_passwd) == 0 )
+        rc = 0;
+    else
         rc = BADPASSWD;
 
     if ((rc == BADPASSWD) && (strcmp("x",ppw->pw_passwd) == 0)) {
@@ -297,57 +298,79 @@ int  checkSystemPass(const string szUser, const string szPass, const string szGr
 
 //------------------------------------------------------------------------------------
 
-bool validate(const string& user, const string& pass, const string& group, 
-        bool allow_hash)
+int validate(const string& user, const string& pass, const string& group, bool allow_hash)
 {
-    if (allow_hash && (group.compare("tnc") != 0)) {    // Don't allow tnc users to use aprs numerical password
-                                                        // "allow_hash" must be TRUE to use the HASH test.
-                                                        // If allow_hash is false only the Linux user/pass validation is used
+	
+	cerr << "validate: user == " << user << " pass == " << pass << " group == " << group << endl;
+	
+    if (allow_hash && (group.compare("tnc") != 0)) {    // Don't allow tnc users to
+                                                        // use aprs numerical password
+                                                        // "allow_hash" must be TRUE
+                                                        // to use the HASH test.
+                                                        // If allow_hash is false only
+                                                        // the Linux user/pass
+                                                        // validation is used
         short iPass = atoi(pass.c_str());
-        if (iPass == -1) 
+		cerr << "validate: iPass == " << iPass << endl;
+		
+        if (iPass == -1) {
+			cerr << "validate: baduser " << endl;
             return BADUSER;        // -1 is known to be not registered
-      
-        if (user.length() <= 9) {                  // Limit user call sign to 9 chars or less (2.1)
-            if (doHash(user.c_str()) == iPass) 
+		}
+
+        if (user.size() <= 9) {                  // Limit user call sign to 9 chars or less (2.1)
+            if (doHash(user.c_str()) == iPass) {
+				cerr << "validate: hash succeeded, user passed" << endl;
                 return 0;    // return Zero if hash test is passed
+			}
         }
     }
-                                               //if hash fails, test for
-    int rc = checkSystemPass(user, pass, group); // valid  Linux system user/pass
+    cerr << "validate: hash failed" << endl;
+													//if hash fails, test for
+    int rc = checkSystemPass(user, pass, group); 	// valid  Linux system user/pass
 
-#ifdef DEBUG
-    cout << "checkSystemPass returned: " << rc << endl;
-#endif
+//#ifdef DEBUG
+    cerr << "checkSystemPass returned: " << rc << endl;
+//#endif
 
-    if (rc == BADPASSWD) 
+    if (rc == BADPASSWD)
         sleep(10);
-    
-    return rc;   
+
+    return rc;
 }
 
 //-----------------------------------------------------------------------------------
 
-/* As of April 11 2000 Steve Dimse has released this code to the open
-source aprs community */
+/*
+    As of April 11 2000 Steve Dimse has released this code to the open
+    source aprs community
+*/
 
 short doHash(const char* theCall)
 {
-    char rootCall[10];      // need to copy call to remove ssid from parse
+    int retVal = 0;
+	char rootCall[10];      // need to copy call to remove ssid from parse
     char *p1 = rootCall;
 
+	cerr << "doHash: theCall == " << theCall << endl;
+	
     while ((*theCall != '-') && (*theCall != 0)) *p1++ = toupper(*theCall++);
         *p1 = 0;
-
+	
+	cerr << "doHash: p1 == " << p1 << endl;
+	
+		
     short hash = kKey;      // Initialize with the key value
     short i = 0;
     short len = strlen(rootCall);
     char *ptr = rootCall;
-    
-    while (i < len) {             // Loop through the string two bytes at a time
-        hash ^= (*ptr++)<<8;    // xor high byte with accumulated hash
+
+    while (i < len) {           // Loop through the string two bytes at a time
+        hash ^= (*ptr++) << 8;  // xor high byte with accumulated hash
         hash ^= (*ptr++);       // xor low byte with accumulated hash
         i += 2;
     }
-    return hash & 0x7fff;       // mask off the high bit so number is always positive
+	retVal = hash & 0x7fff;
+	cerr << "doHash retVal == " << retVal << endl;
+    return retVal;       // mask off the high bit so number is always positive
 }
-

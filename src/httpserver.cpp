@@ -22,29 +22,30 @@
  * Look at the README for more information on the program.
  */
 
-#include <sys/ioctl.h> 
+#include <sys/ioctl.h>
 #include <sys/types.h>          // send()
 #include <sys/socket.h>         // send()
 #include <unistd.h>             // close()
 #include <cassert>
- 
+#include <iostream>
+
 #include <string>
 #include <list>
 #include <iomanip>
 
-#include "osdep.h"
-#include "servers.h"
-#include "mutex.h"
-#include "dupCheck.h"
-#include "cpqueue.h"
-#include "utils.h"
-#include "constant.h"
-#include "history.h"
-#include "serial.h"
-#include "aprsString.h"
-#include "validate.h"
-#include "queryResp.h"
-#include "aprsdexception.h"
+#include "osdep.hpp"
+#include "servers.hpp"
+#include "mutex.hpp"
+#include "dupCheck.hpp"
+#include "cpqueue.hpp"
+#include "utils.hpp"
+#include "constant.hpp"
+#include "history.hpp"
+#include "serial.hpp"
+#include "aprsString.hpp"
+#include "validate.hpp"
+#include "queryResp.hpp"
+#include "aprsdexception.hpp"
 
 using namespace aprsd;
 
@@ -57,11 +58,11 @@ string getCall(const string& sp)
     string retval;
     int i;
 
-    if ((i = sp.find("-")) < (int)sp.length())
+    if ((i = sp.find("-")) < static_cast<int>(sp.length()))
         retval = sp.substr(0, i);
     else
         retval = sp;
-    
+
     retval += "*";
     return retval;
 }
@@ -70,21 +71,21 @@ string fixEmail(const string& sp)
 {
     string retval;
     int i;
-    
-    if ((i = sp.find("@")) < (int)sp.length()) {
+
+    if ((i = sp.find("@")) < static_cast<int>(sp.length())) {
         retval = sp.substr(0, i);
         retval += " at ";
         retval += sp.substr(i+1, sp.length());
     } else
         retval = sp;
-        
+
     return retval;
 }
 
 
 bool isAPRSD(const string& sp)
 {
-    if ((unsigned)sp.compare("aprsd") < sp.length())
+    if (static_cast<unsigned int>(sp.compare("aprsd")) < sp.length())
         return true;
     else
         return false;
@@ -92,46 +93,13 @@ bool isAPRSD(const string& sp)
 
 bool isJAVAAprsSrv(const string& sp)
 {
-    if ((unsigned)sp.compare("javAPRS") < sp.length())
+    if (static_cast<unsigned int>(sp.compare("javAPRS")) < sp.length())
         return true;
     else
         return false;
 }
 
-double convertRate(int rate)
-{
-    double retval = 0;
 
-    if (rate < 1000)
-        retval = (double)rate;
-
-    if (rate > 1000)
-        retval = (((double)rate / 1000));   // Kb
-
-    if (retval > 1000)
-        retval = (retval / 1000);           // Mb, is this possible?
-
-    return retval;
-}
-
-string convertScale(int rate)
-{
-    string retval;
-    double value = 0;
-
-    if (rate < 1000) {
-        retval = " bits/sec";
-        return retval;
-    }
-
-    if (rate > 1000) {
-        value = (((double)rate / 1000));
-        retval = " Kb/sec";
-        if (value > 1000)
-            retval = " Mb/sec";             // is this possible?
-    }
-    return retval;
-}
 
 
 void buildPage(StringList& htmlpage)
@@ -160,17 +128,17 @@ void buildPage(StringList& htmlpage)
 
     char *szHdumps, *szMicE, *szTrace;
 
-    if(History_ALLOW)
+    if (History_ALLOW)
         szHdumps = "YES";
     else
         szHdumps = "NO";
 
-    if(ConvertMicE)
+    if (ConvertMicE)
         szMicE = "YES";
     else
         szMicE = "NO";
 
-    if(traceMode)
+    if (traceMode)
         szTrace = "YES";
     else
         szTrace = "NO";
@@ -183,8 +151,8 @@ void buildPage(StringList& htmlpage)
         << "MIME-version: 1.0\n"
         << "Content-type: text/html\n"
         << "Expires: " << szTime << "\n"
-        << "Refresh: 300\n"             //uncomment to activate 5 minute refresh time 
-        << "\n"                         // Blank line terminates headers 
+        << "Refresh: 300\n"             //uncomment to activate 5 minute refresh time
+        << "\n"                         // Blank line terminates headers
         << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n"
         << "<HTML>\n"
         << "<HEAD>\n"
@@ -210,11 +178,11 @@ void buildPage(StringList& htmlpage)
         << "</TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD ALIGN=\"CENTER\" BGCOLOR=\"#CCCCFF\" COLSPAN=2>" << szTime << "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Server Up-Time</TD><TD>" << convertUpTime(upTime) << "</TD></TR>\n"
-        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Users</TD><TD>" << getConnectedClients() << "</TD></TR>\n"
-        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Peak Users</TD><TD>" << MaxConnects << "</TD></TR>\n"
-        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Max User Limit</TD><TD>" << MaxClients << "</TD></TR>\n"
+        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Connections</TD><TD>" << getConnectedClients() << "</TD></TR>\n"
+        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Peak Connection Count</TD><TD>" << MaxConnects << "</TD></TR>\n"
+        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Connection Limit</TD><TD>" << MaxClients << "</TD></TR>\n"
         //<< "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Max Server Load (Bps)</TD><TD>" << MaxLoad << "</TD></TR>\n"
-        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Connect Count</TD><TD>" << TotalConnects << "</TD></TR>\n";
+        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Connection Count</TD><TD>" << TotalConnects << "</TD></TR>\n";
     if (tncPresent) {
         stats << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">TNC Packets</TD><TD>" << TotalLines << "</TD></TR>\n"
             << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Pkts gated to RF</TD><TD>" << msg_cnt << "</TD></TR>\n";
@@ -227,9 +195,11 @@ void buildPage(StringList& htmlpage)
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Dropped Packets</TD><TD>" << countREJECTED <<  "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">UDP Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_UDP)) << convertScale(getStreamRate(STREAM_UDP)) <<  "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Message Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_MSG)) << convertScale(getStreamRate(STREAM_MSG)) <<  "</TD></TR>\n";
-     if (tncPresent) {
+
+    if (tncPresent) {
         stats << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">TNC stream Rate</TD><TD>" << getStreamRate(STREAM_TNC) << convertScale(getStreamRate(STREAM_TNC)) << "</TD></TR>\n";
      }
+
      stats << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">User Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_USER)) << convertScale(getStreamRate(STREAM_USER)) <<  "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Server Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_SERVER)) << convertScale(getStreamRate(STREAM_SERVER)) <<  "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Full Stream Rate -dups</TD><TD>" << convertRate(getStreamRate(STREAM_FULL)) << convertScale(getStreamRate(STREAM_FULL)) << "</TD></TR>\n"
@@ -252,7 +222,7 @@ void buildPage(StringList& htmlpage)
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Sysop email</TD><TD><A HREF=\"mailto:" << MyEmail << "\">" << fixEmail(MyEmail) << "</A></TD></TR>\n"
         << "</TABLE><BR />\n";
 
-    
+
     countLock.release();
 
     htmlpage.push_back(stats.str());
@@ -262,21 +232,19 @@ void buildPage(StringList& htmlpage)
         << "<TH COLSPAN=11 ALIGN=\"CENTER\">Server Connections</TH></TR>\n"
         << "<TR BGCOLOR=\"#CCCCFF\"><TH>Domain Name</TH><TH>Hex IP<br>Alias</TH><TH>Port</TH><TH>Type</TH><TH>Status</TH><TH>Igate Pgm</TH>\n"
         << "<TH>Last active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes<BR> Out</TH><TH>Time<BR> H:M:S</TH></TR>\n";
-    
+
     htmlpage.push_back(igateheader.str());
 
     countLock.get();
 
     for (i = 0; i < nIGATES; i++) {
         if (cpIGATE[i].RemoteSocket != -1) {
-            char timeStr[32];
-            strElapsedTime(cpIGATE[i].starttime,timeStr);           // Compute elapsed time of connection
-            char lastActiveTime[32];
-            strElapsedTime(cpIGATE[i].lastActive,lastActiveTime);   // Compute time since last input char
-
+            string timeStr;
+            strElapsedTime(cpIGATE[i].starttime, timeStr);           // Compute elapsed time of connection
+            string lastActiveTime;
+            strElapsedTime(cpIGATE[i].lastActive, lastActiveTime);   // Compute time since last input char
 
             ostringstream igateinfo;
-            //char *status, *bgcolor, *conType;
             string status, bgcolor, conType;
 
             if (cpIGATE[i].hub) {
@@ -320,7 +288,7 @@ void buildPage(StringList& htmlpage)
             }
 
             igateinfo << "<TR VALIGN=\"CENTER\" BGCOLOR=" << bgcolor << "><TD>";
-            
+
             // See if this client/server supports a status page
             if (isAPRSD(infoTokens[1]) || isJAVAAprsSrv(infoTokens[1]))
                 igateinfo << "<A HREF=\"http://"
@@ -372,22 +340,24 @@ void buildPage(StringList& htmlpage)
 
     for (i = 0; i < MaxClients; i++) {        // Create html table with user information
         if ((sessions[i].Socket != -1) && (sessions[i].ServerPort != -1)){
-            char timeStr[32];
+            //char timeStr[32];
+            string timeStr;
             strElapsedTime(sessions[i].starttime, timeStr);      // Compute elapsed time
-            char lastActiveTime[32];
+            //char lastActiveTime[32];
+            string lastActiveTime;
             strElapsedTime(sessions[i].lastActive, lastActiveTime);  // Compute elapsed time from last input char
 
             string szVrfy;
-            TszPeer = sessions[i].szPeer;
-            TuserCall = sessions[i].userCall;
-            TpgmVers = sessions[i].pgmVers;
+            TszPeer = sessions[i].sPeer;
+            TuserCall = sessions[i].sUserCall;
+            TpgmVers = sessions[i].sPgmVers;
             TlastActive = lastActiveTime;
             TtimeStr = timeStr;
-            removeHTML(TszPeer);
-            removeHTML(TuserCall);
-            removeHTML(TpgmVers);
-            removeHTML(TlastActive);
-            removeHTML(TtimeStr);
+            //removeHTML(TszPeer);
+            //removeHTML(TuserCall);
+            //removeHTML(TpgmVers);
+            //removeHTML(TlastActive);
+            //removeHTML(TtimeStr);
 
             if (sessions[i].vrfy)
                 szVrfy = "YES";
@@ -404,7 +374,7 @@ void buildPage(StringList& htmlpage)
                 npid = sessions[i].pid;
 
             ostringstream userinfo;
-            
+
             userinfo << "<TR VALIGN=\"CENTER\" BGCOLOR=\"#C0C0C0\"> <TD>";
 
             if (isAPRSD(TpgmVers) || isJAVAAprsSrv(TpgmVers))
@@ -412,7 +382,6 @@ void buildPage(StringList& htmlpage)
                 << TszPeer << ":14501/\">" << TszPeer <<  "</A></TD>";
             else
                 userinfo << TszPeer << "</TD>";
-
 
                 //<< "<TD><A target=\"PortInfoFrame\" HREF=\"portinfo." << i << "\">" << sessions[i].ServerPort << "</A></TD>"
             userinfo << "<TD>" << sessions[i].ServerPort << "</TD>"
@@ -463,10 +432,10 @@ void buildPortInfoPage(list<string>& htmlpage, const string& arg)
     if (idx != string::npos){
         string snum = arg.substr(idx+1);  //Get session number in ascii form.
         sNum = strtol(snum.c_str(),&endptr,10);
-        if((sNum == 0) && (endptr == snum.c_str()))
+        if ((sNum == 0) && (endptr == snum.c_str()))
             return;
 
-        if((sNum >= MaxClients) || (sNum < 0))
+        if ((sNum >= MaxClients) || (sNum < 0))
             return;
     }
 
@@ -479,7 +448,8 @@ void buildPortInfoPage(list<string>& htmlpage, const string& arg)
 
     unsigned nBits = (sizeof(echomask_t) * 8);      //Number of bits in the EchoMask
 
-    char emb[nBits + 1];
+    //char emb[nBits + 1];
+    char* emb = new char(nBits + 1);
 
     for (i = 0; i < nBits; i++) {
         if (sessions[sNum].EchoMask & (1 << i))
@@ -490,7 +460,8 @@ void buildPortInfoPage(list<string>& htmlpage, const string& arg)
 
     emb[i] = '\0';
 
-    char* name[nBits];
+    //char* name = new char(nBits);
+    std::vector<string> name(nBits);
 
     name[0] = "Local TNC";
     name[1] = "User";
@@ -509,18 +480,18 @@ void buildPortInfoPage(list<string>& htmlpage, const string& arg)
     name[14]= "Duplicates";
     name[15]= "History";
     name[16]= "Echo";
-    name[17]= NULL;
+    name[17]= ""; // NULL;
 
     string TszServerCall = szServerCall;
     removeHTML(TszServerCall);
-    string TuserCall = sessions[sNum].userCall;
+    string TuserCall = sessions[sNum].sUserCall;
     removeHTML(TuserCall);
 
     i = 0;
     string emStr = "";
     string color;
 
-    while (name[i]) {
+    while (i < name.size()) {
         if (emb[i] == '1')
             color = "<TR BGCOLOR=\"30C030\">";
         else
@@ -529,6 +500,8 @@ void buildPortInfoPage(list<string>& htmlpage, const string& arg)
         emStr = emStr + color + "<TD>" + name[i] + "</TD><TD ALIGN=\"CENTER\" WIDTH=\"20%\">" + emb[i] + "</TD></TR>\n";
         i++;
     }
+
+    delete [] emb;
 
     stats << setiosflags(ios::showpoint | ios::fixed)
         << setprecision(1)
@@ -652,4 +625,3 @@ void *HTTPServerThread(void *p)
     pthread_exit(0);
     return NULL;  //To keep g++ and RH-7.x happy.
 }
-

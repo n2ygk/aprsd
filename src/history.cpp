@@ -51,13 +51,13 @@
 #include <cassert>
 
 
-#include "history.h"
-#include "aprsd.h"
-#include "utils.h"
-#include "aprsString.h"
-#include "servers.h"
-#include "mutex.h"
-#include "constant.h"
+#include "history.hpp"
+#include "aprsd.hpp"
+#include "utils.hpp"
+#include "aprsString.hpp"
+#include "servers.hpp"
+#include "mutex.hpp"
+#include "constant.hpp"
 
 using namespace std;
 using namespace aprsd;

@@ -18,7 +18,7 @@ FILTER ON
 CD SOFTWARE
 NEWMODE OFF
 #MYCALL must match MyCall in aprsd.conf
-MYCALL KG4IJB-3
+MYCALL KG4IJB-2
 #You may turn off BTEXT here and use the "tncbeacon" command in aprsd.conf instead.
 #BTEXT _0000.00NI00000.00W& APRS Linux Internet Server 
 BEACON EVERY 10

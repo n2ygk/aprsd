@@ -27,18 +27,18 @@
 #include <unistd.h>                     // getpid
 #include <iostream>
 
-#include "rf.h"
-#include "aprsd.h"
-#include "servers.h"
-#include "serial.h"
-#include "ax25socket.h"
-#include "aprsString.h"
-#include "osdep.h"
-#include "constant.h"
-#include "utils.h"
-#include "cpqueue.h"
-#include "history.h"
-#include "queryResp.h"
+#include "rf.hpp"
+#include "aprsd.hpp"
+#include "servers.hpp"
+#include "serial.hpp"
+#include "ax25socket.hpp"
+#include "aprsString.hpp"
+#include "osdep.hpp"
+#include "constant.hpp"
+#include "utils.hpp"
+#include "cpqueue.hpp"
+#include "history.hpp"
+#include "queryResp.hpp"
 
 using namespace std;
 using namespace aprsd;

@@ -27,16 +27,15 @@
 #include <cctype>
 
 namespace aprsd {
-    using namespace std;
 
-    string trim(const string& str) 
+    std::string trim(const std::string& str)
     {
         return rtrim(ltrim(str));
     }
 
-    string rtrim(const string& str)
+    std::string rtrim(const std::string& str)
     {
-        string::const_reverse_iterator iter = str.rbegin();
+        std::string::const_reverse_iterator iter = str.rbegin();
 
         while (iter != str.rend() && isspace(*iter))
             iter++;
@@ -44,21 +43,21 @@ namespace aprsd {
         return str.substr(0, str.length() - (iter - str.rbegin()));
     }
 
-    string ltrim(const string& str)
+    std::string ltrim(const std::string& str)
     {
-        string::const_iterator iter = str.begin();
+        std::string::const_iterator iter = str.begin();
         while (iter != str.end() && isspace(*iter ))
             iter++;
 
-        return string(iter, str.end());
+        return std::string(iter, str.end());
     }
 
-    Strings split(const string& text, char sep)
+    Strings split(const std::string& text, char sep)
     {
         Strings vec;
 
-        string::size_type pos = 0;
-        for (string::size_type newp; (newp = text.find(sep, pos)) != string::npos;
+        std::string::size_type pos = 0;
+        for (std::string::size_type newp; (newp = text.find(sep, pos)) != std::string::npos;
             pos = newp + 1)
             vec.push_back(text.substr(pos, newp - pos));
         vec.push_back(text.substr(pos));
@@ -66,12 +65,12 @@ namespace aprsd {
         return vec;
     }
 
-    Strings split(const string& text, const string& sep)
+    Strings split(const std::string& text, const std::string& sep)
     {
         Strings vec;
 
         string::size_type pos = 0;
-        for (string::size_type newp; (newp = text.find(sep, pos)) != string::npos;
+        for (std::string::size_type newp; (newp = text.find(sep, pos)) != std::string::npos;
             pos = newp + sep.length())
             vec.push_back(text.substr(pos, newp - pos));
         vec.push_back(text.substr(pos));

@@ -35,9 +35,9 @@
 #include <string>
 #include <stdexcept>
 
-#include "constant.h"
-#include "dupCheck.h"
-#include "mutex.h"
+#include "constant.hpp"
+#include "dupCheck.hpp"
+#include "mutex.hpp"
 
 #define TABLESIZE  0x10000    /* 64K hash table containing time_t values */
 

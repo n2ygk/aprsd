@@ -23,9 +23,9 @@
  */
 
 
-#include "aprsdassert.h"
-#include "aprsdexception.h"
-#include "mutex.h"
+#include "aprsdassert.hpp"
+#include "aprsdexception.hpp"
+#include "mutex.hpp"
 
 
 #include <cassert>

@@ -32,9 +32,9 @@
 #include <strstream>
 #include <iomanip>
 
-#include "constant.h"
-#include "cpqueue.h"
-#include "aprsString.h"
+#include "constant.hpp"
+#include "cpqueue.hpp"
+#include "aprsString.hpp"
 
 using namespace std;
 using namespace aprsd;
@@ -228,6 +228,3 @@ int cpQueue::getItemsQueued(void)
 {
     return itemsQueued;
 }
-
-
-

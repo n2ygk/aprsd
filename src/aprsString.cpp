@@ -32,13 +32,13 @@
 #include <stdexcept>
 #include <strstream>
 
-#include "aprsString.h"
-#include "aprsd.h"
-#include "constant.h"
-#include "utils.h"
-#include "mic_e.h"
+#include "aprsString.hpp"
+#include "aprsd.hpp"
+#include "constant.hpp"
+#include "utils.hpp"
+#include "mic_e.hpp"
 #include "crc.h"
-#include "aprsdexception.h"
+#include "aprsdexception.hpp"
 
 using namespace std;
 using namespace aprsd;
@@ -905,9 +905,9 @@ bool aprsString::queryLocal(void)
 //Returns index of path element if match found
 // or npos is not found.
 
-unsigned aprsString::queryPath(const string& s, int start, int stop  , unsigned n)
+unsigned int aprsString::queryPath(const string& s, int start, int stop, unsigned int n)
 {
-    unsigned  rc = npos;
+    unsigned int rc = npos;
   
     if (valid_ax25 == false) 
         return rc;
@@ -923,12 +923,12 @@ unsigned aprsString::queryPath(const string& s, int start, int stop  , unsigned 
 
     for (int i = start; i <= stop; i++){
 #if (__GNUC__ >= 3) || (STLport)
-        if (s.compare(0,n,ax25Path[i]) == 0){
+        if (s.compare(0, n, ax25Path[i]) == 0){
         rc = i;
         break;
     }
 #else
-        if (s.compare(ax25Path[i],0,n) == 0){
+        if (s.compare(ax25Path[i], 0, n) == 0){
             rc = i;
             break;
         }
@@ -1499,4 +1499,3 @@ int aprsString::getObjCount()
 }
 
 //----------------
-

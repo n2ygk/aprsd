@@ -23,6 +23,7 @@
  */
 
 
+#include "config.h"
 
 #include <termios.h>
 #include <unistd.h>
@@ -53,9 +54,16 @@
 
 #include <fstream>
 #include <iostream>
-#include <strstream>
+
+#if __GNUG__ < 3
+#   include <strstream>
+#   define ostringstream ostrstream
+#else
+#   include <sstream>
+#endif
+
 #include <iomanip>
-#include <sstream>
+
 
 #ifdef linux
 #include <linux/kernel.h>
@@ -73,26 +81,29 @@
 #include <sys/wait.h>
 #include <errno.h>
 
-#include "dupCheck.h"
-#include "cpqueue.h"
-#include "utils.h"
-#include "constant.h"
-#include "history.h"
-#include "serial.h"
-#include "aprsString.h"
-#include "validate.h"
-#include "queryResp.h"
-#include "rf.h"
+#include "dupCheck.hpp"
+#include "cpqueue.hpp"
+#include "utils.hpp"
+#include "constant.hpp"
+#include "history.hpp"
+#include "serial.hpp"
+#include "aprsString.hpp"
+#include "validate.hpp"
+#include "queryResp.hpp"
+#include "rf.hpp"
 
-#include "aprsd.h"
-#include "servers.h"
-#include "exceptionguard.h"
+#include "aprsd.hpp"
+#include "servers.hpp"
+#include "configfile.hpp"
+#include "exceptionguard.hpp"
 
 using namespace aprsd;
 using namespace std;
 
+//History history;
+
+
 struct termios initial_settings, new_settings;
-//char *szComPort;
 string szComPort;
 string szAprsPath;
 int msgsn;
@@ -114,7 +125,7 @@ const string TNC_RESTORE("RESTORE.TNC");
 const string APRSD_INIT("INIT.APRSD");
 const string SAVE_HISTORY("history.txt");
 const string USER_DENY("user.deny");
-
+string logDir;
 //----------------------------------------------------------------------
 
 void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -INT aprsd) */
@@ -129,6 +140,7 @@ void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -IN
     string outFile = CONFPATH;
     outFile += SAVE_HISTORY;
     int n = SaveHistory(outFile);
+    //int n = history.saveHistoryFile(outFile);
 
     cout << "Saved "
         << n
@@ -170,11 +182,10 @@ void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -IN
     kill(pidlist.main, SIGTERM);  //Kill main thread
 }
 
-//---------------------------------------------------------------------
-
-/* Signal handler.  Note: Signals are received by ALL threads at once.
-   To ensure the handler only reacts once, the PID is checked and only
-   signals to the main thread are accepted.
+/*
+    Signal handler.  Note: Signals are received by ALL threads at once.
+    To ensure the handler only reacts once, the PID is checked and only
+    signals to the main thread are accepted.
 */
 void sig_handler(int sig)
 {
@@ -185,623 +196,386 @@ void sig_handler(int sig)
         serverQuit(); //Shut ourself down.
 }
 
-//------------------------------------------------------------------------
-//Server configuration parser.
-//Non-comment lines from aprsd.conf pass through this.
-//Action is taken based on the command and args.
-int serverConfig(const string& cf)
+/*
+    Server configuration parser.
+
+    Note: Configuration file format has changed in 2.6.x
+*/
+int serverConfig(const string& configFile)
 {
-    const int maxToken=32;
-    int nTokens ;
-    char Line[256];
-    string cmd, errmsg;
-    int n, m = 0;
+    bool isValidPass = false;
+    string errmsg;
 
     rfcall_idx = 0;
     posit_rfcall_idx = 0;
     stsmDest_rfcall_idx = 0;
-  
-    for (int i = 0; i < MAXRFCALL; i++) {
-        rfcall[i] = NULL;         //clear the rfcall arrays
-        posit_rfcall[i] = NULL;
-        stsmDest_rfcall[i] = NULL;
-    }
-
-    cout << "Reading " << cf << endl;
-
-    ifstream file(cf.c_str());    //delete pSaveHistory;
-  
-    if (!file) {
-        cerr << "Can't open " << cf << endl;
-        return -1;
-    }
-
-    do {
-        errmsg = "";
-        file.getline(Line,256);     //Read each line in file
-        
-        if (!file.good())
-            break;
-
-        n = 0;
-        int i;
-        
-        if (strlen(Line) > 0) { 
-            if (Line[0] != '#') {   //Ignore comments
-                string sLine(Line);
-                string token[maxToken];
-                nTokens = split(sLine, token, maxToken, RXwhite);  //Parse into tokens
-
-                for (i = 0 ; i < nTokens; i++) 
-                    cout << token[i] << " " ;
-
-                upcase(token[0]);
-                cmd = token[0];
-
-                if ((cmd.compare("USER") == 0) && (nTokens >= 2)) {  
-                    //upcase(token[1]);
-                    logon.user = strdup(token[1].c_str());
-                    n = 1;
-                }
-
-                if ((cmd.compare("PASS") == 0) && (nTokens >= 2)) {
-                    logon.pass = strdup(token[1].c_str());
-                    n = 1;
-                }
-
-                if ((cmd.compare("TNCPORT") == 0) && (nTokens >= 2)) {
-                    szComPort = token[1];
-                    n = 1;
-                }
-
-                if ((cmd.compare("UDPPORT") == 0) && (nTokens >= 2)) {
-                    upUdpServer.ServerPort = atoi(token[1].c_str());
-                    n = 1;
-                }
-
-                if ((cmd.compare("TRUST") == 0) && (nTokens >= 2)
-                        && (nTrusted < maxTRUSTED)) {
-
-                    int rc = inet_aton(token[1].c_str(), &Trusted[nTrusted].sin_addr);
-
-                    if (nTokens >= 3)
-                        inet_aton(token[2].c_str(), &Trusted[nTrusted].sin_mask);
-                    else
-                        Trusted[nTrusted].sin_mask.s_addr = 0xffffffff;
-
-                    if (rc )
-                        nTrusted++;
-                    else
-                        Trusted[nTrusted].sin_addr.s_addr = 0;
-
-                    n = 1;
-                }
-
-                if ((cmd.compare("SERVER") == 0) //New server command in vers 2.1.5
-                        && (nTokens >= 2)) {
-
-                    cpIGATE[m].EchoMask = 0;   //default is to not send any data to other igates
-                    cpIGATE[m].user = MyCall;
-                    cpIGATE[m].pass = passDefault;
-                    cpIGATE[m].RemoteSocket = 1313; //Default remote port is 1313
-                    cpIGATE[m].starttime = -1;
-                    cpIGATE[m].lastActive = -1;
-                    cpIGATE[m].pid = 0;
-                    cpIGATE[m].remoteIgateInfo = string("");
-                    cpIGATE[m].hub = false;
-                    cpIGATE[m].mode = MODE_RECV_ONLY;
-                    cpIGATE[m].serverCmd[0] = NULL;
-                    cpIGATE[m].serverCmd[1] = NULL;
-                    cpIGATE[m].serverCmd[2] = NULL;
-                    cpIGATE[m].nCmds = 0;
-                    cpIGATE[m].alias = string("*");
-                    cpIGATE[m].RemoteName = "UNDEFINED";
-
-                    if (nTokens >= 2)
-                        cpIGATE[m].RemoteName = strdup(token[1].c_str());  //remote domain name
-
-                    if (nTokens >= 3)
-                        cpIGATE[m].RemoteSocket = atoi(token[2].c_str());  //remote port number
-
-                    if (nTokens >= 4) {
-                        upcase(token[3]);        //parse RO-HUB or SR-HUB or RO or SR
-                        if(token[3].find("HUB") != string::npos)
-                            cpIGATE[m].hub = true;
-
-                        if(token[3].find("SR") != string::npos)
-                            cpIGATE[m].mode = MODE_RECV_SEND;
-                    }
-
-                    if (logon.user)
-                        cpIGATE[m].user = logon.user;
-                    else {
-                        cpIGATE[m].user = MyCall;
-                        cpIGATE[m].pass = passDefault;
-                    }
-
-                    if (logon.pass)
-                        cpIGATE[m].pass = logon.pass;
-                    else
-                        cpIGATE[m].pass = passDefault;
-
-                    //The following strings are sent to remote server as messages after logon
-                    if (nTokens >= 5) {
-                        cpIGATE[m].serverCmd[0] = strdup(token[4].c_str());
-                        cpIGATE[m].nCmds++;
-                    }
-
-                    if (nTokens >= 6) {
-                        cpIGATE[m].serverCmd[1] = strdup(token[5].c_str());
-                        cpIGATE[m].nCmds++;
-                    }
-
-                    if (nTokens >= 7) {
-                        cpIGATE[m].serverCmd[2] = strdup(token[6].c_str());
-                        cpIGATE[m].nCmds++;
-                    }
-
-                    //Locally validate the passcode to see if we are allowed to send data
-
-                    if ((validate(cpIGATE[m].user, cpIGATE[m].pass,APRSGROUP, APRS_PASS_ALLOW) == 0)
-                            && (cpIGATE[m].mode == MODE_RECV_SEND)){
-
-                        cpIGATE[m].EchoMask =  srcUSERVALID //If valid passcode present then we send out data
-                                                + srcUSER      //Same data as igate port 1313
-                                                + srcTNC
-                                                + srcBEACON
-                                                + srcUDP;      //Changed in 2.1.5: Internal status packets NOT sent
-                    } else {
-                        if (cpIGATE[m].mode == MODE_RECV_SEND)
-                            errmsg = " <--Invalid APRS passcode";
-
-                        cpIGATE[m].mode = MODE_RECV_ONLY;
-                        cpIGATE[m].EchoMask = 0;
-                    }
-
-                    if (m < maxIGATES)
-                        m++;
-
-                    nIGATES = m;
-                    n = 1;
-                }
-
-                if ((cmd.compare("IGATE") == 0)   //IGATE still recognized so not to break old .conf files.
-                        || (cmd.compare("HUB") == 0)) {  //HUB is assumed to have all APRS data
-
-                    cpIGATE[m].hub = (cmd.compare("HUB") == 0) ? true : false ;
-                    cpIGATE[m].EchoMask = 0;   //default is to not send any data to other igates
-                    cpIGATE[m].user = MyCall;
-                    cpIGATE[m].pass = passDefault;
-                    cpIGATE[m].RemoteSocket = 1313; //Default remote port is 1313
-                    cpIGATE[m].starttime = -1;
-                    cpIGATE[m].lastActive = -1;
-                    cpIGATE[m].pid = 0;
-                    cpIGATE[m].remoteIgateInfo = string("");
-                    cpIGATE[m].mode = MODE_RECV_ONLY;
-                    cpIGATE[m].serverCmd[0] = NULL;
-                    cpIGATE[m].serverCmd[1] = NULL;
-                    cpIGATE[m].serverCmd[2] = NULL;
-                    cpIGATE[m].nCmds = 0;
-                    cpIGATE[m].alias = string("");
-
-                    if (nTokens >= 2)
-                        cpIGATE[m].RemoteName = strdup(token[1].c_str());  //remote domain name
-
-                    if (nTokens >= 3)
-                        cpIGATE[m].RemoteSocket = atoi(token[2].c_str());  //remote port number
-
-                    if (nTokens >= 4)
-                        cpIGATE[m].user = strdup(token[3].c_str()); //User name (call)
-
-                    if (nTokens >= 5)
-                        cpIGATE[m].pass = strdup(token[4].c_str()); //Get Passcode
-
-                    /* If passcode is valid allow the this server to send data up stream */
-                    if ((validate(cpIGATE[m].user, cpIGATE[m].pass,APRSGROUP, APRS_PASS_ALLOW) == 0)){
-                        cpIGATE[m].mode = MODE_RECV_SEND;
-                        cpIGATE[m].EchoMask =  srcUSERVALID //If valid passcode present then we send out data
-                                                + srcUSER      //Same data as igate port 1313
-                                                + srcTNC
-                                                + srcBEACON
-                                                + srcUDP;      //Changed in 2.1.5: Internal status packets NOT sent
-                    } else {
-                        if(cpIGATE[m].pass[0] != '-')
-                            errmsg = " <--Invalid APRS passcode";
-
-                        cpIGATE[m].EchoMask =  0;
-                        cpIGATE[m].mode = MODE_RECV_ONLY;
-                    }
-
-                    if (m < maxIGATES)
-                        m++;
-
-                    nIGATES = m;
-                    n = 1;
-                }
-
-                if (cmd.compare("LOCALPORT") == 0) {   //provides local TNC data only
-                    spLocalServer.ServerPort = atoi(token[1].c_str());  //set server port number
-                    spLocalServer.EchoMask = srcUDP
-                                            + srcTNC   /*Set data sources to echo*/
-                                            + srcSYSTEM
-                                            + srcBEACON
-                                            + sendHISTORY;
-                    n = 1;
-                }
-
-                if(cmd.compare("RAWTNCPORT") == 0) {   //provides local TNC data only
-                    spRawTNCServer.ServerPort = atoi(token[1].c_str());  //set server port number
-                    spRawTNCServer.EchoMask = srcTNC   /*Set data sources to echo*/
-                                                + wantRAW;  //RAW data
-                    spRawTNCServer.FilterMask = false;
-                    spRawTNCServer.omni = false;
-                    n = 1;
-                }
-
-                if (cmd.compare("SYSOPPORT") == 0) {    // provides no igated data
-                                                        // This is for telnetting directly to the TNC
-                    spSysopServer.ServerPort = atoi(token[1].c_str());  //set server port number
-                    spSysopServer.EchoMask =   0;
-                    spSysopServer.FilterMask = 0;
-                    spSysopServer.omni = false;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("ERRORPORT") == 0) {    // provides only rejected packets
-                                                        // This is for telneting directly to the TNC
-                    spErrorServer.ServerPort = atoi(token[1].c_str());  //set server port number
-                    spErrorServer.EchoMask =   wantREJECTED ;
-
-                    spErrorServer.FilterMask = 0;
-                    spErrorServer.omni = false;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("HTTPPORT") == 0) {       //provides server status in HTML format
-                    spHTTPServer.ServerPort = atoi(token[1].c_str());  //set server port number
-                    spHTTPServer.EchoMask = wantHTML;
-                    spHTTPServer.FilterMask = 0;
-                    spHTTPServer.omni = false;
-
-                    n = 1;
-                }
-
-                if(cmd.compare("OMNIPORT") == 0) {      //provides any data stream the user requests
-                    spOmniServer.ServerPort = atoi(token[1].c_str());  //set server port number
-                    spOmniServer.EchoMask = omniPortBit;
-                    spOmniServer.FilterMask = 0;
-                    spOmniServer.omni = true;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("MAINPORT") == 0) {      //provides all data
-                    spMainServer.ServerPort = atoi(token[1].c_str());  //set server port number
-                    spMainServer.EchoMask = srcUSERVALID
-                                            + srcUSER
-                                            + srcIGATE
-                                            + srcUDP
-                                            + srcTNC
-                                            + srcSYSTEM
-                                            + srcBEACON
-                                            + sendHISTORY;
-
-                    spMainServer.FilterMask = 0;
-                    spMainServer.omni = false;
-                    n = 1;
-                }
-
-                if (cmd.compare("MAINPORT-NH") == 0) {      //provides all data but no history dump
-                    spMainServer_NH.ServerPort = atoi(token[1].c_str());  //set server port number
-                    spMainServer_NH.EchoMask = srcUSERVALID
-                                                + srcUSER
-                                                + srcIGATE
-                                                + srcUDP
-                                                + srcTNC
-                                                + srcBEACON
-                                                + srcSYSTEM;
-
-                    spMainServer_NH.FilterMask = 0;
-                    spMainServer.omni = false;
-                    n = 1;
-                }
-
-                if (cmd.compare("LINKPORT") == 0) {      //provides local TNC data + logged on users
-                    spLinkServer.ServerPort = atoi(token[1].c_str());
-                    spLinkServer.EchoMask = srcUSERVALID
-                                            + srcUSER
-                                            + srcTNC
-                                            + srcUDP
-                                            + srcBEACON ; //System messages removed from link port v.215
-                    spLinkServer.FilterMask = 0;
-                    spLinkServer.omni = false;
-                    n = 1;
-                }
-
-                if(cmd.compare("MSGPORT") == 0) {    //System messages removed from msgport port v.215
-                    spMsgServer.ServerPort  = atoi(token[1].c_str());
-                    spMsgServer.EchoMask = src3RDPARTY ;
-                    spMsgServer.FilterMask = 0;
-                    spMsgServer.omni = false;
-                    n = 1;
-                }
-
-                if (cmd.compare("IPWATCHPORT") == 0){
-                     spIPWatchServer.ServerPort = atoi(token[1].c_str());
-                     spIPWatchServer.EchoMask = srcUSERVALID
-                                             +  srcUSER
-                                             +  srcIGATE
-                                             +  srcTNC
-                                             +  srcUDP
-                                             +  srcBEACON
-                                             +  wantSRCHEADER;
-                     spIPWatchServer.FilterMask = 0;
-                     spIPWatchServer.omni = false;
-                     n = 1;
-                }
-
-                if (cmd.compare("TNCBAUD") == 0) { // Set TNC baud rate 1200,2400,4800,9600,19200
-                    TncBaud = strdup(token[1].c_str());
-                    n = 1;
-                }
-
-                if (cmd.compare("MYCALL") == 0) {   // This will be over-written by the MYCALL in INIT.TNC...
-                                                    // ...if a TNC is being used.
-                    MyCall = token[1];
-                    if (MyCall.length() > 9)
-                        MyCall.resize(9);  //Truncate to 9 chars.
-                        
-                    n = 1;
-                }
-
-                if (cmd.compare("MYEMAIL") == 0) {
-                    MyEmail = token[1];
-                    n = 1;
-                }
-
-                if (cmd.compare("SERVERCALL") == 0) {
-                    szServerCall = token[1];
-                    if (szServerCall.length() > 9)
-                        //szServerCall[9] = '\0';  //Truncate to 9 chars.
-                        szServerCall.resize(9);     // truncate to 9 chars
-                        
-                    //cout << "Config server call: " << szServerCall << endl;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("APRSPATH") == 0) {
-                    for (n = 1; n < nTokens; n++) {
-                        //cout << "Token["<<n<<"] == " << token[n] << endl;
-                        szAprsPath += token[n];
-                        szAprsPath += " ";
-                    }
-                    //cout << "\nAX25 Path: " << szAprsPath << endl;
-                    n = 1;
-                    
-                    //cout << "Debug: szAprsPath == " << szAprsPath << endl;
-                }
-
-                if (cmd.compare("MYLOCATION") == 0) {
-                    MyLocation = strdup(token[1].c_str());
-                    n = 1;
-                }
-                
-                if (cmd.compare("MAXUSERS") == 0) {  //Set max users of server.
-                    int mc = atoi(token[1].c_str());
-                    if (mc > 0)
-                        MaxClients = mc;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("MAXLOAD") == 0) {  //Set max server output load in bytes/sec.
-                    int ml = atoi(token[1].c_str());
-                    if (ml > 0)
-                        MaxLoad = ml ;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("EXPIRE") == 0) {    //Set time to live for history items (minutes)
-                    int ttl = atoi(token[1].c_str());
-                    if (ttl > 0)
-                        ttlDefault = ttl;
-
-                    n = 1;
-                }
-
-                /*
-                    if (cmd.compare("TIMETOLIVE") == 0)     //Set time to live for packets on Internet (Hops)
-                    {  int t = atoi(token[1].c_str());
-                        if (t > 0) defaultPktTTL = t;
-                    n = 1;
-                    ]
-                */
-
-                if (cmd.compare("FILTERNOGATE") == 0) { //Set YES to enable reject filtering of NOGATE and RFONLY
-                    upcase(token[1]);
-                    if (token[1].compare("YES") == 0)
-                        NOGATE_FILTER = true;
-                    else
-                        NOGATE_FILTER = false;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("HISTORY-ALLOW") == 0) { //Allow history list dumps.
-                    upcase(token[1]);
-                    if (token[1].compare("YES") == 0 )
-                        History_ALLOW = true;
-                    else
-                        History_ALLOW = false;
-                    
-                    n = 1;
-                }
-
-                if (cmd.compare("RF-ALLOW") == 0) { //Allow internet to RF message passing.
-                    upcase(token[1]);
-                    if (token[1].compare("YES") == 0 )
-                        RF_ALLOW = true;
-                    else
-                        RF_ALLOW = false;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("TRACE") == 0) { //Enable full internet path tracing.
-                    upcase(token[1]);
-                    if (token[1].compare("YES") == 0 )
-                        traceMode = true;
-                    else
-                        traceMode = false;
-                    
-                    n = 1;
-                }
-
-                if (cmd.compare("IGATEMYCALL") == 0) {//Allow igating packets from "MyCall"
-                    upcase(token[1]);
-                    if (token[1].compare("YES") == 0 )
-                        igateMyCall = true;
-                    else
-                        igateMyCall = false;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("LOGALLRF") == 0) { //If "YES" then all packets heard are logged to rf.log"
-                    upcase(token[1]);
-                    if (token[1].compare("YES") == 0 )
-                        logAllRF = true;
-                    else
-                        logAllRF = false;
-                    
-                    n = 1;
-                }
-
-                if (cmd.compare("CONVERTMICE") == 0) { //If "YES" then all MIC-E packets converted to classic APRS"
-                    upcase(token[1]);               //Note that compile time option CONVERT_MIC_E in constant.h
-                                                    // must also be set true.
-                    if ((token[1].compare("YES") == 0 ) && (CONVERT_MIC_E == true))
-                        ConvertMicE = true;
-                    else
-                        ConvertMicE = false;
-
-                    n = 1;
-                }
-
-                if (cmd.compare("GATE2RF") == 0) {  //Call signs of users always gated to RF
-                    for (int i = 1; i < nTokens; i++) {
-                        string* s = new string(token[i]);
-                        if (rfcall_idx < MAXRFCALL)
-                            rfcall[rfcall_idx++] = s; //add it to the list
-                    }
-                    n = 1;
-                }
-
-                if (cmd.compare("POSIT2RF") == 0) {  //Call sign posits gated to RF every 16 minutes
-                    for (int i = 1; i < nTokens; i++) {
-                        string* s = new string(token[i]);
-                        if (posit_rfcall_idx < MAXRFCALL)
-                            posit_rfcall[posit_rfcall_idx++] = s; //add it to the list
-                    }
-                    n = 1;
-                }
-
-                if (cmd.compare("MSGDEST2RF") == 0) {  //Destination call signs
-                                                     // of station to station messages
-                    for (int i = 1; i < nTokens; i++) {  //always gated to RF
-                        string* s = new string(token[i]);
-                        if (stsmDest_rfcall_idx < MAXRFCALL)
-                            stsmDest_rfcall[stsmDest_rfcall_idx++] = s; //add it to the list
-                    }
-                    n = 1;
-                }
-                
-                if (cmd.compare("ACKREPEATS") == 0) {  //How many extra ACKs to send to tnc
-                    int mc = atoi(token[1].c_str());
-                    if (mc < 0) {
-                        mc = 0;
-                        cout << "ACKREPEATS set to ZERO" << endl;
-                    }
-                    if (mc > 9) {
-                        mc = 9;
-                        cout << "ACKREPEATS set to 9" << endl;
-                    }
-                    ackRepeats = mc;
-                    n = 1;
-                }
-
-                if (cmd.compare("ACKREPEATTIME") == 0) {  //Time in secs between extra ACKs
-                    int mc = atoi(token[1].c_str());
-                    if (mc < 1) {
-                        mc = 1;
-                        cout << "ACKREPEATTIME set to 1 sec." << endl;
-                    }
-                    if (mc > 30) {
-                        mc = 30;
-                        cout << "ACKREPEATTIME set to 30 sec." << endl;
-                    }
-                    ackRepeatTime = mc;
-                    n = 1;
-                }
-
-                if (cmd.compare("NETBEACON") == 0) {  //Internet Beacon text
-                    if (nTokens > 1) {
-                        NetBeaconInterval = atoi(token[1].c_str());//Set Beacon Interval in minutes
-                        if (nTokens > 2) {
-                            string s = token[2];
-                            for (int i = 3 ; i < nTokens; i++)
-                                s = s + " " + token[i];
-
-                            NetBeacon = s; //strdup(s);
-                        }
-                    }
-                    n = 1;
-                }
-
-                if (cmd.compare("TNCBEACON") == 0) {  //TNC Beacon text
-                    if (nTokens > 1){
-                        TncBeaconInterval = atoi(token[1].c_str()); //Set Beacon Interval in minutes
-                        if (nTokens > 2){
-                            string s = token[2];
-                            for (int i = 3 ; i < nTokens; i++)
-                                s = s + " " + token[i] ;
-
-                            TncBeacon = strdup(s.c_str());
-                        }
-                    }
-                    n = 1;
-                }
-
-                if (cmd.compare("TNCPKTSPACING") == 0) {  //Set tnc packet spacing in ms
-                    if (nTokens > 1)
-                        tncPktSpacing = 1000 * atoi(token[1].c_str());// ms to microsecond conversion
-
-                    n = 1;
-                }
-
-                if (cmd.compare("APRSPASS") == 0) {  //Allow aprs style user passcodes for validation?
-                    upcase(token[1]);
-                    if (token[1].compare("YES") == 0 )
-                        APRS_PASS_ALLOW = true;
-                    else
-                        APRS_PASS_ALLOW = false;
-
-                    n = 1;
-                }
-
-                cout << errmsg << endl;
-
-                if (n == 0)
-                    cout << "Unknown command: " << Line << endl;
+
+    //for (int i = 0; i < MAXRFCALL; i++) {
+    //  cout << "serverConf: line 214" << endl;
+    //    rfcall[i] = "";//string("");         //clear the rfcall arrays
+    //  cout << "serverConf: line 216" << endl;
+    //    posit_rfcall[i] = "";//string("");
+    //    stsmDest_rfcall[i] = "";//string("");
+    //}
+    try {
+        cout << "Reading " << configFile << endl;
+        ConfigFile cf(configFile);
+        ConfigSection cs;
+
+        // Server Section
+        cs = cf["server"];
+
+        szServerCall = trim(cs["servercall"]);
+        if (szServerCall.size() > 9)
+            szServerCall.resize(9);
+
+        MyLocation = trim(cs["mylocation"]);
+        cout << "Server Location: " << MyLocation << endl;
+
+        MyEmail = trim(cs["myemail"]);
+        cout << "SysOp Email: " << MyEmail << endl;
+
+        MyCall = trim(cs["mycall"]);    // This will be overwritten by MYCALL in INIT.TNC if used
+        if (MyCall.size() > 9)
+            MyCall.resize(9);           // Truncate to 9 chars
+
+        logon.pass = trim(cs["pass"]);
+
+        if (validate(MyCall, logon.pass, "aprs", true) == 0)
+            isValidPass = true;
+
+        int maxclients = atoi(trim(cs["maxusers"]).c_str());
+        if (maxclients > 0)
+            MaxClients = maxclients;
+        else
+            MaxClients = MAXCLIENTS;    // default see constant.hpp
+
+        cout << "Max Users: " << MaxClients << endl;
+
+        int maxload = atoi(trim(cs["maxload"]).c_str());
+        if (maxload > 0)
+            MaxLoad = maxload;
+        else
+            MaxLoad = MAXLOAD;          // default, see constant.hpp
+
+
+        NetBeaconInterval = atoi(trim(cs["netbeaconinterval"]).c_str());
+        NetBeacon = trim(cs["netbeacon"]);
+
+        cout << "Beacon Interval: " << NetBeaconInterval << endl;
+
+        ttlDefault = atoi(trim(cs["historyexpire"]).c_str());
+
+        cout << "History Expire: " << ttlDefault << endl;
+
+        History_ALLOW = (trim(cs["historydump"]) == "yes" ? true : false );
+
+        spRawTNCServer.ServerPort = atoi(trim(cs["rawtncport"]).c_str()); // local TNC data only
+        spRawTNCServer.EchoMask = srcTNC + wantRAW; // set data source to echo with raw data
+        spRawTNCServer.FilterMask = false;
+        spRawTNCServer.omni = false;
+
+        cout << "Raw TNC port: " << spRawTNCServer.ServerPort << endl;
+
+        spLocalServer.ServerPort = atoi(trim(cs["localport"]).c_str()); // local TNC data only
+        spLocalServer.EchoMask = srcUDP
+                                + srcTNC
+                                + srcSYSTEM
+                                + srcBEACON
+                                + sendHISTORY;
+
+        cout << "Local port: " << spLocalServer.ServerPort << endl;
+
+        spMainServer.ServerPort = atoi(trim(cs["mainport"]).c_str()); // all data
+        spMainServer.EchoMask = srcUSERVALID
+                                + srcIGATE
+                                + srcUDP
+                                + srcTNC
+                                + srcSYSTEM
+                                + srcBEACON
+                                + sendHISTORY;
+        spMainServer.FilterMask = 0;
+        spMainServer.omni = false;
+
+        cout << "Main Server Port: " << spMainServer.ServerPort << endl;
+
+        spMainServer_NH.ServerPort = atoi(trim(cs["mainportnohistory"]).c_str());
+        spMainServer_NH.EchoMask = srcUSERVALID
+                                + srcUSER
+                                + srcIGATE
+                                + srcUDP
+                                + srcTNC
+                                + srcBEACON
+                                + srcSYSTEM;
+        spMainServer_NH.FilterMask = 0;
+        spMainServer_NH.omni = false;
+
+        cout << "No History Port: " << spMainServer_NH.ServerPort << endl;
+
+        spLinkServer.ServerPort = atoi(trim(cs["linkport"]).c_str());
+        spLinkServer.EchoMask = srcUSERVALID
+                                + srcUSER
+                                + srcTNC
+                                + srcUDP
+                                + srcBEACON;
+        spLinkServer.FilterMask = 0;
+        spLinkServer.omni = false;
+
+        cout << "Link Port: " << spLinkServer.ServerPort << endl;
+
+        spMsgServer.ServerPort = atoi(trim(cs["messageport"]).c_str());
+        spMsgServer.EchoMask = src3RDPARTY;
+        spMsgServer.FilterMask = 0;
+        spMsgServer.omni = false;
+
+        cout << "Message Port: " << spMsgServer.ServerPort << endl;
+
+        upUdpServer.ServerPort = atoi(trim(cs["udpport"]).c_str());
+
+        cout << "UDP Port: " << upUdpServer.ServerPort << endl;
+
+        spSysopServer.ServerPort = atoi(trim(cs["sysopport"]).c_str());
+        spSysopServer.EchoMask = 0;
+        spSysopServer.FilterMask = 0;
+        spSysopServer.omni = false;
+
+        cout << "SysOp Port: " << spSysopServer.ServerPort << endl;
+
+        spHTTPServer.ServerPort = atoi(trim(cs["httpport"]).c_str());
+        spHTTPServer.EchoMask = wantHTML;
+        spHTTPServer.FilterMask = 0;
+        spHTTPServer.omni = false;
+
+        cout << "HTTP Server Port: " << spHTTPServer.ServerPort << endl;
+
+        spIPWatchServer.ServerPort = atoi(trim(cs["ipwatchport"]).c_str());
+        spIPWatchServer.EchoMask = srcUSERVALID
+                                + srcUSER
+                                + srcIGATE
+                                + srcTNC
+                                + srcUDP
+                                + srcBEACON
+                                + wantSRCHEADER;
+        spIPWatchServer.FilterMask = 0;
+        spIPWatchServer.omni = false;
+
+        cout << "IP Watch Port: " << spIPWatchServer.ServerPort << endl;
+
+        spErrorServer.ServerPort = atoi(trim(cs["errorport"]).c_str()); // provides only rejected packets
+        spErrorServer.EchoMask = wantREJECTED;
+        spErrorServer.FilterMask = 0;
+        spErrorServer.omni = false;
+
+        cout << "Error Port: " << spErrorServer.ServerPort << endl;
+
+        spOmniServer.ServerPort = atoi(trim(cs["omniport"]).c_str());
+        spOmniServer.EchoMask = omniPortBit;
+        spOmniServer.FilterMask = 0;
+        spOmniServer.omni = true;
+
+        cout << "Omni Port: " << spOmniServer.ServerPort << endl;
+
+        logDir = trim(cs["logdir"]);
+        if (logDir.size() == 0)
+            logDir = "/usr/local/var/";
+
+        cout << "Logging to " << logDir << endl;
+
+        //
+        // There must be an easier way to do this...
+        //
+        nIGATES = 0;
+        ostringstream ss;
+        std::vector<std::string> vec;
+        for (int i = 0; i < maxIGATES; i++) {
+            ss.str("");
+            ss << "server" << (i + 1);
+            vec = split(cs[ss.str()], ",");
+            if (vec[0].size() == 0)
+                break;          // No more to process
+
+            nIGATES++;          // increment number of igates defined.
+            cpIGATE[i].EchoMask = 0;
+            cpIGATE[i].user = MyCall;
+            cpIGATE[i].pass = passDefault;
+            cpIGATE[i].RemoteSocket = atoi(trim(vec[1]).c_str());
+            cpIGATE[i].starttime = 0;
+            cpIGATE[i].lastActive = 0;
+            cpIGATE[i].pid = 0;
+            cpIGATE[i].remoteIgateInfo = "";
+            cpIGATE[i].hub = false;
+            cpIGATE[i].mode = MODE_RECV_ONLY;
+            cpIGATE[i].serverCmd.reserve(3);
+            cpIGATE[i].serverCmd.push_back(string(""));
+            cpIGATE[i].serverCmd.push_back(string(""));
+            cpIGATE[i].serverCmd.push_back(string(""));
+            cpIGATE[i].nCmds = 0;
+            cpIGATE[i].alias = string("*");
+            cpIGATE[i].RemoteName = trim(vec[0]);
+
+            if (trim(vec[2]).find("hub") != string::npos)
+                cpIGATE[i].hub = true;
+
+            if (trim(vec[2]).find("sr") != string::npos)
+                cpIGATE[i].mode = MODE_RECV_SEND;
+
+            if (logon.user.size() > 0) {
+                cpIGATE[i].user = logon.user;
+
+            } else {
+                cpIGATE[i].user = MyCall;
+                cpIGATE[i].pass = passDefault;
+            }
+
+            if (logon.pass.size() > 0) {
+                cpIGATE[i].pass = logon.pass;
+            } else {
+                cpIGATE[i].pass = passDefault;
+            }
+
+            //The following strings are sent to remote server as messages after logon
+            if (vec.size() > 3) {
+                cpIGATE[i].serverCmd[0] = (char*)trim(vec[3]).c_str();
+                cpIGATE[i].nCmds++;
+            }
+
+            if (vec.size() > 4) {
+                cpIGATE[i].serverCmd[0] = (char*)trim(vec[4]).c_str();
+                cpIGATE[i].nCmds++;
+            }
+
+            if (vec.size() > 5) {
+                cpIGATE[i].serverCmd[0] = (char*)trim(vec[5]).c_str();
+                cpIGATE[i].nCmds++;
+            }
+
+            //Locally validate the passcode to see if we are allowed to send data
+            if (isValidPass && cpIGATE[0].mode == MODE_RECV_SEND) {
+                cpIGATE[i].EchoMask =  srcUSERVALID //If valid passcode present then we send out data
+                                    + srcUSER      //Same data as igate port 1313
+                                    + srcTNC
+                                    + srcBEACON
+                                    + srcUDP;      //Changed in 2.1.5: Internal status packets NOT sent
+            } else {
+                if (cpIGATE[i].mode == MODE_RECV_SEND)
+                    errmsg = " <--Invalid APRS passcode";
+
+                cpIGATE[i].mode = MODE_RECV_ONLY;
+                cpIGATE[i].EchoMask = 0;
             }
         }
-    } while(file.good());
+        traceMode = (trim(cs["trace"]) == "yes" ? true : false );   // Full Internet path tracing
+        ConvertMicE = (trim(cs["convertmice"]) == "yes" ? true : false );
+        APRS_PASS_ALLOW = (trim(cs["allowaprspass"]) == "yes" ? true : false );
+        cerr << "config: aprs_pass_allow == " << (APRS_PASS_ALLOW ? " true " : " false ") << endl;
 
-    file.close();
+
+
+        // IGATE Section
+        cs = cf["igate"];
+
+        NOGATE_FILTER = (trim(cs["filternogate"]) == "yes" ? true : false);
+
+        RF_ALLOW = (trim(cs["rfallow"]) == "yes" ? true : false);
+
+        szAprsPath = trim(cs["aprspath"]);
+
+        logAllRF = (trim(cs["logallrf"]) == "yes" ? true : false);
+
+        TncBeacon = trim(cs["tncbeacon"]);
+        TncBeaconInterval = atoi(trim(cs["tncbeaconinterval"]).c_str());
+        tncPktSpacing = (1000 * atoi(trim(cs["tncpacketspacing"]).c_str()));
+        szComPort = trim(cs["tncport"]);
+        TncBaud = trim(cs["tncbaud"]);
+
+        int mc;
+
+        mc = atoi(trim(cs["ackrepeats"]).c_str());
+        if (mc < 0) {
+            mc = 0;
+            cout << "ACKREPEATS set to Zero" << endl;
+        }
+        if (mc > 9) {
+            mc = 9;
+            cout << "ACKREPEATS set to 9" << endl;
+        }
+        ackRepeats = mc;
+
+        mc = atoi(trim(cs["ackrepeattime"]).c_str());
+        if (mc < 1) {
+            mc = 1;
+            cout << "ACKREPEATTIME set to 1 sec" << endl;
+        }
+
+        if (mc > 30) {
+            mc = 30;
+            cout << "ACKREPEATTIME set to 30 sec" << endl;
+        }
+        ackRepeatTime = mc;
+
+        igateMyCall = (trim(cs["igatemycall"]) == "yes" ? true : false );
+        cout << "serverConf: line 515" << endl;
+        vec = split(trim(cs["gatetorf"]), ",");
+        if (vec[0].size() > 0) {
+            vector<string>::iterator it = vec.begin();
+
+            while (it != vec.end()) {
+                if (rfcall_idx > MAXRFCALL) {
+                    rfcall.push_back(trim(*it));
+                    rfcall_idx++;
+                }
+
+                it++;
+            }
+        }
+
+        vec = split(trim(cs["gatetorf"]), ",");
+        if (vec[0].size() > 0) {
+            vector<string>::iterator it = vec.begin();
+            while (it != vec.end()) {
+                if (rfcall_idx < MAXRFCALL) {
+                    rfcall.push_back(trim(*it));
+                    rfcall_idx++;
+                }
+
+                it++;
+            }
+        }
+
+        vec = split(trim(cs["posittorf"]), ",");
+        if (vec[0].size() > 0) {
+            vector<string>::iterator it = vec.begin();
+            while (it != vec.end()) {
+                if (posit_rfcall_idx < MAXRFCALL) {
+                    posit_rfcall.push_back(trim(*it));
+                    posit_rfcall_idx++;
+                }
+
+                it++;
+            }
+        }
+
+        vec = split(trim(cs["msgdesttorf"]), ",");
+        if (vec[0].size() > 0) {
+            vector<string>::iterator it = vec.begin();
+            while (it != vec.end()) {
+                if (stsmDest_rfcall_idx < MAXRFCALL) {
+                    stsmDest_rfcall.push_back(trim(*it));
+                    stsmDest_rfcall_idx++;
+                }
+                it++;
+            }
+        }
+
+    } catch (Exception& e) {
+        cerr << e.toString() << endl;
+        return 1;
+
+    } catch (exception& e) {
+        cerr << e.what() << endl;
+        return 1;
+
+    }
 
     return 0;
 }
@@ -980,7 +754,8 @@ int main(int argc, char *argv[])
         string histFile = CONFPATH;
         histFile += SAVE_HISTORY;
         ReadHistory(histFile);
-        
+        //history.readHistoryFile(histFile);
+
         string sConfFile = CONFPATH;
         sConfFile += CONFFILE;              //default server configuration file
 
@@ -990,7 +765,7 @@ int main(int argc, char *argv[])
                 //szConfFile = new char[MAX];
                 sConfFile = "";
                 sConfFile = argv[argc-1];
-                //szConfFile = argv[argc-1];	//get optional 1st or 2nd arg which is configuration file name
+                //szConfFile = argv[argc-1];    //get optional 1st or 2nd arg which is configuration file name
             }
         }
 
@@ -1021,7 +796,7 @@ int main(int argc, char *argv[])
             rfSetPath(szAprsPath);
         }
 
-        
+
         /*Initialize TNC Com port if specified in config file */
         if (szComPort.size() > 0) {
             cout  << "Opening serial port device " << szComPort << endl;
@@ -1141,7 +916,7 @@ int main(int argc, char *argv[])
             lastSec = Time;
             Time = time(NULL);
 
-            if (difftime(Time,lastSec) > 0) 
+            if (difftime(Time,lastSec) > 0)
                 schedule_posit2RF(Time);  //Once per second
 
             if (difftime(Time, LastNetBeacon) >= NetBeaconInterval * 60) {  //Send Internet Beacon text
@@ -1173,26 +948,27 @@ int main(int argc, char *argv[])
                     cerr << "** No data from TNC during previous 2 minutes **" << endl;
 
                 tPstats = Time;
-                
+
                 WatchDog = 0;   //Serial port reader increments this with each rx line.
-                
+
                 stats = getStats();
                 cout << stats;
                 aprsString* monStats = new aprsString(stats.c_str(), SRC_INTERNAL, srcSTATS);
                 sendQueue.write(monStats);
-                
+
                 enforceMaxLoad();    //Check server load and shed users if required
             }
-            
+
             if ((Time - tLastDel) > 300 ) {     //do this every 5 minutes.
                                                 //Remove old entrys from history list
                 if ((di = DeleteOldItems(5)) > 0)
+                //if ((di = history.deleteOldItems(5)) > 0)
                     cout << " Deleted " << di << " expired items from history list" << endl;
 
                 tLastDel = Time;
             }
     /*
-        if ((Time - tLast) > 900)		//Save history list every 15 minutes
+        if ((Time - tLast) > 900)       //Save history list every 15 minutes
             {
             SaveHistory(pSaveHistory);
             tLast = Time;
@@ -1200,7 +976,7 @@ int main(int argc, char *argv[])
 
         */
         } while (1==1); // ctrl-C to quit
-        
+
     }
     catch (Exception& e) {
         cerr << e.toString() << endl;

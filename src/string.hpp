@@ -34,54 +34,53 @@
 #include <string>
 #include <vector>
 
-#include "osdep.h"
+#include "osdep.hpp"
 
 namespace aprsd {
-    using namespace std;
 
-    typedef vector<string> Strings;
+    typedef std::vector<std::string> Strings;
 
     /**
         Trim the string both left and right for whitespaces.
 
         @param str the string to trim
-        @return the newly trimed string 
+        @return the newly trimed string
     */
-    string trim(const string& str);
+    std::string trim(const std::string& str);
 
     /**
         Trim all whitespace on the left of the string.
 
         @param str the string to trim
-        @return the newly trimed string 
+        @return the newly trimed string
     */
-    string ltrim(const string& str);
+    std::string ltrim(const std::string& str);
 
     /**
         Trim all whitespace on the right of the string.
 
         @param str the string to trim
-        @return the newly trimed string 
+        @return the newly trimed string
     */
-    string rtrim(const string& str);
+    std::string rtrim(const std::string& str);
 
     /**
         Splits a string into substrings, using the specified character as a delimiter.
-     
+
         @param text the string to be split.
         @param delim the character to be used as a delimiter.
         @return a Strings containing the substrings.
     */
-    Strings split(const string& text, char delim);
+    Strings split(const std::string& text, char delim);
 
     /**
         Splits a string into substrings, using the specified string as a delimiter.
-     
+
         @param text the string to be split.
         @param delim the string to be used as a delimiter.
         @return a Strings containing the substrings.
     */
-    Strings split(const string& text, const string& delim);
+    Strings split(const std::string& text, const std::string& delim);
 }
 
 #endif  // String_H__

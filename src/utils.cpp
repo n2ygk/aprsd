@@ -26,50 +26,47 @@
 #include <string>
 #include <fstream>                    // ifstream
 #include <iostream>
-#include <strstream>
+#include <sstream>
 #include <iomanip>
 
-#include "utils.h"
-#include "aprsd.h"
-#include "cpqueue.h"
-#include "mic_e.h"
+#include "utils.hpp"
+#include "aprsd.hpp"
+#include "cpqueue.hpp"
+#include "mic_e.hpp"
+#include "time.hpp"
+#include "regex.hpp"
 
 using namespace std;
 using namespace aprsd;
 
-int CountDefault = 7;		   //Max of 7 instances of one call sign in history list
+int CountDefault = 7;          //Max of 7 instances of one call sign in history list
 
-static RecursiveMutex pmtxLog;
+RecursiveMutex pmtxLog;
 
 
 int WriteLog(const string& sp, const string& LogFile)
 {
-    time_t ltime;
-    char szTime[40];
-    string newTime;
-    static Lock locker(pmtxLog, false);
+    Lock locker(pmtxLog);
 
-    locker.get();
+    string log = logDir;
+    log += LogFile;
 
-    ofstream ofs(LogFile.c_str(), ios::out | ios::app);
+    ofstream ofs(trim(log).c_str(), ios::out | ios::app);
 
     if (!ofs)
         cerr << "File I/O Error: Unable to open/create file " << LogFile << endl;
 
-    time(&ltime);                                       // Timestamp
-    ctime_r(&ltime, szTime);                            // "threadsafe" ctime
-    newTime = string(szTime);
-    newTime = newTime.substr(0, newTime.length()-1);    // Strip '\n'
+    Time t;
 
-    ofs << newTime << "  " << sp << endl;
+    ofs << t.toString() << "  " << sp << endl;
 
     if (ofs.is_open())
         ofs.close();
 
-    locker.release();
     return 0;
 }
 
+/*
 //----------------------------------------------------------------------
 int WriteLog(const char* pch, const char* LogFile)
 {
@@ -116,7 +113,7 @@ int WriteLog(const char* pch, const char* LogFile)
         if (p)
             *p = ' ';               //convert new line to a space
 
-        fprintf(f,"%s %s\n", szTime, cp);	 //Write log entry with time stamp
+        fprintf(f,"%s %s\n", szTime, cp);    //Write log entry with time stamp
         fflush(f);
         fclose(f);
         rc = 0;
@@ -127,15 +124,15 @@ int WriteLog(const char* pch, const char* LogFile)
 
     return rc;
 }
-
+*/
 //------------------------------------------------------------------------
 
-void removeHTML(string& sp) 
+void removeHTML(string& sp)
 {
     string search("/<>");
 
     unsigned int p = sp.find_first_of(search);
-    
+
     while (p < sp.length()) {
         sp.replace(p, 1, "*");
         p = sp.find_first_of(search, p + 1);
@@ -145,24 +142,20 @@ void removeHTML(string& sp)
 //------------------------------------------------------------------------
 //Convert all lower case characters in a string to upper case.
 // Assumes ASCII chars.
-
 char* strupr(char *cp)
-{  
-    int i;
-    int l = strlen(cp);
-    
-    for (i = 0; i < l; i++) {
-        if ((cp[i] >= 'a') && (cp[i] <= 'z')) 
-            cp[i] = cp[i] - 32;
-    }
-   
+{
+    int x = strlen(cp);
+    for (int ctr = 0; ctr < x; ctr++)
+        if (cp[ctr] >= 'a' && cp[ctr] <= 'z')
+            cp[ctr] = static_cast<char>(int(cp[ctr]) - 32);
+
     return cp;
 }
 
 //-----------------------------------------------------------------------
-void printhex(char *cp, int n)
+void printhex(const char *cp, int n)
 {
-    for (int i = 0; i < n; i++) 
+    for (int i = 0; i < n; i++)
         printf("%02X ",cp[i]);
 
     printf("\n");
@@ -173,71 +166,74 @@ void printhex(char *cp, int n)
 //This is for filtering out unwanted packets
 bool CmpDest(const char *line, const char *ref)
 {
-    bool rv = false;
-    char *cp = new char[strlen(ref)+3];
-    strcpy(cp,">");
-    strcat(cp,ref);
-    strcat(cp,",");
-    
-    if (strstr(line,cp) !=	NULL) 
-        rv = true;
-    
-    delete cp;
-    return rv;
+    string str = ">";
+    str += ref;
+    str += ",";
+    unsigned int loc = str.find(line, 0);
+    if (loc != string::npos) {
+        cout << "CmpDest: returned true" << endl;
+        return true;        // found
+    } else {
+        cout << "CmpDest: returned false" << endl;
+        return true;        // not found
+    }
 }
 //----------------------------------------------------------------------
 
 //Return true if any string in the digi path matches "ref".
-
 bool CmpPath(const char *line, const char *ref)
 {
-    bool rv = false;
-    char *cp = new char[strlen(line)+1];
-    strcpy(cp,line);
-    char *path_end = strchr(cp,':');          //find colon
-   
-    if (path_end != NULL) {
-        *path_end = '\0';             //replace colon with a null
-        if (strstr(cp,ref) != NULL) 
-            rv = true;
-    }
+    string str = line;
 
-    delete cp;
-    return rv;
+    unsigned int loc = str.find(":", 0);
+    if (loc != string::npos) {
+        if (loc != str.find(ref, 0)) {
+            cout << "CmpPath: returned true" << endl;
+            return true;        // found
+        }
+    } else {
+        cout << "CmpPath: returned false" << endl;
+        return true;        // not found
+    }
+    return false;
 }
 
 //---------------------------------------------------------------------
 //Returns true if "call" matches first string in "s"
 //"call" must be less than 15 chars long.
-bool callsign(char *s, const char *call)
+bool callsign(const char *s, const char *call)
 {
-    char cp[17];
-    if (strlen(call) > 14) 
-        return false;
-    
-    strncpy(cp,call,14);
-    strcat(cp,">");
-    char *ss = strstr(s,cp);
-    
-    if (ss != NULL) 
-        return true ;
-    else 
-        return false;
-}
-//---------------------------------------------------------------------
-//Compares two packets and returns true if the source call signs are equal
-bool CompareSourceCalls(char *s1, char *s2)
-{
-    char call[12];
-    strncpy(call,s2,10);
-    char *eos = strchr(call,'>');
-    
-    if (eos != NULL) 
-        eos[0] = '\0'; 
-    else 
+    string str = call;
+    string ss = s;
+
+    if (str.size() > 14)
         return false;
 
-    return callsign(s1,call);
+    unsigned int loc = ss.find(str, 0);
+    if (loc != string::npos) {
+        cout << "callsign: returned true" << endl;
+        return true;        // found
+    } else {
+        cout << "callsign: returned false" << endl;
+        return true;        // not found
+    }
+}
+//----------------------------------------------------------
+// Compares two packets and returns true if the source call
+// signs are equal
+bool CompareSourceCalls(const char *s1, const char *s2)
+{
+    string str1 = s1;
+    string str2 = str1.substr(0, 10);
+
+    unsigned int loc = str2.find(">");
+    if (loc != string::npos) {
+        cout << "CompareSourceCalls: returned true" << endl;
+        return callsign(s1, str2.c_str());
+    } else {
+        cout << "CompareSourceCalls: returned false" << endl;
+        return false;
+    }
 }
 
 //---------------------------------------------------------------------
@@ -267,20 +263,20 @@ void RemoveCtlCodes(char *cp)
     }
 
     temp[j] = ucp[i];  //copy terminating NULL
-    strcpy(cp,(char*)temp);  //copy result back to original
+    strncpy(cp, (char*)temp, len-1);  //copy result back to original
     delete temp;
 }
 
 //---------------------------------------------------------------------
 
 /*returns the number if instances of char "c" in string "s". */
-int freq( string& s, char c)
+int freq(const string& s, char c)
 {
     int count=0;
-    int len = s.length();
-    
-    for (int i = 0; i < len; i++) 
-        if(s[i] == c) 
+    int len = s.size();
+
+    for (int i = 0; i < len; i++)
+        if(s[i] == c)
             count++;
 
     return count;
@@ -292,24 +288,24 @@ int freq( string& s, char c)
 //returns zero if error.
 //Each token copied into the 'sa' array.
 //Stops when no more delimiters are found or saSize is reached.
-int split( string& s, string sa[],  int saSize,  const char* delim)
+int split(string& s, string sa[],  int saSize,  const char* delim)
 {
     int wordcount;
     unsigned long start, end;
 
-    if (delim == NULL)  
+    if (delim == NULL)
         return 0;
 
     try {
         start = s.find_first_not_of(delim);  //find first token
         end = 0;
         wordcount = 0;
-        while ((start != string::npos) && (wordcount < saSize)) {  
+        while ((start != string::npos) && (wordcount < saSize)) {
             end = s.find_first_of(delim,start+1);
-            if (end == string::npos) 
+            if (end == string::npos)
                 end = s.length();
 
-            sa[wordcount++] = s.substr(start,end-start);
+            sa[wordcount++] = s.substr(start, end - start);
 
             start = s.find_first_not_of(delim,end+1);
         }
@@ -369,8 +365,8 @@ unsigned int string_hash(const string& s)
     j = s.length();
     string work = s;
     upcase(work);   //Convert to upper case
-   
-    for(i = 0; i < j; i++) 
+
+    for(i = 0; i < j; i++)
         crc_byte(work[i], &hash);
 
     return hash;
@@ -382,7 +378,7 @@ unsigned int string_hash(const string& s)
 //eg: third.aprs.net becomes thirdFCA
 
 void makeAlias(string& s)
-{ 
+{
     unsigned hash;
     char shash[5];
     int i;
@@ -391,94 +387,42 @@ void makeAlias(string& s)
     hash &= 0xfff;                   //Limit to 12 bits
     s = s.substr(0,6);               //use up to 6 characters of input string
     i = s.find(".",0);               // up to first "." or 6 characters max.
-    
-    if (i <= 5) 
+
+    if (i <= 5)
         s = s.substr(0,i);
- 
+
     sprintf(shash,"%03X",hash);      //Convert int to hex string
     s = s + shash;                   //Append hex string to truncated original string
 }
 
 
 //--------------------------------------------------------------------
-/* Return true if string s is in the list cl. 
-   Added wild card support in version 2.1.5 . Thank you VK3SB
+/*
 
-   With changes by Hans-Juergen Barthen
+    s == call to lookup
+    cl == vector of regex strings to compare against
 
-    With a small change in utils.cpp it is possible to build real callsign-
-    pattern with wildcards in the config.
-
-    Instead of only having "*" you can use
-
-    $  for one single alpha character
-    #  for one single numeric character
-    .  for one single punctation character
-    ?  for one single alphanumeric character
-    *  for any number and kind of characters (like before)
-
-    Example:
-    Patterns like  "D$#$*" only allow german callsigns (starting with D,
-    followed by 1 alpha, 1 num, 1 alpha and anything else) but it does not
-    match "DALLAS" or something like that which occurs without this change
-    when configuring just "D*"
-
+    cl is defined in aprsd.conf.  Any valid regular expression is permitted.
 */
 
-bool find_rfcall(const string& s, string **cl)
+bool find_rfcall(const string& s, vector<string>& cl)
 {
-    bool rc = false;
-    int i = 0, pos, plen, slen;
 
-    slen = (s.length());    // length of s
-
-    while((cl[i] != NULL) && (rc == false)) {   // loop over all patterns
-        pos = (cl[i])->find('*');
-        plen = (cl[i])->length();
-
-        if (pos > 0) {
-            if (slen >= pos)
-                rc = CompPattern(s.substr(0, pos),(cl[i]->substr(0, pos)), pos);
-        } else {
-            if (slen == plen)
-                rc = CompPattern(s.substr(0, slen),(cl[i]->substr(0,slen)), slen);
-        }
-        i++;
-    }
-    return rc;
-}
-
-
-// Contributed by Hans-Juergen Barthen
-bool CompPattern( const string& s, const string& pattern, int n)
-{
-    for( int i = 0 ; i < n ; i++) {
-        if (pattern[i] == '#') {
-            if (!isdigit(s[i]))
-                return false;
-        } else if (pattern[i] == '$') {
-            if(!isalpha(s[i]))
-                return false;
-        } else if (pattern[i] == '?') {
-            if(!isalnum(s[i]))
-                return false;
-            } else if (pattern[i] == '.') {
-                if(!ispunct(s[i]))
-                    return false;
-            } else if (pattern[i] == '*')
+    if (cl[0].size() > 0) {
+        vector<string>::iterator it = cl.begin();
+        while (it != cl.end()) {
+            Regex regx(*it);
+            RegexResult found = regx.match(s);
+            if (found.matched()) {
                 return true;
-        else if (pattern[i] != s[i])
-            return false;
+            }
+            it++;
+         }
     }
-    return true;
+    return false;
+
 }
 
-
-
-
-
-
-//------------------------------------------------------------------
 
 //Case insensitive c char string compare function
 int stricmp(const char* szX, const char* szY)
@@ -493,10 +437,10 @@ int stricmp(const char* szX, const char* szY)
     a[i] = '\0';
     len = strlen(szY);
     char* b = new char[len+1];
-    
-    for (i = 0; i < len; i++) 
+
+    for (i = 0; i < len; i++)
         b[i] = tolower(szY[i]);
-   
+
     b[i] = '\0';
 
     int rc = strcmp(a,b);
@@ -509,10 +453,8 @@ int stricmp(const char* szX, const char* szY)
 /* Returns the deny code if user found or "+" if user not in list
    Deny codes:  L = no login   R = No RF access
    Note: ssid suffix on call sign is ignored */
-
-
 char checkUserDeny(string& user)
-{ 
+{
     const int maxl = 80;
     const int maxToken=32;
     int nTokens ;
@@ -526,12 +468,12 @@ char checkUserDeny(string& user)
 
     string User = string(user);
     unsigned i = user.find("-");
-    if (i != string::npos) 
+    if (i != string::npos)
         User = user.substr(0,i);  //remove ssid
 
-    do {  
-        file.getline(Line,maxl);	  //Read each line in file
-        if (!file.good()) 
+    do {
+        file.getline(Line,maxl);      //Read each line in file
+        if (!file.good())
             break;
 
         if (strlen(Line) > 0) {
@@ -541,10 +483,10 @@ char checkUserDeny(string& user)
                 nTokens = split(sLine, token, maxToken, RXwhite);  //Parse into tokens
                 upcase(token[0]);
                 baduser = token[0];
-                
-                if ((stricmp(baduser.c_str(),User.c_str()) == 0) 
+
+                if ((stricmp(baduser.c_str(),User.c_str()) == 0)
                         && (nTokens >= 2)) {
-                    
+
                     rc = token[1][0];
                     break;
                 }
@@ -565,12 +507,12 @@ void reformatAndSendMicE(aprsString* inetpacket, cpQueue& sendQueue)
         aprsString* posit = NULL;
         aprsString* telemetry = NULL;
         inetpacket->mic_e_Reformat(&posit,&telemetry);
-        if (posit) 
+        if (posit)
             sendQueue.write(posit);          //Send reformatted packets
-        
-        if(telemetry) 
+
+        if (telemetry)
             sendQueue.write(telemetry);
-   
+
         delete inetpacket; //Note: Malformed Mic_E packets that failed to convert are discarded
     } else
         sendQueue.write(inetpacket);  //Send raw Mic-E packet
@@ -578,23 +520,66 @@ void reformatAndSendMicE(aprsString* inetpacket, cpQueue& sendQueue)
 
 //------------------------------------------------------------------------
 /* return ascii H:M:S string with elapsed time ( NOW - starttime) */
-
-void strElapsedTime(time_t starttime,  char* timeStr)
+void strElapsedTime(const time_t starttime, string& timeStr)
 {
-    if(starttime == -1) {
-        sprintf(timeStr, "N/A");
+    std::ostringstream str;
+#ifdef DEBUG
+    cerr << "StrElapsedTime: starttime == " << starttime << endl;
+#endif
+    if (starttime <= 0) {
+        str << "N/A";
+        timeStr = str.str();
         return;
     }
-    
+
     time_t endtime = time(NULL);
     double  dConnecttime = difftime(endtime , starttime);
-    int iMinute = (int)(dConnecttime / 60);
+    int iMinute = static_cast<int>(dConnecttime) / 60;
     iMinute = iMinute % 60;
-    int iHour = (int)dConnecttime / 3600;
-    int iSecond = (int)dConnecttime % 60;
+    int iHour = static_cast<int>(dConnecttime) / 3600;
+    int iSecond = static_cast<int>(dConnecttime) % 60;
 
-    sprintf(timeStr, "%3d:%02d:%02d", iHour, iMinute, iSecond);
+    str.fill('0');
+    str << iHour << ":" << setw(2) << iMinute << ":" << setw(2) << iSecond;
+#ifdef DEBUG
+    cerr << "StrElapsedTime: str == " << str.str() << endl;
+#endif
+    timeStr = str.str();
 }
 
-//--------------------------------------------------------------------------
 
+//--------------------------------------------------------------------------
+double convertRate(int rate)
+{
+    double retval = 0;
+
+    if (rate < 1000)
+        retval = static_cast<double>(rate);
+
+    if (rate > 1000)
+        retval = ((static_cast<double>(rate) / 1000));   // Kb
+
+    if (retval > 1000)
+        retval = (retval / 1000);           // Mb, is this possible?
+
+    return retval;
+}
+
+string convertScale(int rate)
+{
+    string retval;
+    double value = 0;
+
+    if (rate < 1000) {
+        retval = " bits/sec";
+        return retval;
+    }
+
+    if (rate > 1000) {
+        value = ((static_cast<double>(rate) / 1000));
+        retval = " Kb/sec";
+        if (value > 1000)
+            retval = " Mb/sec";             // is this possible?
+    }
+    return retval;
+}

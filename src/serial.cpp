@@ -52,34 +52,29 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 
-#include "constant.h" 
-#include "serial.h"
-#include "utils.h"
-#include "cpqueue.h"
-#include "history.h"
-#include "queryResp.h"
-#include "servers.h"
-#include "rf.h"
-#include "mutex.h"
+#include "constant.hpp"
+#include "serial.hpp"
+#include "utils.hpp"
+#include "cpqueue.hpp"
+#include "history.hpp"
+#include "queryResp.hpp"
+#include "servers.hpp"
+#include "rf.hpp"
+#include "mutex.hpp"
 
 using namespace std;
 using namespace aprsd;
 
 int ttySread ;
 int ttySwrite;
-//pthread_t tidReadCom;
 termios newSettings, originalSettings;
 speed_t newSpeed, originalOSpeed, originalISpeed;
-Mutex pmtxWriteTNC;
-//char tx_buffer[260];
-//bool txrdy;
-//int CloseAsync;//, threadAck;
-//bool  TncSysopMode;         /*Set true when sysop wants direct TNC access */
+RecursiveMutex pmtxWriteTNC;
 
 //---------------------------------------------------------------------
 // Sets various parameters on a COM port for use with TNC
 
-int AsyncSetupPort( int fIn, int fOut, const string& TncBaud)
+int AsyncSetupPort(int fIn, int fOut, const string& TncBaud)
 {
     speed_t baud = B0;
     
@@ -191,8 +186,8 @@ bool AsyncReadWrite(char* buf)
     do {
 
         if (txrdy) {          //Check for data to Transmit
-            size_t len = strlen (tx_buffer);
-            write (ttySwrite, tx_buffer, len);       //Send TX data to TNC
+            size_t len = strlen(tx_buffer);
+            write(ttySwrite, tx_buffer, len);       //Send TX data to TNC
             txrdy = false;      //Indicate we sent it.
         }
              
@@ -299,4 +294,3 @@ int SendFiletoTNC(const string& szName)
     file.close ();
     return 0;
 }
-

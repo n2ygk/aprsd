@@ -22,7 +22,7 @@
  * Look at the README for more information on the program.
  */
 
-#include "aprsdexception.h"
+#include "aprsdexception.hpp"
 
 namespace aprsd
 {

@@ -47,11 +47,11 @@
 #include <string>
 #include <iostream>
 
-#include "osdep.h"
-#include "ax25socket.h"
-#include "constant.h"
-#include "rf.h"
-#include "servers.h"
+#include "osdep.hpp"
+#include "ax25socket.hpp"
+#include "constant.hpp"
+#include "rf.hpp"
+#include "servers.hpp"
 
 using std::cerr;
 using std::endl;

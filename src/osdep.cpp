@@ -24,8 +24,8 @@
 
 
 
-#include "mutex.h"
-#include "osdep.h"
+#include "mutex.hpp"
+#include "osdep.hpp"
 
 namespace aprsd
 {
@@ -59,7 +59,7 @@ namespace aprsd
 #endif/* !HAVE_HSTRERROR */
     }
 
-    void reliable_usleep (int usecs)
+    void reliable_usleep(int usecs)
     {
         timeval now, end;
 
@@ -68,15 +68,12 @@ namespace aprsd
         end.tv_sec  += usecs / 1000000;
         end.tv_usec += usecs % 1000000;
 
-        while ((now.tv_sec < end.tv_sec) ||
-               ((now.tv_sec == end.tv_sec) && (now.tv_usec < end.tv_usec)))
-        {
+        while ((now.tv_sec < end.tv_sec) || ((now.tv_sec == end.tv_sec) && (now.tv_usec < end.tv_usec))) {
             timeval tv;
             tv.tv_sec = end.tv_sec - now.tv_sec;
             if (end.tv_usec >= now.tv_usec)
                 tv.tv_usec = end.tv_usec - now.tv_usec;
-            else
-            {
+            else {
                 tv.tv_sec--;
                 tv.tv_usec = 1000000 + end.tv_usec - now.tv_usec;
             }

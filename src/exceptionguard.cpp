@@ -22,7 +22,7 @@
  * Look at the README for more information on the program.
  */
 
-#include "exceptionguard.h"
+#include "exceptionguard.hpp"
 
 namespace aprsd
 {

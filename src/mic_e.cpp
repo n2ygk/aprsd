@@ -31,8 +31,8 @@
 #include <sys/types.h>
 
 
-#include "constant.h"
-#include "mic_e.h"
+#include "constant.hpp"
+#include "mic_e.hpp"
 
 using namespace std;
 
