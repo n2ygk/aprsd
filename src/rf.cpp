@@ -170,7 +170,8 @@ int rfClose(void)
     else
         return(SocketClose());
 #endif
-
+    else
+        return(0);      // quite compiler
 }
 
 //-------------------------------------------------------------------
@@ -314,5 +315,7 @@ int rfSendFiletoTNC (char *szName)
     else
         return(0); // Not applicable for sockets
 #endif
+    else
+        return(0);                      // quite compiler
 }
 
