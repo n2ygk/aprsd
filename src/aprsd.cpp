@@ -900,6 +900,7 @@ void dequeueTNC(void)
                                                     // and truncate to 256 bytes
             //RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
             rfbuf[256] = '\0';          // Make sure there's a null on the end
+
             strcat(rfbuf, "\r");         // append a CR to the end
             char* cp = new char[300];   // Will be deleted by conQueue reader.
             memset(cp, '\0', 300);
@@ -1643,6 +1644,7 @@ void *TCPSessionThread(void *p)
                     atemp.changePath("TCPIP*", "TCPIP");
 
                     sentOnRF = sendOnRF(atemp, sPeer.c_str()/*szPeer*/, userCall.c_str(), srcUSERVALID);    // Send on RF if dest local
+
                     if (sentOnRF) {     //Now find the posit for this guy in the history list
                                         // and send it too.
                         TAprsString* posit = getPosit(atemp.ax25Source, srcIGATE | srcUSERVALID);
@@ -2674,16 +2676,19 @@ bool sendOnRF(TAprsString& atemp,  const char* szPeer, const char* userCall, con
 
         //Destination station active on VHFand source not?
         if (((StationLocal(atemp.stsmDest.c_str(), srcTNC) == true) || stsmRFalways)
-                && (StationLocal(atemp.ax25Source.c_str(), srcTNC) == true)) {
+                && (StationLocal(atemp.ax25Source.c_str(), srcTNC) == false)) {
 
             TAprsString* rfpacket = new TAprsString(atemp.getChar(), atemp.sourceSock, src, szPeer, userCall);
+
             //ofstream debug("rfdump.txt");
             //debug << rfpacket->getChar << endl ;  //Debug
             //debug.close();
             rfpacket->stsmReformat(MyCall);  // Reformat it for RF delivery
+
             tncQueue.write(rfpacket);        // queue read deletes rfpacket
             sentOnRF = true;
         }
+
     }
     return(sentOnRF);
 }
