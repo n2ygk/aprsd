@@ -235,6 +235,7 @@ bool ShutDownServer, configComplete;
 int ConnectedClients;
 int msg_cnt;
 int posit_cnt;
+ULONG error_cnt, frame_cnt;
 ULONG WatchDog, tickcount, TotalConnects, TotalTncChars, TotalLines;
 int  MaxConnects;
 ULONG TotalIgateChars, TotalUserChars, bytesSent, webCounter;
@@ -678,6 +679,7 @@ void *DeQueue(void *)
                     dequeueTNC();       // Check the TNC queue
             }
             usleep(1000);               // 1ms
+            
             if (ShutDownServer)
                 pthread_exit(0);
         }
@@ -688,6 +690,9 @@ void *DeQueue(void *)
         dcp = " ";                      // another one
 
         if (abuff != NULL) {
+            //pthread_mutex_lock(pmtxCount);
+            //frame_cnt++;
+            //pthread_mutex_unlock(pmtxCount);
             abuff->dest = destINET;
 
             dup = FALSE;
@@ -703,8 +708,12 @@ void *DeQueue(void *)
                     || (abuff->EchoMask & (srcSTATS | srcSYSTEM)) // No internally generated packets
                     || (dup)                                      // No duplicates
                     || (abuff->reformatted))) {                   // No 3rd party reformatted pkts
-
                 noHist = TRUE;    //None of the above allowed in history list
+                //if (abuff->aprsType == APRSUNKNOWN)
+                    //pthread_mutex_lock(pmtxCount);
+                    //error_cnt++;
+                    //pthread_mutex_unlock(pmtxCount);
+
             } else {
                 GetMaxAgeAndCount(&MaxAge,&MaxCount);   // Set max ttl and count values
                 abuff->ttl = MaxAge;
@@ -727,7 +736,7 @@ void *DeQueue(void *)
         } else
             cerr << "Error in DeQueue: abuff is NULL" << endl << flush;
     }
-    return(NULL);                       // Should never return
+    return NULL;                       // Should never return
 }
 
 //----------------------------------------------------------------------
@@ -853,7 +862,7 @@ int SendSessionStr(int session, const char *s)
     int rc, retrys;
     pthread_mutex_lock(pmtxSend);
     retrys = 0;
-
+    
     do {
         rc = send(session,s,strlen(s),0);
         if (rc < 0) {
@@ -1271,9 +1280,14 @@ void *TCPSessionThread(void *p)
             buf[i++] = 0x0d;            // Put a CR-LF on the end of the buffer
             buf[i++] = 0x0a;
             buf[i++] = 0;
+            
+            //pthread_mutex_lock(pmtxCount);
+            //frame_cnt++;
+            //pthread_mutex_lock(pmtxCount);
 
             pthread_mutex_lock(pmtxCount);
             TotalUserChars += i;
+            frame_cnt++;
             pthread_mutex_unlock(pmtxCount);
 
             if (sp) {
@@ -1487,6 +1501,11 @@ void *TCPSessionThread(void *p)
                                                 << flush;        //Debug only
                                                 */
                     }
+                }
+                if (atemp.aprsType == APRSERROR) {
+                    pthread_mutex_lock(pmtxCount);
+                    error_cnt++;
+                    pthread_mutex_unlock(pmtxCount);
                 }
 
                 // Filter out COMMENT type packets, eg: # Tickle
@@ -1721,7 +1740,7 @@ void *TCPServerThread(void *p)
     struct sockaddr_in server,client;
     int optval;
     ServerParams *sp = (ServerParams*)p;
-
+    
     sp->pid = getpid();
     s = socket(PF_INET,SOCK_STREAM,0);
 
@@ -2425,7 +2444,7 @@ int SendFiletoClient(int session, char *szName)
     APIRET rc = 0;
     int n,retrys;
     int throttle;
-
+    
     pthread_mutex_lock(pmtxSendFile);
     ifstream file(szName);
 
@@ -3200,6 +3219,8 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>History Time Limit</TD><TD>" << ttlDefault << " min.</TD></TR>\n"
         << "<TR><TD>History items</TD><TD>" << ItemCount  << "</TD></TR>\n"
         << "<TR><TD>TAprsString Objects</TD><TD>" << TAprsString::getObjCount() << "</TD></TR>\n"
+        << "<TR><TD>Frame Count</TD><TD>" << frame_cnt << "</TD></TR>\n"
+        << "<TR><TD>Frame Errors</TD><TD>" << error_cnt << "</TD></TR>\n"
         << "<TR><TD>Items in InetQ</TD><TD>" << sendQueue.getItemsQueued() << "</TD></TR>\n"
         << "<TR><TD>InetQ overflows</TD><TD>" << sendQueue.overrun << "</TD></TR>\n"
         << "<TR><TD>TncQ overflows</TD><TD>" << tncQueue.overrun << "</TD></TR>\n"
@@ -3513,6 +3534,8 @@ int main(int argc, char *argv[])
     APRS_PASS_ALLOW = TRUE;             // Default allow aprs style user passcodes
     webCounter = 0;
     queryCounter = 0;
+    error_cnt = 0;
+    frame_cnt = 0;
 
     spLinkServer.ServerPort = 0;        // Ports are set in aprsd.conf file
     spMainServer.ServerPort = 0;
@@ -3652,27 +3675,27 @@ int main(int argc, char *argv[])
     pmtxCount = new pthread_mutex_t;
     pmtxDNS = new pthread_mutex_t;
 
-    if (pthread_mutex_init(pmtxSendFile, NULL) == -1) {
+    if ((rc = pthread_mutex_init(pmtxSendFile, NULL)) == -1) {
         cerr << "pthread_mutex_init error: SendFile\n";
         exit(2);
     }
 
-    if (pthread_mutex_init(pmtxSend, NULL) == -1) {
+    if ((rc = pthread_mutex_init(pmtxSend, NULL)) == -1) {
         cerr << "pthread_mutex_init error: Send\n";
         exit(2);
     }
 
-    if (pthread_mutex_init(pmtxAddDelSess, NULL) == -1) {
+    if ((rc = pthread_mutex_init(pmtxAddDelSess, NULL)) == -1) {
         cerr << "pthread_mutex_init error: AddDelSess\n";
         exit(2);
     }
 
-    if (pthread_mutex_init(pmtxCount, NULL) == -1) {
+    if ((rc = pthread_mutex_init(pmtxCount, NULL)) == -1) {
         cerr << "pthread_mutex_init error: Count\n";
         exit(2);
     }
 
-    if (pthread_mutex_init(pmtxDNS, NULL) == -1) {
+    if ((rc = pthread_mutex_init(pmtxDNS, NULL)) == -1) {
         cerr << "pthread_mutex_init error: DNS\n";
         exit(2);
     }
