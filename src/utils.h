@@ -64,6 +64,7 @@ bool find_rfcall(const string& s, vector<string*>& rfcall);
 bool matchCallsign(const string& s1, const string& s2);
 
 void strElapsedTime(time_t starttime,  char* timeStr);
+extern void reliable_usleep (int usecs);
 
 #endif
 
