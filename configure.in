@@ -57,6 +57,6 @@ AC_CHECK_FUNCS(pthread_attr_setdetachstate pthread_attr_getdetachstate)
 AC_CHECK_FUNCS(getrlimit setsid setpgrp sigaction signal sigprocmask sigblock)
 
 dnl FHS-compliant paths for data files
-CHECK_FHS
+APRSD_CHECK_FHS
 
 AC_OUTPUT(Makefile admin/Makefile doc/Makefile src/Makefile)
