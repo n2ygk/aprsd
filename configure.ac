@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(aprsd, 2.2.5-7, cbyam@virginia.edu)
+AC_INIT(aprsd, 2.2.5-8, cbyam@virginia.edu)
 AC_CONFIG_AUX_DIR(support)
 AC_CONFIG_SRCDIR([src/aprsd.cpp])
 AM_CONFIG_HEADER([config.h])

@@ -25,18 +25,19 @@
 #ifndef __RF_H
 #define __RF_H
 
+#include <string>
 #include "constant.h"
 
 extern int CloseReader, threadAck;
-extern int txrdy;
+extern bool txrdy;
 extern char tx_buffer[];
 extern bool TncSysopMode;
 
 /*--------------------------------------------------------------*/
 
-int rfOpen(const char* szPort);
+int rfOpen(const std::string& szPort, const std::string& baudrate);
 int rfClose(void);
-int rfSendFiletoTNC(const char* szName);
+int rfSendFiletoTNC(const std::string& szName);
 void* rfReadCom(void* vp);        //Com port read thread
 int rfWrite(const char* cp);
 void rfSetPath(const char *path);

@@ -73,6 +73,7 @@
 #include "validate.h"
 #include "queryResp.h"
 #include "mutex.h"
+#include "rf.h"
 
 using namespace std;
 using namespace aprsd;
@@ -1185,7 +1186,8 @@ void dequeueTNC(void)
                     // Save the station-to-station message in the log
                     WriteLog(szUserMsg, STSMLOG);
                 }
-                WriteCom(rfbuf);    // <- Send string out on RF via TNC
+                //WriteCom(rfbuf);    // <- Send string out on RF via TNC
+                rfWrite(rfbuf);
             }
         }
     }
@@ -1367,10 +1369,7 @@ void sendAck(int session, const string& from, const string& to, const string& ac
 
 
 //-----------------------------------------------------------------------
-
 //An instance of this thread is created for each USER who connects.
-
-
 void *TCPSessionThread(void *p)
 {
     char buf[BUFSIZE];
@@ -1739,8 +1738,9 @@ void *TCPSessionThread(void *p)
                         char chbuf[2];
                         chbuf[0] = c;
                         chbuf[1] = '\0';
-                        WriteCom(chbuf); //Send chars to TNC in real time if REMOTE
-                        send(session,chbuf,1,0);  //Echo chars back to telnet client
+                        //WriteCom(chbuf); //Send chars to TNC in real time if REMOTE
+                        rfWrite(chbuf);
+                        send(session, chbuf, 1, 0);  //Echo chars back to telnet client
                         //printhex(chbuf,1);  //Debug
                     }
                 }
@@ -2262,7 +2262,6 @@ void *TCPSessionThread(void *p)
 // Each instance listens on the a user defined port number for clients
 // wanting to connect.  Each connect request is assigned a
 // new socket and a new instance of TCPSessionThread() is created.
-
 void *TCPServerThread(void *p)
 {
     int s = 0, rc = 0;
@@ -2646,7 +2645,6 @@ ConnectParams* getNextHub(ConnectParams* pcp)
             char* cp = new char[256];
             memset(cp, 0, 256);
             ostrstream msg(cp, 255);
-            //ostringstream msg;
             msg  << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends;
             WriteLog(cp, MAINLOG);
             conQueue.write(cp, 0);
@@ -2662,13 +2660,6 @@ ConnectParams* getNextHub(ConnectParams* pcp)
             length = sizeof(host);
 
             /* Create HEX format IP address of distant server to use as alias */
-            //memset(ip_hex_alias, 0, 32);
-            //ostrstream os_iphex(ip_hex_alias, 31);
-            //os_iphex.flags(0);                        // 3.2 barks about this (cb)
-            //os_iphex.flags(ios::hex | ios::uppercase);  // disp hex with uppercase letters
-            //os_iphex.width(8);                         // 8 char width
-            //os_iphex.fill('0');                        // fill leading zeros
-            //os_iphex.str() = string("");
             os_iphex.flags(ios::hex | ios::uppercase);
             os_iphex.width(8);
             os_iphex.fill('0');
@@ -2683,8 +2674,6 @@ ConnectParams* getNextHub(ConnectParams* pcp)
 
             if ((rc = connect(clientSocket,(struct sockaddr *)&host, length)) == -1) {
                 close(clientSocket);
-                //memset(szLog, 0, MAX);
-                //ostrstream os(szLog, MAX-1);
                 ostringstream os;
                 os << "Connection attempt failed " << pcp->RemoteName
                     << " " << pcp->RemoteSocket;
@@ -3185,28 +3174,24 @@ int getStreamRate(int stream)
 //----------------------------------------------------------------------
 
 
-char* getStats()
+string getStats()
 {
+    std::ostringstream os;
+    //Lock countLock(pmtxCount);
     time_t time_now;
     time(&time_now);
     //upTime = (double) (time_now - serverStartTime) / 3600;
-    
+
     upTime = (time_now - serverStartTime);
 
-    char *cbuf = new char[2000];
-    Lock countLock(pmtxCount, false);
-
-    memset(cbuf, 0, 2000);
-    
-    countLock.get();  
+    //countLock.get();  
       
     computeStreamRates() ;
-    
-    ostrstream os(cbuf,1999);
+
     os << setiosflags(ios::showpoint | ios::fixed)
         << setprecision(1)
         << "#\r\n"
-        << "Server Up Time    = " << convertUpTime(upTime) << "  " << upTime << "\r\n" //upTime << " hours" << "\r\n"
+        << "Server Up Time    = " << convertUpTime(upTime) << "  " << upTime << "\r\n" 
         << "Total TNC packets = " << TotalLines << "\r\n"
         << "UDP stream rate   = " << getStreamRate(STREAM_UDP) <<  " bits/sec" << "\r\n"
         << "Msg stream rate   = " << getStreamRate(STREAM_MSG) <<  " bits/sec" << "\r\n"
@@ -3226,11 +3211,10 @@ char* getStats()
         << "TncQ overflows    = " << tncQueue.overrun << "\r\n"
         << "conQ overflows    = " << conQueue.overrun << "\r\n"
         << "charQ overflow    = " << charQueue.overrun << "\r\n"
-        << "Hist. dump aborts = " << dumpAborts << "\r\n"
-        << ends;
+        << "Hist. dump aborts = " << dumpAborts << "\r\n";
 
-    countLock.release();
-    return cbuf;
+    //countLock.release();
+    return os.str();
 }
 
 

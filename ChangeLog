@@ -1,3 +1,6 @@
+2003-05-12	Chuck Byam, KG4IJB
+	-  AX25 code fixed (needs more testing)
+	-  Released 2.2.5-8
 2003-05-04	Chuck Byam, KG4IJB
 	-  Added aprspass dir and rules to build binary
 	-  aprspass.cpp - lame include

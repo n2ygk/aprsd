@@ -82,6 +82,7 @@
 #include "aprsString.h"
 #include "validate.h"
 #include "queryResp.h"
+#include "rf.h"
 
 #include "aprsd.h"
 #include "servers.h"
@@ -908,6 +909,7 @@ int main(int argc, char *argv[])
     //char *szConfFile;
     string sConfFile;
     timespec ts;
+    string stats;
     time_t lastSec,tNow,tLast,tLastDel, tPstats;
     time_t LastNetBeacon , LastTncBeacon;
     time_t Time = time(NULL);
@@ -1010,7 +1012,8 @@ int main(int argc, char *argv[])
         /*Initialize TNC Com port if specified in config file */
         if (szComPort.length() > 0) {
             cout  << "Opening serial port device " << szComPort << endl;
-            if ((rc = AsyncOpen(szComPort, TncBaud)) != 0) {  
+            //if ((rc = AsyncOpen(szComPort, TncBaud)) != 0) {  
+            if ((rc = rfOpen(szComPort, TncBaud)) != 0) {
                 ts.tv_sec = 2;
                 ts.tv_nsec = 0;
                 nanosleep(&ts,NULL);
@@ -1022,7 +1025,7 @@ int main(int argc, char *argv[])
             string pInitTNC = CONFPATH;
             pInitTNC += TNC_INIT;
             cerr << "AsyncSendFiletoTNC..." <<  "filename: " << pInitTNC << endl;
-            SendFiletoTNC(pInitTNC.c_str());    //Setup TNC from initialization file
+            SendFiletoTNC(pInitTNC);    //Setup TNC from initialization file
             tncPresent = true;
         } else
             cout << "TNC com port not defined." << endl;
@@ -1100,7 +1103,7 @@ int main(int argc, char *argv[])
             if (msgsn > 9999)
                 msgsn = 0;
 
-            while (conQueue.ready()) {        //Data for Console?
+           while (conQueue.ready()) {        //Data for Console?
                 char *cp = (char*)conQueue.read(NULL);    //Yes, read and print it.
                 if (cp) {
                     printf("%s",cp);
@@ -1126,10 +1129,10 @@ int main(int argc, char *argv[])
             lastSec = Time;
             Time = time(NULL);
 
-            if(difftime(Time,lastSec) > 0) 
+            if (difftime(Time,lastSec) > 0) 
                 schedule_posit2RF(Time);  //Once per second
 
-            if (difftime(Time,LastNetBeacon) >= NetBeaconInterval * 60) {  //Send Internet Beacon text
+            if (difftime(Time, LastNetBeacon) >= NetBeaconInterval * 60) {  //Send Internet Beacon text
                 LastNetBeacon = Time;
 
                 if ((NetBeacon.length() > 0) && (NetBeaconInterval > 0)){
@@ -1141,7 +1144,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            if (difftime(Time,LastTncBeacon) >= TncBeaconInterval * 60){  //Send TNC Beacon text
+            if (difftime(Time, LastTncBeacon) >= TncBeaconInterval * 60){  //Send TNC Beacon text
                 LastTncBeacon = Time;
                 if ((TncBeacon.length() > 0) && (TncBeaconInterval > 0)){
                     aprsString* tncbc = new aprsString(TncBeacon.c_str(), SRC_INTERNAL, srcBEACON);
@@ -1153,23 +1156,22 @@ int main(int argc, char *argv[])
                 computeShortTermLoad(15);
                 tCalcLoad = Time;
             }
-
             if ((Time - tPstats) > 60) {    // 1 minute
                 if (WatchDog < 2)
                     cerr << "** No data from TNC during previous 2 minutes **" << endl;
 
                 tPstats = Time;
+                
                 WatchDog = 0;   //Serial port reader increments this with each rx line.
-                char *stats = getStats();
-                cout << stats << flush;
-
-                aprsString* monStats = new aprsString(stats, SRC_INTERNAL, srcSTATS);
+                
+                stats = getStats();
+                cout << stats;
+                aprsString* monStats = new aprsString(stats.c_str(), SRC_INTERNAL, srcSTATS);
                 sendQueue.write(monStats);
-                delete stats;
-
+                
                 enforceMaxLoad();    //Check server load and shed users if required
             }
-
+            
             if ((Time - tLastDel) > 300 ) {     //do this every 5 minutes.
                                                 //Remove old entrys from history list
                 if ((di = DeleteOldItems(5)) > 0)

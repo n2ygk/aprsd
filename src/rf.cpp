@@ -22,9 +22,7 @@
  * Look at the README for more information on the program.
  */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include <unistd.h>                     // getpid
 #include <iostream>
@@ -49,7 +47,7 @@ pthread_t tidReadCom;
 Mutex mtxWriteTNC;
 
 char tx_buffer[260];
-int txrdy;
+bool txrdy;
 
 int CloseAsync, threadAck;
 bool TncSysopMode;                      // Set true when sysop wants direct TNC access
@@ -61,7 +59,7 @@ char* ComBaud;
 //--------------------------------------------------------------------
 // Set APRS path (before the port is opened)
 //
-void rfSetPath (const char* path)
+void rfSetPath(const char* path)
 {
     AprsPath = strdup(path);
 }
@@ -69,7 +67,7 @@ void rfSetPath (const char* path)
 //--------------------------------------------------------------------
 // Set serial port speed (before the port is opened)
 //
-void rfSetBaud (const char* baud)
+void rfSetBaud(const char* baud)
 {
     ComBaud = strdup(baud);
 }
@@ -78,19 +76,23 @@ void rfSetBaud (const char* baud)
 //--------------------------------------------------------------------
 // Open RF ports (TNC or sockets)
 
-int rfOpen (const char *szPort)
+int rfOpen(const string& szPort, const string& baudrate)
 {
     int result;
     AsyncPort = (szPort[0] == '/');
     TncSysopMode = false;
-    txrdy = 0;
+    txrdy = false;
     APIRET rc;
 
-    if (AsyncPort)
-        result = AsyncOpen(szPort, ComBaud);
+    if (AsyncPort) {
+        cout << "AsyncPort is true" << endl;
+        result = AsyncOpen(szPort, baudrate);
+    }
 #ifdef HAVE_LIBAX25
-    else
+    else {
+        cout << "AsyncPort is false" << endl;
         result = SocketOpen(szPort, AprsPath);
+    }
 #else
     else {
         cerr << "AX.25 sockets are not supported by this executable" << endl;
@@ -139,15 +141,13 @@ int rfClose(void)
 //-------------------------------------------------------------------
 // Write NULL terminated string to serial port */
 //
-int rfWrite (const char *cp)
+int rfWrite(const char *cp)
 {
     int rc = 0;
     Lock writeTNCLock(mtxWriteTNC);
 
-    cerr << "rfWrite: before string copy" << endl;
     strncpy(tx_buffer, cp, 256);
-    cerr << "rfWrite: after string copy" << endl;
-    txrdy = 1;
+    txrdy = false;
     while (txrdy)
         reliable_usleep(10000);                  // The rfReadCom thread will clear txrdy when it takes data
 
@@ -159,7 +159,7 @@ int rfWrite (const char *cp)
 // This is the RF port read thread.
 // It also handles buffered writes to the port.
 //
-void* rfReadCom (void *vp)
+void* rfReadCom(void *vp)
 {
     USHORT i;
     // APIRET rc;
@@ -173,17 +173,15 @@ void* rfReadCom (void *vp)
     i = 0;
 
     pidlist.SerialInp = getpid ();
-    cerr << "Async Comm thread started.\n" << flush;
+    cerr << "Async Comm thread started." << endl;
     while (!CloseAsync) {
-
         if (AsyncPort)
             lineTimeout = AsyncReadWrite(buf);
 #ifdef HAVE_LIBAX25
         else
             lineTimeout = SocketReadWrite(buf);
 #endif
-
-        //WatchDog++;
+        WatchDog++;
         tickcount = 0;
 
         i = strlen((char*)buf);
@@ -269,8 +267,7 @@ void* rfReadCom (void *vp)
 
 //---------------------------------------------------------------------
 // Send a text file to the TNC for configuration
-
-int rfSendFiletoTNC (const char *szName)
+int rfSendFiletoTNC(const std::string& szName)
 {
     if (AsyncPort)
         return(SendFiletoTNC(szName));

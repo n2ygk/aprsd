@@ -31,7 +31,7 @@ using namespace aprsd;
 // TCP Wrappers
 int inet_ptons(int family, const char *strptr, void *addrptr);
 
-int SocketOpen (const char *rfport, const char *destcall);
+int SocketOpen (const string& rfport, const char *destcall);
 int SocketClose (void);
 int SocketWrite (const char *cp);
 int SocketWrite (void);

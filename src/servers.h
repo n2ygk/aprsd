@@ -261,7 +261,7 @@ void *UDPServerThread(void *p);
 void *TCPServerThread(void *p);
 void *DeQueue(void* vp);
 void schedule_posit2RF(time_t t);
-char* getStats();
+string getStats();
 void resetCounters();
 int getStreamRate(int stream);
 int recvline(int sock, char *buf, int n, int *err,int timeoutMax);

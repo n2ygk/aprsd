@@ -90,7 +90,7 @@ char* pax25 (char*, const unsigned char*);
 //---------------------------------------------------------------------
 // Open the AX.25 sockets
 
-int SocketOpen (const char *rfport, const char *destcall)
+int SocketOpen(const string& rfport, const char *destcall)
 {
     char* portcall;
 
@@ -100,7 +100,7 @@ int SocketOpen (const char *rfport, const char *destcall)
     }
 
     // Open network sockets here
-    ax25port = strdup(rfport);
+    ax25port = strdup(rfport.c_str());
 
     if (ax25_config_load_ports() == 0)
         cerr << "aprsd: no AX.25 port data configured" << endl;
@@ -163,7 +163,7 @@ int SocketClose (void)
 // It polls the socket, and returns any data received
 // (after reformatting it to raw TNC format).
 
-bool SocketReadWrite (char buf[])
+bool SocketReadWrite(char buf[])
 {
     bool lineTimeout;
     struct pollfd pfd;
@@ -182,7 +182,7 @@ bool SocketReadWrite (char buf[])
         if (txrdy) {        //Check for data to Transmit
             sendto(tx_socket, tx_buffer, strlen(tx_buffer), 0,
                 (struct sockaddr *)&tx_dest, tx_dest_len);
-            txrdy = 0;      //Indicate we sent it.
+            txrdy = false;      //Indicate we sent it.
         }
 
 
@@ -222,16 +222,14 @@ bool SocketReadWrite (char buf[])
             lineTimeout = true; // Error has occurred
 
     } while (result == 0);
-
     return lineTimeout;
-
 }
 
 
 //---------------------------------------------------------------------
 // fmt converts a received packet into a TNC message string
 
-void fmt (const unsigned char *buf, int len, unsigned char **outbuf)
+void fmt(const unsigned char *buf, int len, unsigned char **outbuf)
 {
     static unsigned char buf1[1000];
     char from[10], to[10], digis[100];
