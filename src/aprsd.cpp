@@ -134,14 +134,6 @@ void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -IN
         << outFile
         << endl;
 
-
-    //char *ShutDown = new char[255];
-    //strcpy(ShutDown, szServerCall);
-    //strcat(ShutDown, szJAVAMSG);
-    //strcat(ShutDown, MyLocation);
-    //strcat(ShutDown, " ");
-    //strcat(ShutDown, szServerID);
-    //strcat(ShutDown, " shutting down.  Bye.\r\n");
     string ShutDown = szServerCall;
     ShutDown += szJAVAMSG;
     ShutDown += MyLocation;
@@ -157,7 +149,7 @@ void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -IN
     ts.tv_nsec = 0;
     nanosleep(&ts,NULL);
 
-    if(tncPresent){
+    if (tncPresent) {
         //char *pRestore = new char[CONFPATH.length() + TNC_RESTORE.length() + 1];
         //strcpy(pRestore, CONFPATH.c_str());
         //strcat(pRestore, TNC_RESTORE.c_str());
@@ -165,7 +157,7 @@ void serverQuit(void)      /* Invoked by console 'q' quit or SIGINT (killall -IN
         string pRestore = CONFPATH;
         pRestore += TNC_RESTORE;
 
-        AsyncSendFiletoTNC(pRestore.c_str());
+        SendFiletoTNC(pRestore.c_str());
 
         AsyncClose() ;
         //delete pRestore;
@@ -981,11 +973,7 @@ int main(int argc, char *argv[])
         ReadHistory(histFile);
         
         string sConfFile = CONFPATH;
-        sConfFile += CONFFILE;
-        //szConfFile = new char[CONFPATH.length() + CONFFILE.length() + 1];
-
-        //strcpy(szConfFile, CONFPATH.c_str());
-        //strcat(szConfFile, CONFFILE.c_str());     //default server configuration file
+        sConfFile += CONFFILE;              //default server configuration file
 
         if (argc > 1) {
             if (strcmp("-d",argv[argc-1]) != 0){
@@ -1001,40 +989,27 @@ int main(int argc, char *argv[])
             exit(-1);     //Read configuration file (aprsd.conf)
 
         //Now add a ax25 path to the Internet beacon text string
-        //if (NetBeacon.length() < 2){
-            //char* netbc = new char[256];
-            //memset(netbc, 0, 256);
-            //ostrstream osnetbc(netbc,255);
-            cout << "Length of netbeacon is: " << NetBeacon.length() << endl
-                << "contents is: " << endl;
-            ostringstream osnetbc;
-            osnetbc << szServerCall
-                    << szAPRSDPATH
-                    << NetBeacon
-                    << "\r\n";
-                    //<< ends;
 
-            //delete NetBeacon;
-            NetBeacon = osnetbc.str();   //Internet beacon complete with ax25 path
-            cout << "NetBeacon is: " << osnetbc.str() << endl;
-        //}
+        ostringstream osnetbc;
+        osnetbc << szServerCall
+                << szAPRSDPATH
+                << NetBeacon
+                << "\r\n";
+
+        NetBeacon = osnetbc.str();   //Internet beacon complete with ax25 path
+        cout << "NetBeacon is: " << osnetbc.str() << endl;
 
         if (TncBeacon.length() > 0){
-            //char* tncbc = new char[256];
-            //memset(tncbc,0,256);
-            //ostrstream ostncbc(tncbc,255);
             ostringstream ostncbc;
             ostncbc << TncBeacon
                     << "\r\n";
-                    //<< ends;
-            //delete TncBeacon;
+
             TncBeacon = ostncbc.str();  //TNC beacon (no ax25 path)
         }
 
         /*Initialize TNC Com port if specified in config file */
         if (szComPort.length() > 0) {
             cout  << "Opening serial port device " << szComPort << endl;
-
             if ((rc = AsyncOpen(szComPort, TncBaud)) != 0) {  
                 ts.tv_sec = 2;
                 ts.tv_nsec = 0;
@@ -1044,13 +1019,10 @@ int main(int argc, char *argv[])
 
             cout << "Setting up TNC" << endl;
 
-            //char *pInitTNC = new char[CONFPATH.length() + TNC_INIT.length() +1];
-            //strcpy(pInitTNC, CONFPATH.c_str());
-            //strcat(pInitTNC, TNC_INIT.c_str());
             string pInitTNC = CONFPATH;
             pInitTNC += TNC_INIT;
-
-            AsyncSendFiletoTNC(pInitTNC.c_str());    //Setup TNC from initialization file
+            cerr << "AsyncSendFiletoTNC..." <<  "filename: " << pInitTNC << endl;
+            SendFiletoTNC(pInitTNC.c_str());    //Setup TNC from initialization file
             tncPresent = true;
         } else
             cout << "TNC com port not defined." << endl;

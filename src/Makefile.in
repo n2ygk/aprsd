@@ -79,7 +79,9 @@ bin_PROGRAMS = aprsd
 
 aprsd_SOURCES = aprsd.cpp aprsd.h \
 		aprsString.cpp aprsString.h \
+		aprsdassert.h \
 		ax25socket.cpp ax25socket.h \
+		constant.h \
 		cpqueue.cpp cpqueue.h \
 		crc32.c crc.h \
 		dupCheck.cpp dupCheck.h \
@@ -91,9 +93,10 @@ aprsd_SOURCES = aprsd.cpp aprsd.h \
 		mutex.cpp mutex.h \
 		osdep.cpp osdep.h \
 		queryResp.cpp queryResp.h \
-		rf.cpp rf.h \
 		serial.cpp serial.h \
 		servers.cpp servers.h \
+		sniptype.h \
+		string.cpp string.hpp \
 		utils.cpp utils.h \
 		validate.cpp validate.h 
 
@@ -111,8 +114,8 @@ am_aprsd_OBJECTS = aprsd.$(OBJEXT) aprsString.$(OBJEXT) \
 	dupCheck.$(OBJEXT) aprsdexception.$(OBJEXT) \
 	exceptionguard.$(OBJEXT) history.$(OBJEXT) httpserver.$(OBJEXT) \
 	mic_e.$(OBJEXT) mutex.$(OBJEXT) osdep.$(OBJEXT) \
-	queryResp.$(OBJEXT) rf.$(OBJEXT) serial.$(OBJEXT) \
-	servers.$(OBJEXT) utils.$(OBJEXT) validate.$(OBJEXT)
+	queryResp.$(OBJEXT) serial.$(OBJEXT) servers.$(OBJEXT) \
+	string.$(OBJEXT) utils.$(OBJEXT) validate.$(OBJEXT)
 aprsd_OBJECTS = $(am_aprsd_OBJECTS)
 aprsd_LDADD = $(LDADD)
 aprsd_DEPENDENCIES =
@@ -133,8 +136,8 @@ am__depfiles_maybe = depfiles
 @AMDEP_TRUE@	./$(DEPDIR)/history.Po ./$(DEPDIR)/httpserver.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/mic_e.Po ./$(DEPDIR)/mutex.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/osdep.Po ./$(DEPDIR)/queryResp.Po \
-@AMDEP_TRUE@	./$(DEPDIR)/rf.Po ./$(DEPDIR)/serial.Po \
-@AMDEP_TRUE@	./$(DEPDIR)/servers.Po ./$(DEPDIR)/utils.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/serial.Po ./$(DEPDIR)/servers.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/string.Po ./$(DEPDIR)/utils.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/validate.Po
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -208,9 +211,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mutex.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/osdep.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/queryResp.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/serial.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/servers.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/string.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utils.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/validate.Po@am__quote@
 

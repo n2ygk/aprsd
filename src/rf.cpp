@@ -45,31 +45,7 @@
 using namespace std;
 using namespace aprsd;
 
-/*struct pidList {
-    pid_t main;
-    pid_t SerialInp;
-    pid_t TncQueue;
-    pid_t InetQueue;
-};*/
-
-//extern ULONG WatchDog, tickcount, TotalConnects, TotalTncChars, TotalLines;
-//extern ULONG MaxConnects;
-//extern bool ShutDownServer;
-//extern cpQueue sendQueue;
-//extern cpQueue charQueue;
-//extern bool configComplete;
-//extern bool igateMyCall;
-//extern bool logAllRF;
-//extern pidList pidlist;
-
-
-
-//extern char *szServerCall;
-//extern string szServerCall;
-
 pthread_t tidReadCom;
-//extern string MyCall;
-//pthread_mutex_t *pmtxWriteTNC;
 Mutex mtxWriteTNC;
 
 char tx_buffer[260];
@@ -168,8 +144,9 @@ int rfWrite (const char *cp)
     int rc = 0;
     Lock writeTNCLock(mtxWriteTNC);
 
+    cerr << "rfWrite: before string copy" << endl;
     strncpy(tx_buffer, cp, 256);
-
+    cerr << "rfWrite: after string copy" << endl;
     txrdy = 1;
     while (txrdy)
         reliable_usleep(10000);                  // The rfReadCom thread will clear txrdy when it takes data
@@ -296,7 +273,7 @@ void* rfReadCom (void *vp)
 int rfSendFiletoTNC (const char *szName)
 {
     if (AsyncPort)
-        return(AsyncSendFiletoTNC(szName));
+        return(SendFiletoTNC(szName));
 #ifdef HAVE_LIBAX25
     else
         return(0); // Not applicable for sockets

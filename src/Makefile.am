@@ -16,7 +16,6 @@ aprsd_SOURCES = aprsd.cpp aprsd.h \
 		mutex.cpp mutex.h \
 		osdep.cpp osdep.h \
 		queryResp.cpp queryResp.h \
-		rf.cpp rf.h \
 		serial.cpp serial.h \
 		servers.cpp servers.h \
 		sniptype.h \

@@ -214,20 +214,23 @@ void buildPage(StringList& htmlpage)
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Peak Users</TD><TD>" << MaxConnects << "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Max User Limit</TD><TD>" << MaxClients << "</TD></TR>\n"
         //<< "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Max Server Load (Bps)</TD><TD>" << MaxLoad << "</TD></TR>\n"
-        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Connect Count</TD><TD>" << TotalConnects << "</TD></TR>\n"
-        //<< "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">TNC Packets</TD><TD>" << TotalLines << "</TD></TR>\n"
-
-        //<< "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Pkts gated to RF</TD><TD>" << msg_cnt << "</TD></TR>\n"
+        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Connect Count</TD><TD>" << TotalConnects << "</TD></TR>\n";
+    if (tncPresent) {
+        stats << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">TNC Packets</TD><TD>" << TotalLines << "</TD></TR>\n"
+            << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Pkts gated to RF</TD><TD>" << msg_cnt << "</TD></TR>\n";
+    }
         //<< "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Local Count</TD><TD>" << localCount() << "</TD></TR>\n"
-        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Internet Packet Count</TD><TD>" << countIGATED << "</TD></TR>\n"
+    stats << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Internet Packet Count</TD><TD>" << countIGATED << "</TD></TR>\n"
         //<< "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">NOGATE Pkts</TD><TD>" << countNOGATE <<  "</TD></TR>\n"
         //<< "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">LOOPED Pkts</TD><TD>" << countLOOP <<  "</TD></TR>\n"
         //<< "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">OVERSIZE Pkts</TD><TD>" << countOVERSIZE <<  "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Dropped Packets</TD><TD>" << countREJECTED <<  "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">UDP Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_UDP)) << convertScale(getStreamRate(STREAM_UDP)) <<  "</TD></TR>\n"
-        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Message Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_MSG)) << convertScale(getStreamRate(STREAM_MSG)) <<  "</TD></TR>\n"
-        //<< "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">TNC stream Rate</TD><TD>" << getStreamRate(STREAM_TNC) << " Bytes/sec</TD></TR>\n"
-        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">User Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_USER)) << convertScale(getStreamRate(STREAM_USER)) <<  "</TD></TR>\n"
+        << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Message Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_MSG)) << convertScale(getStreamRate(STREAM_MSG)) <<  "</TD></TR>\n";
+     if (tncPresent) {
+        stats << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">TNC stream Rate</TD><TD>" << getStreamRate(STREAM_TNC) << convertScale(getStreamRate(STREAM_TNC)) << "</TD></TR>\n";
+     }
+     stats << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">User Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_USER)) << convertScale(getStreamRate(STREAM_USER)) <<  "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Server Stream Rate</TD><TD>" << convertRate(getStreamRate(STREAM_SERVER)) << convertScale(getStreamRate(STREAM_SERVER)) <<  "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Full Stream Rate -dups</TD><TD>" << convertRate(getStreamRate(STREAM_FULL)) << convertScale(getStreamRate(STREAM_FULL)) << "</TD></TR>\n"
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#CCCCCC\"><TD BGCOLOR=\"#CCCCFF\">Server Load</TD><TD>" << convertRate(serverLoad) << convertScale(serverLoad) << "</TD></TR>\n"

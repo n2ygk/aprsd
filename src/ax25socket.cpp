@@ -22,9 +22,9 @@
  * Look at the README for more information on the program.
  */
 
-/* Based on serialp.cpp
-   Implements the same interface as serialp.cpp (as specified
-   in serialp.h), but uses Linux network sockets.
+/* Based on serial.cpp
+   Implements the same interface as serial.cpp (as specified
+   in serial.h), but uses Linux network sockets.
 */
 
 #ifdef HAVE_CONFIG_H
@@ -32,26 +32,29 @@
 #endif
 
 #ifdef HAVE_LIBAX25                     // if no AX25, do nothing
+
+#include "osdep.h"
+#include "ax25socket.h"
+#include "constant.h"
+#include "rf.h"
+
+#include <cstdlib>
 #include <sys/poll.h>                   // poll, et el
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
-#include <stdio.h>                      // perror
-#include <string.h>
-#include <ctype.h>                      // isprint
+//#include <cstdio>                      // perror
+//#include <string>
+#include <sys/types.h>                      // isprint
 #include <netax25/axlib.h>
 #include <netax25/axconfig.h>
 
 #include <iostream>
 
-#include "osdep.h"
-#include "constant.h"
-#include "rf.h"
-
-using namespace std;
-using namespace aprsd;
-
+using std::cerr;
+using std::endl;
+using std::cout;
 //---------------------------------------------------------------------
 // AX.25 constants
 
@@ -108,13 +111,13 @@ int SocketOpen (const char *rfport, const char *destcall)
     }
 
     // Create the receive socket
-    if ((rx_socket = socket(AF_PACKET, SOCK_PACKET, htons(proto))) == -1) {
+    if ((rx_socket = socket(PF_PACKET, SOCK_PACKET, htons(proto))) == -1) {
         perror("socket");
         return 1;
     }
 
     // Create the transmit socket
-    if ((tx_socket = socket(AF_AX25, SOCK_DGRAM, 0)) == -1) {
+    if ((tx_socket = socket(PF_AX25, SOCK_DGRAM, 0)) == -1) {
         perror("socket");
         return 1;
     }
