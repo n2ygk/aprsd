@@ -2949,7 +2949,6 @@ int serverConfig(const string& cf)
                         string* s = new string(token[i]);
                         if (rfcall_idx < MAXRFCALL)
                             rfcall[rfcall_idx++] = s;   // add it to the list
-                        delete (string*)s;
                     }
                     n = 1;
 
@@ -2960,7 +2959,6 @@ int serverConfig(const string& cf)
                         string* s = new string(token[i]);
                         if (posit_rfcall_idx < MAXRFCALL)
                             posit_rfcall[posit_rfcall_idx++] = s;   // add it to the list
-                    delete (string*)s;
                     }
                     n = 1;
 
@@ -2972,7 +2970,6 @@ int serverConfig(const string& cf)
                         string* s = new string(token[i]);
                         if (stsmDest_rfcall_idx < MAXRFCALL)
                             stsmDest_rfcall[stsmDest_rfcall_idx++] = s;     // add it to the list
-                    delete (string*)s;
                     }
                     n = 1;
 
