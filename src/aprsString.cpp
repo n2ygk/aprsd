@@ -295,9 +295,10 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     return;
                 }
             }
-            if ((data.length() < 7) || (data.length() > 253)) {
+            if ((data.length() < 4) || (data.length() > 253)) {
                 // need some data to be of some use...
                 // then again too much of a good thing is bad as well
+                // min 4 so we will allow "?WX?" and other querries - do we want to?????
                 aprsType = APRSERROR;
                 return;
             }
