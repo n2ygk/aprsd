@@ -23,7 +23,7 @@
  */
 
 
-#include "aprsdassert.h"
+#include "assert.h"
 #include "mutex.h"
 #include "osdep.h"
 

@@ -2,7 +2,9 @@ bin_PROGRAMS = aprsd
 
 aprsd_SOURCES = aprsd.cpp aprsd.h \
 		aprsString.cpp aprsString.h \
+		assert.h \
 		ax25socket.cpp ax25socket.h \
+		constant.h \
 		cpqueue.cpp cpqueue.h \
 		crc32.c crc.h \
 		dupCheck.cpp dupCheck.h \
@@ -17,6 +19,7 @@ aprsd_SOURCES = aprsd.cpp aprsd.h \
 		rf.cpp rf.h \
 		serial.cpp serial.h \
 		servers.cpp servers.h \
+		sniptype.h \
 		utils.cpp utils.h \
 		validate.cpp validate.h 
 

@@ -6,10 +6,6 @@
 #include <stdio.h>
 #include "crc.h"
 
-#ifdef __TURBOC__
- #pragma warn -cln
-#endif
-
 /**********************************************************************\
 |* Demonstration program to compute the 32-bit CRC used as the frame  *|
 |* check sequence in ADCCP (ANSI X3.66, also known as FIPS PUB 71     *|
