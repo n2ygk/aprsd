@@ -46,8 +46,6 @@ static const int APRSMIC_E = 20;
 static const int APRSOBJECT = 9;
 static const int COMMENT = 10;
 static const int APRSID = 11;           // Station ID packet eg: WA4DSY>ID......
-static const int APRSBEACON = 12;
-static const int APRSTELEMETRY = 13;
 static const int NMEA = 100;
 static const int APRSREFORMATTED = 8;
 static const int APRSQUERY = 7;
@@ -71,7 +69,7 @@ public:
 
     long ID;                            // Unique ID number for this object
     int instances ;                     // Number of pointers to this object that exist in user queues
-    bool tcpxx;                         // TRUE = TCPXX or TCPXX* was in the path
+    int tcpxx;                          // TRUE = TCPXX or TCPXX* was in the path
     int reformatted;                    // TRUE = packet has been reformatted into 3rd party format
     time_t timestamp;                   // time it was created
     int ttl;                            // time to live (minutes)
@@ -138,16 +136,8 @@ public:
 
     static int getObjCount(void);
 private:
-    string toCall;          // ax25 toCall
-
     void constructorSetUp(const char *cp, int s, int e);
     void AEAtoTAPR(string& s, string& rs);
-    bool ValidSource(string& as);
-    bool ValidPath(string& as);
-    bool ValidToCall(string& as);
-    bool ValidData(string& as);
-    unsigned int GetMsgType(string& as);
-
     static Mutex mutex;
 };
 
