@@ -75,8 +75,22 @@ VERSION = @VERSION@
 am__include = @am__include@
 am__quote = @am__quote@
 install_sh = @install_sh@
+
+extra_dist = aprsd.conf \
+	aprsd.init \
+	chkaprsd \
+	INIT.TNC \
+	INSTALLDEAMON \
+	INSTALLPGM \
+	Makefile.am \
+	REMOVE \
+	RESTORE.TNC \
+	welcome.txt \
+	udp_example \
+	user.deny 
+
 subdir = admin
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(SHELL) $(top_srcdir)/support/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 DIST_SOURCES =
@@ -84,7 +98,7 @@ DIST_COMMON = Makefile.am Makefile.in
 all: all-am
 
 .SUFFIXES:
-$(srcdir)/Makefile.in:  Makefile.am  $(top_srcdir)/configure.in $(ACLOCAL_M4)
+$(srcdir)/Makefile.in:  Makefile.am  $(top_srcdir)/configure.ac $(ACLOCAL_M4)
 	cd $(top_srcdir) && \
 	  $(AUTOMAKE) --gnu  admin/Makefile
 Makefile:  $(srcdir)/Makefile.in  $(top_builddir)/config.status
