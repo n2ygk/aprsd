@@ -154,11 +154,11 @@ const string szRM2          = string("Send Access Denied. Access is Read-Only.\r
 const string szRM3          = string("RF access denied, Internet access only.\r\n");
 const string szACCESSDENIED = string("Access Denied");
 
-Mutex pmtxSendFile;
-Mutex pmtxSend;                         // socket send
-Mutex pmtxAddDelSess;                   // add/del sessions
-Mutex pmtxCount;                        // counters
-Mutex pmtxDNS;                          // buggy gethostbyname2_r ?
+RecursiveMutex pmtxSendFile;
+RecursiveMutex pmtxSend;                         // socket send
+RecursiveMutex pmtxAddDelSess;                   // add/del sessions
+RecursiveMutex pmtxCount;                        // counters
+RecursiveMutex pmtxDNS;                          // buggy gethostbyname2_r ?
 
 bool ShutDownServer, configComplete;
 
@@ -623,6 +623,13 @@ void SendToAllClients(aprsString* p)
 
     if ((p->aprsType == CONTROL) || (p->msgType == APRSMSGSERVER))
         return;         //Silently reject user control commands
+        
+    if (p->msgType == APRSDINFO) {   // Don't send 'older' aprsd info messages
+        //cout << "DEBUG: sendtoallclients(): dropping: " << p->raw << endl;
+        countREJECTED++;                // Count rejected packets
+        WriteLog(p->raw, string(REJECTLOG));     // Log rejected packets
+        return;
+    }
 
     if (p->EchoMask & sendDUPS)
         dup = true;     //This packet is a duplicate
@@ -665,8 +672,13 @@ void SendToAllClients(aprsString* p)
 
     for (int i = 0; i < MaxClients; i++) {
         if (sessions[i].Socket != -1) {
-            bool wantdups, wantsrcheader,wantrejected,wantecho,echo,raw,wantrej;
-            wantdups = wantsrcheader = wantrejected = wantecho = echo = raw = wantrej = false ;
+            bool wantdups = false;
+            bool wantsrcheader = false;
+            bool wantrejected = false;
+            bool wantecho = false;
+            bool echo = false;
+            bool raw = false;
+            bool wantrej = false;
             int tc = 0;
             int Em;
 
@@ -704,9 +716,9 @@ void SendToAllClients(aprsString* p)
 
                 //Normal dup and error filtered data stream
                 if ((!wantsrcheader)      /* No IP source header prepended */
-                        && (!dup)          /* No duplicates */
-                        && (!bad_ax25)     /* No invalid ax25 packets or rejects */
-                        && (!echo)){       /* No echo of users own data */
+                        && (!dup)         /* No duplicates */
+                        && (!bad_ax25)    /* No invalid ax25 packets or rejects */
+                        && (!echo)) {     /* No echo of users own data */
 
                     rc = send(sessions[i].Socket,p->c_str(),n,0);
                     goto done;
@@ -842,7 +854,7 @@ void *DeQueue(void* vp)
             }
             ts.tv_sec = 0;
             ts.tv_nsec = 1000000; //1 ms timeout for nanosleep()
-            nanosleep(&ts,NULL);  //1ms
+            nanosleep(&ts, NULL);  //1ms
 
             if (ShutDownServer)
                 pthread_exit(0);
@@ -935,12 +947,9 @@ void *DeQueue(void* vp)
                 dup  = dupFilter.check(abuff,DUPWINDOW);  //Check for duplicates within N second window
 
             if (!dup){                           //Packet is NOT a duplicate
-                //pthread_mutex_lock(pmtxCount);
                 countLock.get();
                 TotalFullStreamChars += abuff->length();  //Tally all non-duplicate bytes
-                //pthread_mutex_unlock(pmtxCount);
                 countLock.release();
-
 
                 if (abuff->IjpIdx > 0){   //Packet has q construct in it
                     char ps = abuff->ax25Path[abuff->IjpIdx][2]; //Get packet source character from q string
@@ -968,7 +977,7 @@ void *DeQueue(void* vp)
                         if (( rc != string::npos)
                                 && (abuff->aprsType != APRSREJECT)){
 
-                            if (rc != (unsigned)(abuff->pathSize - 1)){
+                            if (rc != static_cast<unsigned>(abuff->pathSize - 1)){
                                 abuff->aprsType = APRSREJECT;    //Looped packet, REJECT
                                 string log_str = abuff->srcHeader + *abuff;
                                 WriteLog(log_str, LOOPLOG);   //Write offending packet to loop.log
@@ -1020,7 +1029,7 @@ void *DeQueue(void* vp)
 
                 Hist = false;    //None of the above allowed in history list
             } else {
-                GetMaxAgeAndCount(&MaxAge,&MaxCount);	//Set max ttl and count values
+                GetMaxAgeAndCount(&MaxAge, &MaxCount);	//Set max ttl and count values
                 abuff->ttl = MaxAge;
                 Hist = AddHistoryItem(abuff);   	//Put item in history list.
             }
@@ -1055,7 +1064,6 @@ void *DeQueue(void* vp)
             cerr << "Error in DeQueue: abuff is NULL" << endl;
     }
     return NULL;       //Should never return
-
 }
 
 //----------------------------------------------------------------------
@@ -1071,7 +1079,7 @@ void *ACKrepeaterThread(void *p)
     ts.tv_nsec = 0;
 
     aprsString *paprs;
-    paprs = (aprsString*)p;
+    paprs = static_cast<aprsString*>(p);
     aprsString *abuff = new aprsString(*paprs);
     abuff->allowdup = true; //Bypass the dup filter!
     paprs->ttl = 0;         //Flag tells caller we're done with it.
@@ -1105,8 +1113,8 @@ void dequeueTNC(void)
     if(abuff == NULL) 
         return;
 
-    if ((RF_ALLOW == false) //See if sysop allows Internet to RF traffic
-            && ((abuff->EchoMask & srcUDP) == false)){  //UDP packets excepted
+    if ((!(RF_ALLOW)) //See if sysop allows Internet to RF traffic
+            && (!(abuff->EchoMask & srcUDP))){  //UDP packets excepted
 
         delete abuff;  //No RF permitted, delete it and return.
         return;
@@ -1220,17 +1228,22 @@ int SendSessionStr(int session, const char *s)
 //-----------------------------------------------------------------------
 void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 {
-    char infomsg[MAX];
+    //char infomsg[MAX];
     Lock sendLock(pmtxSend, false); // don't get this lock quite yet...
 
     if (ShutDownServer)
         pthread_exit(0);
 
     sendLock.get();                     // Be sure not to close during a send() opteration
-    DeleteSession(session);             // remove it  from list
-    shutdown(session,2);
+
+    if (DeleteSession(session))             // remove it  from list
+        std::cout << "session deleted..." << std::endl;
+
+    shutdown(session, 2);
     close(session);                     // Close socket
     sendLock.release();
+
+    //std::cout << "EndSession: sessID: " << session << " Peer: " << szPeer << " UserCall: " << userCall << " StartTime: " << starttime << std::endl;
 
     {
         char* cp = new char[128];
@@ -1243,14 +1256,15 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         conQueue.write(cp, 0);
     }
 
+    //std::cout << " After console q write" << std::endl;
     ostringstream sLog;
     sLog << szPeer << " " << userCall << " disconnected";
     time_t endtime = time(NULL);
     double  dConnecttime = difftime(endtime , starttime);
-    int iMinute = (int)(dConnecttime / 60);
+    int iMinute = static_cast<int>(dConnecttime / 60);
     iMinute = iMinute % 60;
-    int iHour = (int)dConnecttime / 3600;
-    int iSecond = (int)dConnecttime % 60;
+    int iHour = static_cast<int>(dConnecttime / 3600);
+    int iSecond = static_cast<int>(dConnecttime) % 60;
     char timeStr[32];
     sprintf(timeStr, "%3d:%02d:%02d", iHour, iMinute, iSecond);
     sLog << timeStr;        // time already adds CFLF
@@ -1276,7 +1290,7 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
     BroadcastString(infomsg); //Say IP address of disconected client
     */
 
-    if (strlen(userCall) > 0) {
+    /*if (strlen(userCall) > 0) {
         memset(infomsg, 0, MAX);
         ostrstream msg(infomsg,MAX-1);
 
@@ -1290,10 +1304,10 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << "\r\n"
             << ends;
 
-        BroadcastString(infomsg); //Say call sign of disconnected client
-    }
+        //BroadcastString(infomsg); //Say call sign of disconnected client
+    }*/
 
-    pthread_exit(0);
+    //pthread_exit(0); commented out 2.2.5-15  thread ends in TCPSessionThread
 }
 //----------------------------------------------------------------------
 //Sends an aprs unnumbered message.  No acknowledgement expected.
@@ -1376,10 +1390,12 @@ void *TCPSessionThread(void *p)
 
     unsigned adr_size = sizeof(peer_adr);
     int n, rc,data;
-    bool verified = false, loggedon = false;
+    bool verified = false;
+    bool loggedon = false;
     ULONG State = BASE;
     char userCall[10];
-    char tc, checkdeny;
+    char tc;
+    char checkdeny;
     string szRestriction;
 
     //These deal with Telnet protocol option negotiation suppression
@@ -1399,7 +1415,7 @@ void *TCPSessionThread(void *p)
     //This string puts a telnet client into character at a time mode
     unsigned char character_at_a_time[] = {IAC, WILL, SGA, IAC, WILL, Echo, '\0'};
 
-    //Puts telnet client in lin-at-a-time mode
+    //Puts telnet client in line-at-a-time mode
     //unsigned char line_at_a_time[] = {IAC,WONT,SGA,IAC,WONT,Echo,'\0'};
 
     char szUser[16], szPass[16];
@@ -1412,10 +1428,8 @@ void *TCPSessionThread(void *p)
     memset(infomsg, 0, MAX);
     memset(logmsg, 0, MAX);
 
-    //pthread_mutex_lock(pmtxCount);
     countLock.get();
     TotalConnects++;
-    //pthread_mutex_unlock(pmtxCount);
     countLock.release();
 
     time_t  starttime = time(NULL);
@@ -1454,7 +1468,7 @@ void *TCPSessionThread(void *p)
         msg << szPeer << " has connected to port " << serverport << endl << ends;
         conQueue.write(cp,0);  //queue reader deletes cp
     }
-
+    
     {
         ostringstream msg;
         msg << szPeer
@@ -1462,7 +1476,6 @@ void *TCPSessionThread(void *p)
             << serverport;
             /* << "   " << aprsString::getObjCount() << "/" << ItemCount */  //Debug
             //<< ends;
-
         WriteLog(msg.str(), MAINLOG);
     }
 
@@ -1477,7 +1490,7 @@ void *TCPSessionThread(void *p)
     if (rc < 0)
         endSession(session, szPeer, userCall, starttime);
 
-    if (NetBeacon.length() != 0)
+    if (NetBeacon.size() != 0)
         rc = SendSessionStr(session, NetBeacon.c_str());
 
     if (rc < 0)
@@ -1568,12 +1581,12 @@ void *TCPSessionThread(void *p)
             << ends;
 
         aprsString logon_msg(infomsg, SRC_INTERNAL, srcSYSTEM);
-        BroadcastString(infomsg);
+        //BroadcastString(infomsg);
 
         if ((EchoMask & srcSYSTEM) == 0) {         //If user can't see SYSTEM messages
             logon_msg.addIIPPE('Z');
             logon_msg.addPath(szServerCall);
-            SendSessionStr(session,logon_msg.c_str());//Send a copy directly to him
+            SendSessionStr(session, logon_msg.c_str());//Send a copy directly to him
         }
     }
 
@@ -1760,8 +1773,8 @@ void *TCPSessionThread(void *p)
             }
 
             if (State == BASE) {          //Internet to RF messaging handler
-                bool sentOnRF=false;
-                aprsString atemp(buf,session,srcUSER,szPeer,userCall);
+                bool sentOnRF = false;
+                aprsString atemp(buf, session, srcUSER, szPeer, userCall);
 
                 /*
                      if(atemp.aprsType == APRSQUERY){ // non-directed query ?
@@ -1783,7 +1796,7 @@ void *TCPSessionThread(void *p)
                 */
 
                 // User stream filter request commands processed here
-                if((atemp.aprsType == APRSMSG)     //Server command in a message
+                if ((atemp.aprsType == APRSMSG)     //Server command in a message
                         && (atemp.msgType == APRSMSGSERVER)
                         && (omniPort)          //This only works on omniPort
                         && (!cmd_lock)) {       //Commands not locked out
@@ -1809,12 +1822,12 @@ void *TCPSessionThread(void *p)
                     }
                 }
 
-                if((atemp.aprsType == CONTROL)   //Naked control command
+                if ((atemp.aprsType == CONTROL)   //Naked control command
                         && (omniPort)         //To omniport only
                         && (!cmd_lock)        //Commands not locked out
                         && (!loggedon)){      //Execute only prior to logon!
 
-                    if(atemp.cmdType == CMDPORTFILTER){
+                    if (atemp.cmdType == CMDPORTFILTER){
                         EchoMask = atemp.EchoMask;  //Set user requested EchoMask
                         sp->EchoMask = atemp.EchoMask;
                         // printf("Stream Filter EchoMask= %08lX\n",EchoMask);  //Debug
@@ -1836,8 +1849,8 @@ void *TCPSessionThread(void *p)
                         2.0.7b Security bug fix - don't allow ;!@#$%~^&*():="\<>[]  in user or pass!
                     */
                     if (((idxInvalid = vd.find_first_of(";!@#$%~^&*():=\"\\<>[]",0,20)) == string::npos)
-                            && (atemp.user.length() <= 15)   /*Limit length to 15 or less*/
-                            && (atemp.pass.length() <= 15)){
+                            && (atemp.user.size() <= 15)   /*Limit length to 15 or less*/
+                            && (atemp.pass.size() <= 15)) {
 
                         if (validate(atemp.user.c_str(), atemp.pass.c_str(),APRSGROUP, APRS_PASS_ALLOW) == 0)
                             verified = true;
@@ -1902,14 +1915,13 @@ void *TCPSessionThread(void *p)
                             << ends;
 
                         aprsString logon_msg(infomsg, SRC_INTERNAL, srcSYSTEM);
-                        BroadcastString(infomsg);   //send users logon status to everyone
+                        //BroadcastString(infomsg);   //send users logon status to everyone
 
                         if ((EchoMask & srcSYSTEM) == 0){ //If user can't see system messages
                             logon_msg.addIIPPE('Z');
                             logon_msg.addPath(szServerCall);
                             SendSessionStr(session,logon_msg.c_str()); //send him  his own private copy
                         }                                           //so he knows the logon worked
-
                     }
 
                     {
@@ -2386,7 +2398,7 @@ void *UDPServerThread(void *p)
         do {                  //look for clients IP address in list of trusted addresses.
             long maskedTrusted = Trusted[n].sin_addr.s_addr & Trusted[n].sin_mask.s_addr;
             long maskedClient = client.sin_addr.s_addr & Trusted[n].sin_mask.s_addr;
-            if(maskedClient == maskedTrusted)
+            if (maskedClient == maskedTrusted)
                 sourceOK = true;
 
             n++;
@@ -2457,7 +2469,7 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
 
         if (i == -1) {
             *err = errno;
-            if ((*err != EWOULDBLOCK) || (ShutDownServer == true)) {
+            if ((*err != EWOULDBLOCK) || (ShutDownServer)) {
                 BytesRead = 0;
                 i = -2;
                 abort = true;  //exit on errors other than EWOULDBLOCK
@@ -2480,22 +2492,22 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
             bool cLFCR =  (( c == LF) || ( c == CR));     //true if c is a LF or CR
             bool rejectCH = (((BytesRead == 0) && cLFCR ) || (c == 0)) ;
 
-            if ((BytesRead < (n - 3)) && (rejectCH == false)) {
+            if ((BytesRead < (n - 3)) && (!rejectCH)) {
                 //reject if LF or CR is first on line or it's a NULL
-                buf[BytesRead] = (char)c;   //and discard data that runs off the end of the buffer
+                buf[BytesRead] = static_cast<char>(c);   //and discard data that runs off the end of the buffer
                 BytesRead++;                // We have to allow 3 extra bytes for CR,LF,NULL
                 timeout = timeoutMax;
             }
         }
-    } while ((c != CR) && (c != LF) && (abort == false)); /* Loop while c is not CR or LF */
+    } while ((c != CR) && (c != LF) && (!abort)); /* Loop while c is not CR or LF */
                                                        /* And no socket errors or timeouts */
 
     //cerr << "Bytes received=" << BytesRead << " abort=" << abort << endl;   //debug code
 
     if ((BytesRead > 0) && (!abort) ) { // 1 or more bytes needed
         i = BytesRead -1 ;
-        buf[i++] = (char)CR;  //make end-of-line CR-LF
-        buf[i++] = (char)LF;
+        buf[i++] = static_cast<char>(CR);  //make end-of-line CR-LF
+        buf[i++] = static_cast<char>(LF);
         buf[i++] = 0;         //Stick a NULL on the end.
         return i-1;           //Return number of bytes received.
     }
@@ -2955,13 +2967,11 @@ bool sendOnRF(aprsString& atemp,  string szPeer, char* userCall, const int src)
         if (checkUserDeny(atemp.ax25Source) != '+')
             return false; //Reject if no RF or login permitted
 
-        //Destination station active on VHFand source not?
-        if (((!StationLocal(atemp.stsmDest, srcTNC)) || stsmRFalways)
+        //Destination station active on VHF and source not?
+        if (((StationLocal(atemp.stsmDest, srcTNC)) || stsmRFalways)
                 && (!StationLocal(atemp.ax25Source, srcTNC))) {
             aprsString* rfpacket = new aprsString(atemp.getChar(),atemp.sourceSock, src, szPeer.c_str(), userCall);
-            //ofstream debug("rfdump.txt");
-            //debug << rfpacket->getChar << endl ;  //Debug
-            //debug.close();
+
             if (rfpacket->thirdPartyReformat(MyCall.c_str())){  // Reformat it for RF delivery
                 tncQueue.write(rfpacket);  // queue read deletes rfpacket
                 sentOnRF = true;
@@ -3215,7 +3225,7 @@ void enforceMaxLoad(void)
         if ((sessions[i].starttime > t)
                 && (sessions[i].Socket != -1)
                 && (sessions[i].EchoMask & srcIGATE)
-                && (sessions[i].svrcon == false)){  //Check all established connections
+                && (!sessions[i].svrcon)) {  //Check all established connections
                                                  //receiving the full stream first.
             t = sessions[i].starttime;     //Find most receint start time
             k = i;
@@ -3230,7 +3240,7 @@ void enforceMaxLoad(void)
             if ((sessions[i].starttime > t)
                     && (sessions[i].Socket != -1)
                     && (!(sessions[i].EchoMask & srcIGATE))
-                    && (sessions[i].svrcon == false)){  //Check all established connections
+                    && (!sessions[i].svrcon)){  //Check all established connections
                                                 // not receiving the full stream next.
                 t = sessions[i].starttime;     //Find most receint start time
                 k = i;

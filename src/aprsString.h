@@ -47,51 +47,51 @@
 //These allow each Internet listen port to filter
 //data it needs to send.
 
- static const echomask_t srcTNC = 1;            //data from TNC
- static const echomask_t srcUSER = 2;           //data from any logged on internet user
- static const echomask_t srcUSERVALID = 4;      //data from validated internet user
- static const echomask_t srcIGATE = 8;          //data from another IGATE
- static const echomask_t srcSYSTEM = 16;        //data from this server program
- static const echomask_t srcUDP = 32;           //data from UDP port
- static const echomask_t srcHISTORY = 64;       //data fetched from history list
- static const echomask_t src3RDPARTY = 128;     //data is a 3rd party station to station message
- static const echomask_t srcSTATS = 0x100;      //data is server statistics
- static const echomask_t srcBEACON = 0x200;     //data is from internal beacon for ID
+static const echomask_t srcTNC = 1;            //data from TNC
+static const echomask_t srcUSER = 2;           //data from any logged on internet user
+static const echomask_t srcUSERVALID = 4;      //data from validated internet user
+static const echomask_t srcIGATE = 8;          //data from another IGATE
+static const echomask_t srcSYSTEM = 16;        //data from this server program
+static const echomask_t srcUDP = 32;           //data from UDP port
+static const echomask_t srcHISTORY = 64;       //data fetched from history list
+static const echomask_t src3RDPARTY = 128;     //data is a 3rd party station to station message
+static const echomask_t srcSTATS = 0x100;      //data is server statistics
+static const echomask_t srcBEACON = 0x200;     //data is from internal beacon for ID
 //
- static const echomask_t wantREJECTED = 0x400;   //user wants rejected packets
- static const echomask_t wantSRCHEADER = 0x0800;//User wants Source info header prepended to data
- static const echomask_t wantHTML = 0x1000;     //User wants html server statistics (added in version 2.1.2)
- static const echomask_t wantRAW = 0x2000;      //User wants raw data only
- static const echomask_t sendDUPS = 0x4000;     //if set then don't filter duplicates
- static const echomask_t sendHISTORY = 0x8000;  //if set then history list is sent on connect
- static const echomask_t wantECHO = 0x10000;    //Echo users data back to him
- static const echomask_t omniPortBit = 0x80000000;  //User defines his own echo mask
- //
- static const int APRSMSGACK = 31;        //These three are for the msgType variable
- static const int APRSMSGTEXT = 32;       // and indicate what kind of message it is.
- static const int APRSMSGQUERY = 33; 
- static const int APRSMSGSERVER = 34;    //SERVER command embedded in a message
+static const echomask_t wantREJECTED = 0x400;   //user wants rejected packets
+static const echomask_t wantSRCHEADER = 0x0800;//User wants Source info header prepended to data
+static const echomask_t wantHTML = 0x1000;     //User wants html server statistics (added in version 2.1.2)
+static const echomask_t wantRAW = 0x2000;      //User wants raw data only
+static const echomask_t sendDUPS = 0x4000;     //if set then don't filter duplicates
+static const echomask_t sendHISTORY = 0x8000;  //if set then history list is sent on connect
+static const echomask_t wantECHO = 0x10000;    //Echo users data back to him
+static const echomask_t omniPortBit = 0x80000000;  //User defines his own echo mask
+//
+static const int APRSMSGACK = 31;        //These three are for the msgType variable
+static const int APRSMSGTEXT = 32;       // and indicate what kind of message it is.
+static const int APRSMSGQUERY = 33;
+static const int APRSMSGSERVER = 34;    //SERVER command embedded in a message
 //-------------------------------------
 
  //Packet types
- static const int APRSMIC_E = 20;
- static const int APRSOBJECT = 9;
- static const int COMMENT = 10;
- static const int APRSID = 11;  //Station ID packet eg: WA4DSY>ID......
- static const int CONTROL = 12; //User control command to configure his port
- static const int NMEA = 100;
- static const int APRS3RDPARTY = 8;
- static const int APRSREFORMATTED = 8;
- static const int APRSQUERY = 7;
- static const int APRSSTATUS = 6;
- static const int APRSTCPXX = 5;
- static const int APRSLOGON = 4;
- static const int APRSMSG = 3;
- static const int APRSWX = 2;
- static const int APRSPOS = 1;
- static const int APRSUNKNOWN = 0;
- static const int APRSREJECT = -1;
-
+static const int APRSMIC_E = 20;
+static const int APRSOBJECT = 9;
+static const int COMMENT = 10;
+static const int APRSID = 11;  //Station ID packet eg: WA4DSY>ID......
+static const int CONTROL = 12; //User control command to configure his port
+static const int NMEA = 100;
+static const int APRS3RDPARTY = 8;
+static const int APRSREFORMATTED = 8;
+static const int APRSQUERY = 7;
+static const int APRSSTATUS = 6;
+static const int APRSTCPXX = 5;
+static const int APRSLOGON = 4;
+static const int APRSMSG = 3;
+static const int APRSWX = 2;
+static const int APRSPOS = 1;
+static const int APRSUNKNOWN = 0;
+static const int APRSREJECT = -1;
+static const int APRSDINFO = 13;
  //Command Types
 
  static const int CMDNULL = 0;
@@ -113,7 +113,8 @@
 
  extern int ttlDefault;    //Make ttlDefault available to other modules
 namespace aprsd {
-using namespace std;
+    using std::string;
+    using std::ostream;
 
 class aprsString: public string
 {  

@@ -26,16 +26,20 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-//#include "constant.h"
+#include <string>
+#include <vector>
+
+#include "constant.h"
 #include "aprsString.h"
 #include "cpqueue.h"
-#include <vector>
+
 
 
 #define BADUSER -1
 #define BADGROUP -2
 #define BADPASSWD -3
 
+using namespace aprsd;
 
 int WriteLog(const std::string& sp, const std::string& LogFile);
 int WriteLog(const char *cp, const char *LogFile);
@@ -51,23 +55,24 @@ void RemoveCtlCodes(char *cp);
 char* StripPath(char* cp);
 bool getMsgDestCall(char *data, char* cp, int n);
 bool getMsgSourceCall(char* data, char* cp, int n);
-char checkUserDeny(string& user);
+char checkUserDeny(std::string& user);
 
 int stricmp(const char* szX, const char* szY);
-void removeHTML(string& sp);
+void removeHTML(std::string& sp);
 
 
-int split(  string& s, string sa[],   int saSize,  const char* delim);
-int freq(string& s, char c);
-void upcase(string& s);
+int split(std::string& s, std::string sa[],   int saSize,  const char* delim);
+int freq(std::string& s, char c);
+void upcase(std::string& s);
 void reformatAndSendMicE(aprsString* inetpacket, cpQueue& sendQueue);
-bool find_rfcall(const string& s, string* rfcall[]);
-bool find_rfcall(const string& s, vector<string*>& rfcall);
+bool CompPattern(const string& s, const string& pattern, int n);
+bool find_rfcall(const std::string& s, std::string* rfcall[]);
+bool find_rfcall(const std::string& s, std::vector<string*>& rfcall);
 
 void strElapsedTime(time_t starttime,  char* timeStr);
 
-unsigned int string_hash(const string& s);
+unsigned int string_hash(const std::string& s);
 void crc_byte(const char data, unsigned int *crc16);
-void makeAlias(string& s);
+void makeAlias(std::string& s);
 
 #endif      // UTILS_H

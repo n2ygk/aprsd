@@ -235,11 +235,11 @@ extern int   msg_cnt;
 //extern double upTime;
 extern int upTime;
 
-extern Mutex pmtxSendFile;
-extern Mutex pmtxSend;
-extern Mutex pmtxAddDelSess;
-extern Mutex pmtxCount;
-extern Mutex pmtxDNS;
+extern RecursiveMutex pmtxSendFile;
+extern RecursiveMutex pmtxSend;
+extern RecursiveMutex pmtxAddDelSess;
+extern RecursiveMutex pmtxCount;
+extern RecursiveMutex pmtxDNS;
 
 
 int initDefaults(void);

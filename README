@@ -69,18 +69,31 @@ README
           Notes:
 
                (1) you can 'cvs logout', but you don't need to.
+
                (2) you don't need to go through this whole
-               process every time; if you want to get a CVS
-               version of aprsd at a later time, you can just
-               'cd ~/<aprsd-source-dir>' and type 'cvs update -A'.
+                   process every time; if you want to get a CVS
+                   version of aprsd at a later time, you can just
+                   'cd ~/<aprsd-source-dir>' and type 'cvs update -A'.
+
                (3) if you experience errors when using 'export',
-               you might be using tclsh or csh as a shell. If so,
-               try using the command 'setenv' instead of 'export':
-               'setenv CVSROOT
+                   you might be using tclsh or csh as a shell. If so,
+                   try using the command 'setenv' instead of 'export':
+                   'setenv CVSROOT
 
      (3) QUICK STARTUP
 
-           *** ToDo ***
+         [To be expanded]
+
+         [Note] aprsd depends on recent versions of gcc and libstdc++ (3.2.x or greater)
+
+         1.  Unpack the tarball (tar xvfz aprsd-<version>.tar.gz)
+         2.  cd aprsd-<version>
+         3.  ./configure
+         4.  make
+         5.  As root make install (installs to /usr/local/bin by default) or run as
+             deamon from build dir (admin).
+         6.  Modify aprsd.conf to reflect your setup and preferences
+         7.  ./aprsd (to run from console) or ./aprsd -d (to run as a deamon)
 
      (4) UPGRADING
 
@@ -88,7 +101,7 @@ README
 
      (5) BORING LEGAL STUFF
 
-          APRSd is Copyright © by Dale A. Heatherington, WA4DSY. 
+          APRSd is Copyright © by Dale A. Heatherington, WA4DSY.
           APRSd is distributed according to the GNU General Public
           License. There should be a copy of this license in the
           file COPYING. If not, write to the Free Software

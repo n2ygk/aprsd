@@ -1,12 +1,22 @@
+2003-10-01  Chuck Byam, KG4IJB
+    - Fixed SEGV on some implementations of NPTL on thread exit
+    - New function utils.cpp:CompPattern
+    - Changed function utils.cpp:find_rfcall
+    - Wildcard support for gate2rf (Hans-Juergen Barthen, DL5DI) see aprsd.conf
+    - Logic bug in SendOnRF fixed again (Hans-Juergen Barthen, DL5DI)
+    - Updated README
+    - Released 2.2.5-15
+
 2003-05-28	Chuck Byam, KG4IJB
 	- ax25 sockets fixed - no really
 	- Released 2.2.5-12
+
 2003-05-18 	Chuck Byam, KG4IJB
 	-  aprspath invalid string
 	-  Released 2.2.5-11
 
 2003-05-17
-    	-  aprspath not being properly set
+	-  aprspath not being properly set
 	-  released 2.2.5-10
 
 2003-05-14	Chuck Byam, KG4IJB

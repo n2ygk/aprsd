@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(aprsd, 2.2.5-12, cbyam@virginia.edu)
+AC_INIT(aprsd, 2.2.5-15, cbyam@virginia.edu)
 AC_CONFIG_AUX_DIR(support)
 AC_CONFIG_SRCDIR([src/aprsd.cpp])
 AM_CONFIG_HEADER([config.h])
@@ -52,7 +52,7 @@ AC_DEFINE(_REENTRANT, 1, Use reentrant code if available.)
 # Checks for library functions.
 AC_FUNC_FORK
 AC_PROG_GCC_TRADITIONAL
-#AC_FUNC_MALLOC
+AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_SELECT_ARGTYPES
 AC_TYPE_SIGNAL

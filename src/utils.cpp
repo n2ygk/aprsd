@@ -39,7 +39,7 @@ using namespace aprsd;
 
 int CountDefault = 7;		   //Max of 7 instances of one call sign in history list
 
-static Mutex pmtxLog;
+static RecursiveMutex pmtxLog;
 
 
 int WriteLog(const string& sp, const string& LogFile)
@@ -402,23 +402,80 @@ void makeAlias(string& s)
 
 //--------------------------------------------------------------------
 /* Return true if string s is in the list cl. 
-   Added wild card support in version 2.1.5 . Thank you VK3SB  */
+   Added wild card support in version 2.1.5 . Thank you VK3SB
+
+   With changes by Hans-Juergen Barthen
+
+    With a small change in utils.cpp it is possible to build real callsign-
+    pattern with wildcards in the config.
+
+    Instead of only having "*" you can use
+
+    $  for one single alpha character
+    #  for one single numeric character
+    .  for one single punctation character
+    ?  for one single alphanumeric character
+    *  for any number and kind of characters (like before)
+
+    Example:
+    Patterns like  "D$#$*" only allow german callsigns (starting with D,
+    followed by 1 alpha, 1 num, 1 alpha and anything else) but it does not
+    match "DALLAS" or something like that which occurs without this change
+    when configuring just "D*"
+
+*/
 
 bool find_rfcall(const string& s, string **cl)
 {
     bool rc = false;
-    int i = 0, pos;
+    int i = 0, pos, plen, slen;
 
-    while((cl[i] != NULL) && (rc == false)) {  
+    slen = (s.length());    // length of s
+
+    while((cl[i] != NULL) && (rc == false)) {   // loop over all patterns
         pos = (cl[i])->find('*');
+        plen = (cl[i])->length();
 
-        if ((pos != 0) && (s.substr(0, pos).compare(cl[i]->substr(0, pos)) == 0))
-            rc = true;
-         
+        if (pos > 0) {
+            if (slen >= pos)
+                rc = CompPattern(s.substr(0, pos),(cl[i]->substr(0, pos)), pos);
+        } else {
+            if (slen == plen)
+                rc = CompPattern(s.substr(0, slen),(cl[i]->substr(0,slen)), slen);
+        }
         i++;
     }
     return rc;
 }
+
+
+// Contributed by Hans-Juergen Barthen
+bool CompPattern( const string& s, const string& pattern, int n)
+{
+    for( int i = 0 ; i < n ; i++) {
+        if (pattern[i] == '#') {
+            if (!isdigit(s[i]))
+                return false;
+        } else if (pattern[i] == '$') {
+            if(!isalpha(s[i]))
+                return false;
+        } else if (pattern[i] == '?') {
+            if(!isalnum(s[i]))
+                return false;
+            } else if (pattern[i] == '.') {
+                if(!ispunct(s[i]))
+                    return false;
+            } else if (pattern[i] == '*')
+                return true;
+        else if (pattern[i] != s[i])
+            return false;
+    }
+    return true;
+}
+
+
+
+
 
 
 //------------------------------------------------------------------
@@ -429,10 +486,10 @@ int stricmp(const char* szX, const char* szY)
     int i;
     int len = strlen(szX);
     char* a = new char[len+1];
-    
-    for (i = 0; i < len; i++) 
+
+    for (i = 0; i < len; i++)
         a[i] = tolower(szX[i]);
-   
+
     a[i] = '\0';
     len = strlen(szY);
     char* b = new char[len+1];
