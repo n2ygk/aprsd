@@ -233,7 +233,7 @@ void fmt(const unsigned char *buf, int len, unsigned char **outbuf)
 {
     static unsigned char buf1[1000];
     char from[10], to[10], digis[100];
-    int i, hadlast;
+    int i, hadlast, l;
     char tmp[15];
 
     *buf1 = '\0';
@@ -255,7 +255,7 @@ void fmt(const unsigned char *buf, int len, unsigned char **outbuf)
     *digis = '\0';
 
     if (!(buf[ALEN] & HDLCAEB)) {       // is there a digipeater path?
-        for (int l = 0, buf += AXLEN, len -= AXLEN, i = 0;
+        for (l = 0, buf += AXLEN, len -= AXLEN, i = 0;
                 i < 6 && len >= 0; i++, len -= AXLEN, buf += AXLEN) {
 
             int nextrept = buf[AXLEN + ALEN] & REPEATED;
