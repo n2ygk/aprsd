@@ -140,11 +140,9 @@ int AsyncClose (void)
 
 bool AsyncReadWrite (char* buf)
 {
-    USHORT i, j;
-    APIRET rc;
+    USHORT i;
     unsigned char c;
     size_t BytesRead;
-    int count = 0;
     bool lineTimeout;
 
     lineTimeout = FALSE;
