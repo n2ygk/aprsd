@@ -534,7 +534,7 @@ void SendToAllClients(TAprsString* p)
                 //    << ends;
 
                 WriteLog(fubarmsg, FUBARLOG);
-                cerr << fubarmsg;
+                //cerr << fubarmsg;
                 delete fubarmsg;
             }
         }
