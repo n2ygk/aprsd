@@ -104,7 +104,6 @@ N6OAA>APRS,GATE,WIDE*:@280144z4425.56N/08513.11W/ "Mitch", Lake City, MI
 */
 
 #define DEBUG
-#define BPLOG
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -553,30 +552,30 @@ void SendToAllClients(TAprsString* p)
         return;
     DBstring = "Top of Error Check"; 
     if ((p->aprsType == APRSERROR) || (p->length() < 3)  ) {
-#ifdef BPLOG
-        if (!((p->find("Sent") <= p->length())
-                || (p->find("has connected") <= p->length())
-                || (p->find("Connection attempt failed") <= p->length())
-                || (p->find("has disconnected") <= p->length())
-                || (p->find("Connected to") <= p->length()))) {
-            if (p->aprsType == APRSERROR) {
-                char *fubarmsg;
-                fubarmsg = new char[2049];
-                memset(fubarmsg, 0, 2049);
-                ostrstream msg(fubarmsg, 2048);
+        if (logBadPackets) {
+            if (!((p->find("Sent") <= p->length())
+                    || (p->find("has connected") <= p->length())
+                    || (p->find("Connection attempt failed") <= p->length())
+                    || (p->find("has disconnected") <= p->length())
+                    || (p->find("Connected to") <= p->length()))) {
+                if (p->aprsType == APRSERROR) {
+                    char *fubarmsg;
+                    fubarmsg = new char[2049];
+                    memset(fubarmsg, 0, 2049);
+                    ostrstream msg(fubarmsg, 2048);
 
-                msg << "FUBARPKT " << p->srcHeader.c_str()
-                    << " " << p->c_str()
-                    << endl
-                    << ends;
+                    msg << "FUBARPKT " << p->srcHeader.c_str()
+                        << " " << p->c_str()
+                        << endl
+                        << ends;
 
-                DBstring = "Write bad packet log";
+                    DBstring = "Write bad packet log";
 
-                WriteLog(fubarmsg, FUBARLOG);
-                delete[] fubarmsg;
+                    WriteLog(fubarmsg, FUBARLOG);
+                    delete[] fubarmsg;
+                }
             }
         }
-#endif
         return;                         // Reject runts and error pkts
     }
     try {
@@ -3341,6 +3340,16 @@ int serverConfig(const string& cf)
                     n = 1;
                 }
 
+                if (cmd.compare("LOGBADPACKETS") == 0) {
+                    upcase(token[1]);
+
+                    if (token[1].compare("YES") == 0)
+                        logBadPackets = true;
+                    else
+                        logBadPackets = false;
+
+                    n = 1;
+                }
                 if (n == 0)
                     cout << "Unknown command: " << Line << endl << flush;
             }
@@ -3888,6 +3897,7 @@ int main(int argc, char *argv[])
     respondToIgateQueries = false;
     respondToAprsdQueries = true;
     broadcastJavaInfo = false;
+    logBadPackets = false;
 
     ackRepeats = 2;                     // Default extra acks to TNC
     ackRepeatTime = 5;                  // Default time between extra acks to TNC in seconds.
