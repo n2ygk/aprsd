@@ -404,7 +404,8 @@ SessionParams* AddSession(int s, int echo)
     try {
         pthread_mutex_lock(pmtxAddDelSess);
         pthread_mutex_lock(pmtxSend);       // Don't add during send, walks on session queue
-        for (i = 0; i < MaxClients; i++)
+        DBstring = "SessionParams - top of loop to find available session";
+	for (i = 0; i < MaxClients; i++)
             if (sessions[i].Socket == -1)
                 break;                      // Find available unused session
 
@@ -416,7 +417,7 @@ SessionParams* AddSession(int s, int echo)
             pthread_mutex_unlock(pmtxCount);
         } else
             rv = NULL;
-
+	DBstring = "SessionParams - completed add";
         pthread_mutex_unlock(pmtxSend);
         pthread_mutex_unlock(pmtxAddDelSess);
         return(rv);
@@ -439,6 +440,7 @@ bool DeleteSession(int s)
     if (s == -1)
         return false;
     try {
+	DBstring = "DeleteSession - top of loop";
         pthread_mutex_lock(pmtxAddDelSess);
         for (i=0; i<MaxClients; i++) {
             if (sessions[i].Socket == s ) {
@@ -456,6 +458,7 @@ bool DeleteSession(int s)
                 rv = true;
             }
         }
+	DBstring = "DeleteSession - out of loop";
         pthread_mutex_unlock(pmtxAddDelSess);
         return(rv);
     }
@@ -475,6 +478,7 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
     try {
         pthread_mutex_lock(pmtxAddDelSess);
 
+	DBstring = "AddSession - top of loop";
         for (i = 0; i<MaxClients; i++) {
             if (sessions[i].Socket == s ) {
                 strncpy(sessions[i].szPeer, szPeer, SZPEERSIZE-1);
@@ -485,6 +489,7 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
                 rv = true;
             }
         }
+	DBstring = "AddSession - out of loop";
 
         pthread_mutex_unlock(pmtxAddDelSess);
         return(rv);
@@ -602,26 +607,32 @@ void SendToAllClients(TAprsString* p)
                     // to accept 10 consecutive packets due to
                     // resource temporarally unavailable errors
                     if (rc == -1) {
-                        if (errno == EAGAIN)
+                        if (errno == EAGAIN) {
                             sessions[i].overruns++;
 			    cerr << "Session overrun\n" << flush;
+			}
                         if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
                             sessions[i].EchoMask = 0;   // No more data for you!
                             sessions[i].dead = true;    // Mark connection as dead for later removal...
                                                         // ...by thread that owns it.
+			    //cerr << "Session dead via excessive overrun or other socket error.\n" << flush;
                         }
                     } else {
+			pthread_mutex_lock(pmtxCount);	// lock mutex before incrementing session counters
                         sessions[i].overruns = 0;       // Clear users overrun counter if he accepted packet
                         sessions[i].bytesOut += rc;     // Add these bytes to his bytesOut total
+			pthread_mutex_unlock(pmtxCount);	// unlock before return
                     }
+		    pthread_mutex_lock(pmtxCount); 	// lock mutex before incrementing counter
                     ccount++;
+		    pthread_mutex_unlock(pmtxCount);
                 }
             }
         }
         DBstring = "SendToAllClients: out of loop";
         pthread_mutex_unlock(pmtxSend);
         pthread_mutex_unlock(pmtxAddDelSess);
-
+	DBstring = "Unlock AddDelSess and Send Mutexes";
 
         /*if ((ccount > 0) && ((p->EchoMask & srcSTATS) == 0)) {
             char *cp = new char[256];
@@ -637,9 +648,11 @@ void SendToAllClients(TAprsString* p)
             DBstring = "SendToAllClients: cp is NULL!";
         }*/
 
+	DBstring = "Lock pmtxCount for bytesSent increment";
         pthread_mutex_lock(pmtxCount);
         bytesSent += (n * ccount);
         pthread_mutex_unlock(pmtxCount);
+	DBstring = "Unlock pmtxCount after bytesSent increment";
 
         /*
             gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
@@ -661,8 +674,10 @@ void SendToAllClients(TAprsString* p)
 // Pushes a character string into the server send queue.
 void BroadcastString(char *cp)
 {
+    DBstring = "BroadcastString - function entrance";
     TAprsString *msgbuf = new TAprsString(cp,SRC_INTERNAL,srcSYSTEM);
     sendQueue.write(msgbuf);            // DeQueue() deletes the *msgbuf
+    DBstring = "BroadcastString - function exit";
     return ;
 }
 
@@ -691,6 +706,7 @@ void *DeQueue(void *)
                                         // 10 (only works if run as root)
 
     while (!ShutDownServer) {
+	DBstring = "Top of DeQueue thread main loop";
         gettimeofday(&tv,&tz);          // Get time of day in microseconds to tv.tv_usec
         usNow = tv.tv_usec + (tv.tv_sec * 1000000);
 
@@ -701,36 +717,44 @@ void *DeQueue(void *)
 
         if ((usNow - usLastTime) >= tncPktSpacing) {  // Once every 1.5 second or user defined
             usLastTime = usNow;
-            if (tncQueue.ready())
-                dequeueTNC();           // Check the TNC queue
-        }
+	    if (tncPresent) {
+            	if (tncQueue.ready())
+                    dequeueTNC();           // Check the TNC queue
+            }
+	}
 
         while (!sendQueue.ready()) {    // Loop here till somethings in the send queue
+	    DBstring = "Top of !sendQueue.ready while loop";
             gettimeofday(&tv,&tz);      // Get time of day in microseconds to tv.tv_usec
             usNow = tv.tv_usec + (tv.tv_sec * 1000000);
             if (usNow < usLastTime)
                 usLastTime = usNow;
 
             t0 = usNow;
-            if ((usNow - usLastTime) >= tncPktSpacing) {  //Once every 1.5 second or user defined
-                usLastTime = usNow;
-                if (tncQueue.ready())
-                    dequeueTNC();       // Check the TNC queue
-            }
-            reliable_usleep(1000);      // 1ms
 
+	    if (tncPresent) {		// only run this if a TNC is actually connected
+		if ((usNow - usLastTime) >= tncPktSpacing) {  //Once every 1.5 second or user defined
+                    usLastTime = usNow;
+                    if (tncQueue.ready())
+                        dequeueTNC();       // Check the TNC queue
+                }
+	    }
+            reliable_usleep(100);      // 1ms  ZPO - try .1ms
             if (ShutDownServer)
                 pthread_exit(0);
+	    DBstring = "Out of 1ms sleep - bottom of !sendQueue.ready while loop";
+
         }
-
+	DBstring = "Get TAprsString off sendQueue - before";
         abuff = (TAprsString*)sendQueue.read(&cmd);  // Read an TAprsString pointer from the queue to abuff
-
+	DBstring = "Get TAprsString off sendQueue - after";
+	
         lastPacket = abuff;             // debug thing
         //dcp = " ";                    // another one
 
         if (abuff != NULL) {
             abuff->dest = destINET;
-
+	    DBstring = "Entrance to dup check";
             dup = false;
             if (!((abuff->EchoMask) & (srcSTATS | srcSYSTEM)))
                 dup  = dupFilter.check(abuff,15);   // Check for duplicates within 15 second window
@@ -745,9 +769,12 @@ void *DeQueue(void *)
                     || (abuff->reformatted))) {                   // No 3rd party reformatted pkts
                 noHist = true;    //None of the above allowed in history list
             } else {
+		DBstring = "Execute GetMaxAgeAndCount - these are constants???";
                 GetMaxAgeAndCount(&MaxAge,&MaxCount);   // Set max ttl and count values
                 abuff->ttl = MaxAge;
+		DBstring = "Add item to history list - before";
                 AddHistoryItem(abuff);  // Put item in history list.
+		DBstring = "Add item to history list - after";
 
                 noHist = false;
             }
@@ -756,9 +783,9 @@ void *DeQueue(void *)
 
             if (dup)
                 abuff->EchoMask |= sendDUPS;    // If it's a duplicate mark it.
-
+	    DBstring = "Execute SendToAllClients";
             SendToAllClients(abuff);    // Send item out on internet
-
+	    DBstring = "Back in main DeQueue flow";
             if (noHist) {
                 delete abuff;           // delete it now if it didn't go to the history list.
                 abuff = NULL;
@@ -855,15 +882,15 @@ void dequeueTNC(void)
             msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
             conQueue.write(cp, 0);
 
-            //pthread_mutex_lock(pmtxCount);
+            pthread_mutex_lock(pmtxCount);
             TotalTNCtxChars += strlen(rfbuf);
-            //pthread_mutex_unlock(pmtxCount);
+            pthread_mutex_unlock(pmtxCount);
 
             if (!tncMute) {
                 if(abuff->reformatted) {
-                    //pthread_mutex_lock(pmtxCount);
+                    pthread_mutex_lock(pmtxCount);
                     msg_cnt++;
-                    //pthread_mutex_lock(pmtxCount);
+                    pthread_mutex_lock(pmtxCount);
                     ostrstream umsg(szUserMsg,UMSG_SIZE-1);
                     umsg << abuff->peer << " " << abuff->user
                         << ": "
@@ -1030,6 +1057,8 @@ void *TCPSessionThread(void *p)
     if (session < 0)
         return NULL;
 
+    DBstring = "TCPSessionThread - basic initialization complete";
+
     pthread_mutex_lock(pmtxCount);
     TotalConnects++;
     pthread_mutex_unlock(pmtxCount);
@@ -1072,7 +1101,9 @@ void *TCPSessionThread(void *p)
 
     data = 1;                           // Set socket for non-blocking
 
+    DBstring = "TCPSessionThread - entering ioctl call";
     ioctl(session,FIONBIO,(char*)&data,sizeof(int));
+    DBstring = "TCPSessionThread - exiting ioctl call";
 
     rc = SendSessionStr(session,SIGNON);
 
@@ -1086,8 +1117,12 @@ void *TCPSessionThread(void *p)
         endSession(session, szPeer, userCall, starttime);
 
     if (EchoMask & sendHISTORY) {
+	DBstring = "TCPSessionThread - call to SendHistory";
+	//cerr << "TCPSessionThread - call to SendHistory.\n" << flush;	// debug stuff
         n = SendHistory(session,(EchoMask & ~(srcSYSTEM | srcSTATS)));  // Send out the previous N minutes of APRS activity
                                                                         // except messages generated by this system.
+	DBstring = "TCPSessionThread - return from SendHistory";
+	//cerr << "TCPSessionThread - return from SendHistory.\n" << flush;	//debug stuff
         if (n < 0) {
             ostrstream msg(szLog,MAX-1);
             msg << szPeer
@@ -1109,7 +1144,10 @@ void *TCPSessionThread(void *p)
     char *pWelcome = new char[strlen(CONFPATH) + strlen(WELCOME) + 1];
     strcpy(pWelcome, CONFPATH);
     strcat(pWelcome, WELCOME);
+    
+    //cerr << "Call to SendFiletoClient.\n" << flush;		// debug stuff
     rc = SendFiletoClient(session, pWelcome);    // Read Welcome message from file
+    //cerr << "Return from SendFiletoClient.\n" << flush;		// debug stuff
 
     if (rc < 0) {
         ostrstream msg(szLog,MAX-1);
@@ -1126,7 +1164,13 @@ void *TCPSessionThread(void *p)
     if (pWelcome != NULL)
         delete[] pWelcome;
 
+    DBstring = "TCPSessionThread - get session pointer via AddSession";
+    //cerr << "TCPSessionThread - get session pointer via Add Session.\n" << flush;	// debug stuff
     SessionParams* sp =  AddSession(session, EchoMask);
+    DBstring = "TCPSessionThread - return with session pointer via AddSession";
+    //cerr << "TCPSessionThread - return with session pointer via Add Session.\n" << flush;	// debug stuff
+
+
 
     if (sp == NULL) {
         rc = SendSessionStr(session,szError);
@@ -1134,7 +1178,7 @@ void *TCPSessionThread(void *p)
             perror("AddSession");
 
         WriteLog("Error, too many users",MAINLOG);
-        //cerr << "Can't find free session.\n" << flush;		// debug stuff
+        cerr << "Can't find free session.\n" << flush;		// debug stuff
 	endSession(session,szPeer,userCall,starttime);
         char *cp = new char[256];
         ostrstream msg(cp,256);
@@ -1205,6 +1249,8 @@ void *TCPSessionThread(void *p)
                 if (errno != EWOULDBLOCK) {
                     BytesRead = 0;      // exit on errors other than EWOULDBLOCK
                     i = 0;
+		    //cerr << "Kill session on socket error.\n" << flush;
+                    endSession(session,szPeer,userCall,starttime);
                 }
 
                 //cerr << "i=" << i << "  chTimer=" << chTimer << "   c=" << c << endl;
@@ -4042,7 +4088,9 @@ int main(int argc, char *argv[])
 
         if ((Time - tLastDel) > 300 ) { // do this every 5 minutes.
                                         // Remove old entrys from history list
+	    pthread_mutex_lock(pmtxAddDelSess);		// debug - attempt 
             int di = DeleteOldItems(5);
+	    pthread_mutex_unlock(pmtxAddDelSess);
 
             if (di > 0)
                 cout << " Deleted " << di << " expired items from history list" << endl << flush;

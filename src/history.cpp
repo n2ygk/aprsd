@@ -518,8 +518,8 @@ histRec* createHistoryArray(TAprsString* hp)
 //
 int SendHistory(int session, int em)
 {
-    int rc,count, i=0;
-    int retrys;
+    int rc,count,bytesSent,avgItemSize, i=0;
+    int retrys, lastretry;
 
     if (pHead == NULL)
         return(0);                      // Nothing to send
@@ -535,6 +535,7 @@ int SendHistory(int session, int em)
 
     int n = hr[0].count;                // n has total number of items
     count = 0;
+    bytesSent = 0;
     float throttle = 150;                // Initial rate  about 50kbaud
     //cerr << " Top of SendHistory Loop.\n" << flush;	// debug stuff
     for (i=0;i < n; i++) {
@@ -543,24 +544,26 @@ int SendHistory(int session, int em)
             count++;                    // Count how many items we actually send
 	    //cerr << "Sending History Item " << count << ".\n" << flush; 	// debug stuff
             size_t dlen  = strlen(hr[i].data);
-            retrys = 0;
+            retrys = lastretry = 0;
 
             do {
                 rc = send(session,(const void*)hr[i].data,dlen,0);  // Send history list item to client
                 reliable_usleep((int)throttle * dlen);       // pace ourself
-
+		bytesSent += dlen;
                 if(rc < 0) {
+		    if (errno == EAGAIN)	// only sleep on overrun
                     sleep(1 );          // Pause output 1 second if resource unavailable
 
-                    if (retrys == 0) {
+                    if (retrys > lastretry) {	// original version would only throttle down once.
+			lastretry = retrys;
                         throttle = throttle * 2; //cut our speed in half
 			//cerr << "SendHistory Throttle Down to" << throttle   //debug stuff
 			//     << ".\n" << flush;
 		    }				
 
-                    if (throttle > 3333) {
-                        throttle = 3333;    // Don't go slower than 2400 baud
-			//cerr << "SendHistory Throttle at Min.\n" << flush;
+                    if (throttle > 4400) {
+                        throttle = 4400;    // Don't go slower than 2400bps line speed (abt 1800bps payload)
+			cerr << "SendHistory Throttle at Min.\n" << flush;
 		    }
                     retrys++;
                 } else
@@ -585,6 +588,8 @@ int SendHistory(int session, int em)
         }
     }
     //cerr << "Out of SendHistory loop.\n" << flush;		// debug stuff
+    avgItemSize = bytesSent/n;
+    //cerr << " Average size of History Item = " << avgItemSize << ".\n" << flush;	//debug stuff
     pthread_mutex_lock(pmtxHistory);
     deleteHistoryArray(hr);
     //cerr << "SendHistory Array deleted.\n" << flush;		// debug stuff
