@@ -94,6 +94,7 @@ using namespace std;
 struct termios initial_settings, new_settings;
 //char *szComPort;
 string szComPort;
+string szAprsPath;
 int msgsn;
 
 const string HOMEDIR("/home/aprsd2");
@@ -571,6 +572,20 @@ int serverConfig(const string& cf)
                     n = 1;
                 }
 
+                if (cmd.compare("APRSPATH") == 0) {
+                    //szAprsPath = (char*)malloc(BUFSIZE);
+                    //szAprsPath[0] = '\0';
+                    szAprsPath = token[1];
+
+                    for (n = 1; n < nTokens; n++) {
+                        szAprsPath += token[n];
+                        szAprsPath += " ";
+                    }
+                    n = 1;
+                    
+                    //cout << "Debug: szAprsPath == " << szAprsPath << endl;
+                }
+
                 if (cmd.compare("MYLOCATION") == 0) {
                     MyLocation = strdup(token[1].c_str());
                     n = 1;
@@ -1009,6 +1024,12 @@ int main(int argc, char *argv[])
             TncBeacon = ostncbc.str();  //TNC beacon (no ax25 path)
         }
 
+        if (szAprsPath.length() > 0) {
+            cout << "APRS packet path = " << szAprsPath << endl;
+            rfSetPath(szAprsPath);
+        }
+
+        
         /*Initialize TNC Com port if specified in config file */
         if (szComPort.length() > 0) {
             cout  << "Opening serial port device " << szComPort << endl;

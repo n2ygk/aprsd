@@ -52,16 +52,17 @@ bool txrdy;
 int CloseAsync, threadAck;
 bool TncSysopMode;                      // Set true when sysop wants direct TNC access
 
-int AsyncPort;
-char* AprsPath;
+//int AsyncPort;
+bool AsyncPort;
+string AprsPath;
 char* ComBaud;
 
 //--------------------------------------------------------------------
 // Set APRS path (before the port is opened)
 //
-void rfSetPath(const char* path)
+void rfSetPath(const string& path)
 {
-    AprsPath = strdup(path);
+    AprsPath = path;
 }
 
 //--------------------------------------------------------------------
@@ -84,6 +85,8 @@ int rfOpen(const string& szPort, const string& baudrate)
     txrdy = false;
     APIRET rc;
 
+    //cout << "Debug: szPort == " << szPort << endl;
+    
     if (AsyncPort) {
         cout << "AsyncPort is true" << endl;
         result = AsyncOpen(szPort, baudrate);

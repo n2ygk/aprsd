@@ -91,11 +91,11 @@ char* pax25 (char*, const unsigned char*);
 //---------------------------------------------------------------------
 // Open the AX.25 sockets
 
-int SocketOpen(const string& rfport, const char *destcall)
+int SocketOpen(const string& rfport, const string& destcall)
 {
     char* portcall;
 
-    if (destcall == NULL) {
+    if (destcall.length() == 0) {
         cerr << "aprsd: no APRSPATH specified, required for sockets" << endl;
         return 1;
     }
@@ -135,7 +135,7 @@ int SocketOpen(const string& rfport, const char *destcall)
         return 1;
     }
 
-    if ((tx_dest_len = ax25_aton(destcall, &tx_dest)) == -1) {
+    if ((tx_dest_len = ax25_aton(destcall.c_str(), &tx_dest)) == -1) {
         cerr << "unable to convert callsign '" << destcall << "'" << endl;
         return 1;
     }

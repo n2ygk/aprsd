@@ -1,3 +1,6 @@
+2003-05-17
+    -  aprspath not being properly set
+    -  released 2.2.5-10
 2003-05-14	Chuck Byam, KG4IJB
 	-  Added bootstrap.sh to CVS.  Will help generate
 	   needed autostuff for CVS builds.

@@ -40,7 +40,7 @@ int rfClose(void);
 int rfSendFiletoTNC(const std::string& szName);
 void* rfReadCom(void* vp);        //Com port read thread
 int rfWrite(const char* cp);
-void rfSetPath(const char *path);
+void rfSetPath(const std::string& path);
 void rfSetBaud(const char *baud);
 
 #endif  // RF_H
