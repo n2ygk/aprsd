@@ -296,7 +296,7 @@ int freq( string& s, char c)
 int split( string& s, string sa[],  int saSize,  const char* delim)
 {
     int wordcount;
-    unsigned start,end;
+    unsigned long start, end;
 
     if (delim == NULL)  
         return 0;
