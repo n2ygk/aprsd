@@ -196,10 +196,10 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
 
         timestamp = time(NULL);
 
-        for (int i = 0;i<MAXPATH;i++)
+        for (int i = 0; i<MAXPATH; i++)
             ax25Path[i] = "";
 
-        for (int i = 0; i< MAXWORDS;i++)
+        for (int i = 0; i< MAXWORDS; i++)
             words[i] = "";
 
         ax25Source = "";
@@ -220,10 +220,10 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             return;
         }
 
-        if ((find("cmd:") == 0 || find("CMD:") == 0)) { // TNC commands
-            aprsType = APRSERROR;
-            return;
-        }
+        //if ((find("cmd:") == 0 || find("CMD:") == 0)) { // TNC commands
+        //    aprsType = APRSERROR;
+        //    return;
+        //}
 
         if ((find("user ") == 0 || find("USER ") == 0)) {   // Must be a logon string
             int n = split(*this, words, MAXWORDS, RXwhite);
@@ -276,6 +276,11 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 AEA = TRUE;
             }
 
+            if (path.find(">") == npos) {   // If there isn't a ">" in the packet
+                aprsType = APRSERROR;         // then it's bogus
+                return;
+            }
+
             if ((pIdx+1) < length())
                 data = substr(pIdx+1,MAXPKT);  //The data portion of the packet
 
@@ -283,21 +288,23 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             if (pathSize >= 2)
                 ax25Dest = ax25Path[1]; // AX25 destination
 
-            	if (ax25Dest.find("cmd:") <= ax25Dest.length()) {
-		    aprsType = APRSERROR;
-		    return;
-	        }
+            if (ax25Dest.find("cmd:") <= ax25Dest.length()) {
+                aprsType = APRSERROR;
+                return;
+            }
 
             if (pathSize >= 1) {
                 ax25Source = ax25Path[0];           //AX25 Source
                 //upcase(ax25Source);
 
-                if (ax25Source.length() > 9) {
+                if ((ax25Source.length() > 10) || (ax25Source.length() < 3)) {
+                    // 10 v 9 to allow for src*
+                    // discard runts
                     aprsType = APRSERROR;
                     //print(cout);
                     return;
                 }
-
+/*
                 if (ax25Source.find("$") <= ax25Source.length()) {
                     aprsType = APRSERROR;
                     return;
@@ -336,6 +343,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     //print(cout);
                     return;
                 }
+*/
             }
             if (data.length() == 0)
                 return;
