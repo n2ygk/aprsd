@@ -26,6 +26,7 @@
 #include "config.h"
 #endif
 
+extern "C" {
 #include <unistd.h>
 #include <stdio.h>
 #include <pthread.h>
@@ -42,6 +43,7 @@
 #include <iostream.h>
 #include <strstream.h>
 #include <iomanip.h>
+}
 
 #include "rf.h"
 #include "serial.h"
@@ -52,6 +54,8 @@
 #include "cpqueue.h"
 #include "history.h"
 #include "queryResp.h"
+
+using namespace std;
 
 struct pidList {
     pid_t main;
@@ -112,7 +116,7 @@ int rfOpen (char *szPort)
 {
     int result;
     AsyncPort = (szPort[0] == '/');
-    TncSysopMode = FALSE;
+    TncSysopMode = false;
     txrdy = 0;
     APIRET rc;
 
@@ -134,8 +138,8 @@ int rfOpen (char *szPort)
     pmtxWriteTNC = new pthread_mutex_t;
     pthread_mutex_init (pmtxWriteTNC, NULL);
 
-    CloseAsync = FALSE;
-    threadAck = FALSE;
+    CloseAsync = false;
+    threadAck = false;
 
     // Now start the serial port reader thread
 
@@ -144,7 +148,7 @@ int rfOpen (char *szPort)
         cerr << "Error: ReadCom thread creation failed. Error code = " << rc
             << endl;
 
-        CloseAsync = TRUE;
+        CloseAsync = true;
     }
     return(0);
 }
@@ -154,8 +158,8 @@ int rfOpen (char *szPort)
 //
 int rfClose(void)
 {
-    CloseAsync = TRUE;                  // Tell the read thread to quit
-    while (threadAck == FALSE)
+    CloseAsync = true;                  // Tell the read thread to quit
+    while (threadAck == false)
         reliable_usleep (1000);                  // wait till it does
 
     pthread_mutex_destroy(pmtxWriteTNC);
@@ -202,7 +206,7 @@ void* rfReadCom (void *vp)
     // unsigned char c;
     // FILE *rxc = (FILE *) vp;
     // size_t BytesRead;
-    bool lineTimeout = FALSE;
+    bool lineTimeout = false;
     TAprsString *abuff;
 
     i = 0;
@@ -224,7 +228,7 @@ void* rfReadCom (void *vp)
         i = strlen((char*)buf);
 
         if ((i > 0) && ((buf[0] != 0x0d) && (buf[0] != 0x0a))) {
-            if (lineTimeout == FALSE) {
+            if (lineTimeout == false) {
                 TotalLines++;
                 buf[i - 1] = 0x0d;
                 buf[i++] = 0x0a;
@@ -257,7 +261,7 @@ void* rfReadCom (void *vp)
 
                     if ((abuff->reformatted)
                         || ((abuff->ax25Source.compare(MyCall) == 0)
-                            && (igateMyCall == FALSE))) {
+                            && (igateMyCall == false))) {
                         delete abuff;        //don't igate packets which have been igated to RF...
                         abuff = NULL;        // ... and/or originated from our own TNC
 
@@ -294,7 +298,7 @@ void* rfReadCom (void *vp)
     }                                // Loop until server is shut down
 
     cerr << "Exiting Async com thread\n" << endl << flush;
-    threadAck = TRUE;
+    threadAck = true;
     pthread_exit(0);
 
     return NULL;

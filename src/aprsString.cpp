@@ -31,16 +31,9 @@
 #endif
 
 extern "C" {
-#include <unistd.h>
-#include <ctype.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <fstream.h>
-#include <iostream.h>
 #include <strstream.h>
-#include <iomanip.h>
-#include <string.h>
-#include <time.h>
 }
 
 #include <string>
@@ -175,8 +168,8 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
         aprsType = APRSUNKNOWN;
         dest = 0;
         instances = 0;
-        reformatted = FALSE;
-        allowdup = FALSE;
+        reformatted = false;
+        allowdup = false;
         msgType = 0;
         sourceSock = s;
         EchoMask = e;
@@ -184,7 +177,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
         next = NULL;
         ttl = ttlDefault;
         timeRF = 0;
-        AEA = FALSE;
+        AEA = false;
         acknum = "";
         query = "";
         lastPositTx = 0;
@@ -275,7 +268,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 replace(0, savepIdx, rsPath);
                 path = rsPath;
 
-                AEA = TRUE;
+                AEA = true;
             }
 
             if (path.find(">") == npos) {   // If there isn't a ">" in the packet
@@ -399,7 +392,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
 
                 case '}' :
                     {
-                        reformatted = TRUE;
+                        reformatted = true;
                         string temp = data.substr(1,MAXPKT);
                         TAprsString reparse(temp);
                         aprsType = reparse.aprsType;
@@ -451,9 +444,9 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             }; // end switch
 
             if (path.find("TCPXX") != npos)
-                tcpxx = TRUE;
+                tcpxx = true;
             else
-                tcpxx = FALSE;
+                tcpxx = false;
         }
         return;
 
@@ -558,10 +551,10 @@ string TAprsString::getAX25Dest(void)
 //---------------------------------------------------------------------------
 bool TAprsString::queryLocal(void)
 {
-    bool localSource = FALSE;
+    bool localSource = false;
 
     if ((EchoMask & srcTNC) && (path.find("GATE*") == npos ) && (freq(path,'*') < 3))
-        localSource = TRUE;
+        localSource = true;
 
     return(localSource);
 }
@@ -570,11 +563,11 @@ bool TAprsString::queryLocal(void)
 // Search ax25path for match with *cp
 bool TAprsString::queryPath(char* cp)
 {
-   bool rc = FALSE;
+   bool rc = false;
 
     for (int i=0;i<pathSize;i++) {
         if (ax25Path[i].compare(cp) == 0) {
-            rc = TRUE;
+            rc = true;
             break;
         }
     }
@@ -601,7 +594,7 @@ void TAprsString::stsmReformat(string& MyCall /*char *mycall*/)
         << "*" << co << data << ends;
 
     data = out;
-    reformatted = TRUE;
+    reformatted = true;
 }
 
 
@@ -662,7 +655,7 @@ void TAprsString::mic_e_Reformat(TAprsString** posit, TAprsString** telemetry)
 //  Returns TRUE if success.
 bool TAprsString::changePath(const char* newPath, const char* oldPath)
 {
-    bool rc = FALSE;
+    bool rc = false;
     int i;
 
     for (i = 0;i<pathSize;i++) {
@@ -670,7 +663,7 @@ bool TAprsString::changePath(const char* newPath, const char* oldPath)
             ax25Path[i] = newPath;
             size_type idx = find(oldPath);
             replace(idx,strlen(oldPath),newPath);
-            rc = TRUE;
+            rc = true;
 
             if (i==1)
                 ax25Dest = newPath;
@@ -721,7 +714,7 @@ INT32 TAprsString::gethash()
                 crc32 = updateCRC32(ax25Source.c_str()[i],crc32);
 
         //If it's a Mic-E also hash the ax25 Destination (really Longitude).
-        if ((aprsType == APRSMIC_E) && (ConvertMicE == FALSE))
+        if ((aprsType == APRSMIC_E) && (ConvertMicE == false))
             for (i=0;i < destlen;i++)
                 crc32 = updateCRC32(ax25Dest.c_str()[i],crc32);
 

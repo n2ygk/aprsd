@@ -39,26 +39,25 @@
 #include "config.h"
 #endif
 
-
+extern "C" {
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <pthread.h>
-
 #include <fstream.h>
 #include <iostream.h>
 #include <strstream.h>
 #include <iomanip.h>
 #include <errno.h>
 #include <unistd.h>
-
 #include <assert.h>
+}
 
 #include "constant.h"
 #include "utils.h"
 #include "history.h"
 
-
+using namespace std;
 
 struct histRec {                        // This is for the History Array
     int count;

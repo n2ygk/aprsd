@@ -27,6 +27,7 @@
 #include "config.h"
 #endif
 
+extern "C" {
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
@@ -44,12 +45,14 @@
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
+}
 
 #include "constant.h"
 #include "utils.h"
 #include "aprsString.h"
 #include "queryResp.h"
+
+using namespace std;
 
 void BroadcastString(char *cp);
 
@@ -84,7 +87,7 @@ void queryResp(int session, const TAprsString* pkt)
     char* cpAck = new char[256];
     ostrstream reply(cp,256);
     ostrstream ack(cpAck,256);
-    bool wantAck = FALSE;
+    bool wantAck = false;
 
     for (int i=0;i<4;i++)
         hip[i] = 0;
@@ -126,9 +129,9 @@ void queryResp(int session, const TAprsString* pkt)
 
     // Send ack only if there was a line number on the end of the query.
     if (pkt->acknum.length() == 0)
-        wantAck = FALSE;
+        wantAck = false;
     else
-        wantAck = TRUE;
+        wantAck = true;
 
     char sourceCall[] = "         ";    // 9 blanks
     int i = 0;

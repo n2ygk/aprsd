@@ -26,6 +26,7 @@
 #include "config.h"
 #endif
 
+extern "C" {
 #include <unistd.h>
 #include <stdio.h>
 #include <pthread.h>
@@ -43,7 +44,7 @@
 #include <iostream.h>
 #include <strstream.h>
 #include <iomanip.h>
-
+}
 #include "constant.h"
 #include "serial.h"
 #include "utils.h"
@@ -145,7 +146,7 @@ bool AsyncReadWrite (char* buf)
     size_t BytesRead;
     bool lineTimeout;
 
-    lineTimeout = FALSE;
+    lineTimeout = false;
 
     i = 0;
 
@@ -161,7 +162,7 @@ bool AsyncReadWrite (char* buf)
 
         if (BytesRead == 0) {           // Serial input timeout
             if (i > 0)
-                lineTimeout = TRUE;     // We have some data but none has arrived lately.
+                lineTimeout = true;     // We have some data but none has arrived lately.
         }
 
         TotalTncChars += BytesRead;
@@ -180,7 +181,7 @@ bool AsyncReadWrite (char* buf)
         } else
             c = 0;
 
-    } while (((int)c != 0x0a) && ((int)c != 0x0d) && (lineTimeout == FALSE));
+    } while (((int)c != 0x0a) && ((int)c != 0x0d) && (lineTimeout == false));
 
     buf[i] = '\0';
 
@@ -205,7 +206,7 @@ int AsyncSendFiletoTNC (char *szName)
     const int maxToken = 15;
 
     ifstream file (szName);
-    if (file.is_open () == FALSE) {
+    if (file.is_open () == false) {
         cerr << "Can't open " << szName << endl << flush;
         return -1;
     }

@@ -18,6 +18,12 @@ APRSD_MISC_TESTS
 CHECK_AX25
 CHECK_FHS
 
+AC_DEFINE(_GNU_SOURCE, 1, [This is GNU compliant source.  Use GNU extensions.])
+AC_CHECK_HEADERS(unistd.h fcntl.h time.h sys/time.h sys/select.h sys/socket.h)
+AC_CHECK_HEADERS(sys/resource.h getop.h)
+APRSD_CHECK_TYPE(socklen_t, int, sys/socket.h)
+APRSD_CHECK_TYPE(sa_family_t, unsigned short, sys/socket.h)
+
 dnl Perform program name transformation
 AC_ARG_PROGRAM
 

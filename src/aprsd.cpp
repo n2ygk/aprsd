@@ -109,26 +109,10 @@ N6OAA>APRS,GATE,WIDE*:@280144z4425.56N/08513.11W/ "Mitch", Lake City, MI
 #include "config.h"
 #endif
 
+extern "C" {
 #include <termios.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <signal.h>
-
-#include <assert.h>
-#include <time.h>
-#include <sys/timeb.h>
-#include <sys/time.h>
-
-#include <stdio.h>
-#include <ctype.h>
-
-#include <sys/stat.h>
-#include <fcntl.h>
-
-#include <string.h>
-#include <string>
-
-#include <math.h>
 #include <stdlib.h>
 
 #include <fstream.h>
@@ -136,19 +120,21 @@ N6OAA>APRS,GATE,WIDE*:@280144z4425.56N/08513.11W/ "Mitch", Lake City, MI
 #include <strstream.h>
 #include <iomanip.h>
 
-#include <linux/kernel.h>
-#include <linux/sys.h>
-#include <sys/resource.h>
-
-//tcpip header files
-
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include <netdb.h>
+#include <netdb.h>                      // gethostbyname2_r
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <errno.h>
+
+#include <sys/time.h>
+
+#include <stdio.h>
+#include <fcntl.h>                      // umask
+}
+
+#include <string>
+
 
 #include "dupCheck.h"
 #include "cpqueue.h"
@@ -174,10 +160,10 @@ using namespace std;
 //---------------------------------------------------
 extern int dumpAborts;                  // Number of history dumps aborted
 extern int ItemCount;	                // number of items in History list
-cpQueue sendQueue(256,TRUE);            // Internet transmit queue
-cpQueue tncQueue(64,TRUE);              // TNC RF transmit queue
-cpQueue charQueue(256,FALSE);           // A queue of single characters
-cpQueue conQueue(256,TRUE);             // data going to the console from various threads
+cpQueue sendQueue(1024,true);            // Internet transmit queue
+cpQueue tncQueue(64,true);              // TNC RF transmit queue
+cpQueue charQueue(256,false);           // A queue of single characters
+cpQueue conQueue(256,true);             // data going to the console from various threads
 
 string MyCall;
 //char *MyLocation;
@@ -373,7 +359,7 @@ int aprsStreamRate, serverLoad;         // Server statistics
 int tncStreamRate;
 double upTime;
 
-bool RF_ALLOW = FALSE;                  // TRUE to allow Internet to RF message passing.
+bool RF_ALLOW = false;                  // TRUE to allow Internet to RF message passing.
 
 //--------------------------------------------------------------------------------------------
 ConnectParams cpIGATE[maxIGATES];
@@ -434,9 +420,9 @@ SessionParams* AddSession(int s, int echo)
     if (i < MaxClients) {
         rv = &sessions[i];
         initSessionParams(rv,s,echo);
-        pthread_mutex_lock(pmtxCount);
+        //pthread_mutex_lock(pmtxCount);
         ConnectedClients++;
-        pthread_mutex_unlock(pmtxCount);
+        //pthread_mutex_unlock(pmtxCount);
     } else
         rv = NULL;
 
@@ -450,10 +436,10 @@ SessionParams* AddSession(int s, int echo)
 bool DeleteSession(int s)
 {
     int i = 0;
-    bool rv = FALSE;
+    bool rv = false;
 
     if (s == -1)
-        return FALSE;
+        return false;
 
     pthread_mutex_lock(pmtxAddDelSess);
     for (i=0; i<MaxClients; i++) {
@@ -461,15 +447,15 @@ bool DeleteSession(int s)
             sessions[i].Socket = -1;
             sessions[i].EchoMask = 0;
             sessions[i].pid = 0;
-            sessions[i].dead = TRUE;
-            pthread_mutex_lock(pmtxCount);
+            sessions[i].dead = true;
+            //pthread_mutex_lock(pmtxCount);
             ConnectedClients--;
-            pthread_mutex_unlock(pmtxCount);
+            //pthread_mutex_unlock(pmtxCount);
 
             if ( ConnectedClients < 0)
                 ConnectedClients = 0;
 
-            rv = TRUE;
+            rv = true;
         }
     }
     pthread_mutex_unlock(pmtxAddDelSess);
@@ -480,7 +466,7 @@ bool DeleteSession(int s)
 bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, const char* pgmVers)
 {
     int i = 0;
-    bool rv = FALSE;
+    bool rv = false;
 
     pthread_mutex_lock(pmtxAddDelSess);
 
@@ -491,7 +477,7 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
             sessions[i].ServerPort = port;
             strncpy(sessions[i].pgmVers,pgmVers,PGMVERSSIZE-1);
             sessions[i].pid = getpid();
-            rv = TRUE;
+            rv = true;
         }
     }
 
@@ -561,31 +547,31 @@ void SendToAllClients(TAprsString* p)
     for (int i=0; i<MaxClients; i++) {
         if (sessions[i].Socket != -1) {
             bool dup, wantdups, wantsrcheader;
-            dup = wantdups = wantsrcheader = FALSE ;
+            dup = wantdups = wantsrcheader = false ;
 
             if (p->EchoMask & sendDUPS)
-                dup = TRUE;             // This packet is a duplicate
+                dup = true;             // This packet is a duplicate
 
             if (sessions[i].EchoMask & sendDUPS)
-                wantdups = TRUE;        // User wants duplicates
+                wantdups = true;        // User wants duplicates
 
             if (sessions[i].EchoMask & wantSRCHEADER)
-                wantsrcheader = TRUE;   // User wants IP source header
+                wantsrcheader = true;   // User wants IP source header
 
             int Em = p->EchoMask & 0x1ff;   // Mask off non-source determining bits
 
             if ((sessions[i].EchoMask & Em) // Echo inet data if source mask bits match
                     && (p->sourceSock != sessions[i].Socket) // no echo to original sender
-                    && (ShutDownServer == FALSE)
-                    && ((dup == FALSE) || (wantdups))) { //dups filtered (or not)
+                    && (ShutDownServer == false)
+                    && ((dup == false) || (wantdups))) { //dups filtered (or not)
 
                 rc = 0;
                 if (sessions[i].EchoMask & wantRAW) {  //User wants raw data?
                     rc = send(sessions[i].Socket,p->raw.c_str(),nraw,0); //Raw data to clients
                 } else {
-                    if ((p->reformatted == FALSE)  // No 3rd party reformatted packets allowed
-                            && (wantsrcheader == FALSE) // This guy doesn't want the IP source header prepended
-                            && (dup == FALSE)) {        // No duplicates
+                    if ((p->reformatted == false)  // No 3rd party reformatted packets allowed
+                            && (wantsrcheader == false) // This guy doesn't want the IP source header prepended
+                            && (dup == false)) {        // No duplicates
                         rc = send(sessions[i].Socket,p->c_str(),n,0); // Cooked data to clients (normal mode)
                     }
 
@@ -607,7 +593,7 @@ void SendToAllClients(TAprsString* p)
 
                     if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
                         sessions[i].EchoMask = 0;   // No more data for you!
-                        sessions[i].dead = TRUE;    // Mark connection as dead for later removal...
+                        sessions[i].dead = true;    // Mark connection as dead for later removal...
                                                     // ...by thread that owns it.
                     }
                 } else {
@@ -637,9 +623,9 @@ void SendToAllClients(TAprsString* p)
            DBstring = "SendToAllClients: cp is NULL!";
     }
 
-    pthread_mutex_lock(pmtxCount);
+    //pthread_mutex_lock(pmtxCount);
     bytesSent += (n * ccount);
-    pthread_mutex_unlock(pmtxCount);
+    //pthread_mutex_unlock(pmtxCount);
 
     /*
         gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
@@ -724,7 +710,7 @@ void *DeQueue(void *)
         if (abuff != NULL) {
             abuff->dest = destINET;
 
-            dup = FALSE;
+            dup = false;
             if (!((abuff->EchoMask) & (srcSTATS | srcSYSTEM)))
                 dup  = dupFilter.check(abuff,15);   // Check for duplicates within 15 second window
 
@@ -736,7 +722,7 @@ void *DeQueue(void *)
                     || (abuff->EchoMask & (srcSTATS | srcSYSTEM)) // No internally generated packets
                     || (dup)                                      // No duplicates
                     || (abuff->reformatted))) {                   // No 3rd party reformatted pkts
-                noHist = TRUE;    //None of the above allowed in history list
+                noHist = true;    //None of the above allowed in history list
                 //if (abuff->aprsType == APRSUNKNOWN)
                     //pthread_mutex_lock(pmtxCount);
                     //error_cnt++;
@@ -747,7 +733,7 @@ void *DeQueue(void *)
                 abuff->ttl = MaxAge;
                 AddHistoryItem(abuff);  // Put item in history list.
 
-                noHist = FALSE;
+                noHist = false;
             }
 
             //if(abuff->EchoMask & sendDUPS) printf("EchoMask sendDUPS bit is set\n");
@@ -778,7 +764,7 @@ void *ACKrepeaterThread(void *p)
     TAprsString *paprs;
     paprs = (TAprsString*)p;
     TAprsString *abuff = new TAprsString(*paprs);
-    abuff->allowdup = TRUE;             // Bypass the dup filter!
+    abuff->allowdup = true;             // Bypass the dup filter!
     paprs->ttl = 0;                     // Flag tells caller we're done with it.
 
     for (int i=0 ;i<ackRepeats;i++) {
@@ -809,8 +795,8 @@ void dequeueTNC(void)
     if (abuff == NULL)
         return;
 
-    if ((RF_ALLOW == FALSE)             // See if sysop allows Internet to RF traffic
-            && ((abuff->EchoMask & srcUDP) == FALSE)){  // UDP packets excepted
+    if ((RF_ALLOW == false)             // See if sysop allows Internet to RF traffic
+            && ((abuff->EchoMask & srcUDP) == false)){  // UDP packets excepted
         delete abuff;                   // No RF permitted, delete it and return.
         return;
     }
@@ -830,7 +816,7 @@ void dequeueTNC(void)
 
     if (rfbuf != NULL) {
         if (tncPresent ) {
-            if ((abuff->allowdup == FALSE)              // Prevent infinite loop!
+            if ((abuff->allowdup == false)              // Prevent infinite loop!
                     && (abuff->msgType == APRSMSGACK)   // Only ack packets
                     && (ackRepeats > 0) ) {             // Only if repeats greater than zero
                 abuff->ttl = 1;                         // Mark it as unprocessed (ttl serves double duty here)
@@ -853,15 +839,15 @@ void dequeueTNC(void)
             msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
             conQueue.write(cp, 0);
 
-            pthread_mutex_lock(pmtxCount);
+            //pthread_mutex_lock(pmtxCount);
             TotalTNCtxChars += strlen(rfbuf);
-            pthread_mutex_unlock(pmtxCount);
+            //pthread_mutex_unlock(pmtxCount);
 
             if (!tncMute) {
                 if(abuff->reformatted) {
-                    pthread_mutex_lock(pmtxCount);
+                    //pthread_mutex_lock(pmtxCount);
                     msg_cnt++;
-                    pthread_mutex_lock(pmtxCount);
+                    //pthread_mutex_lock(pmtxCount);
                     ostrstream umsg(szUserMsg,UMSG_SIZE-1);
                     umsg << abuff->peer << " " << abuff->user
                         << ": "
@@ -1010,7 +996,7 @@ void *TCPSessionThread(void *p)
     const char *szUserStatus;
     unsigned char c;
     unsigned adr_size = sizeof(peer_adr);
-    int n, rc,data,verified=FALSE, loggedon=FALSE;
+    int n, rc,data,verified=false, loggedon=false;
     ULONG State = BASE;
     char userCall[10];
     char* tc;
@@ -1164,7 +1150,7 @@ void *TCPSessionThread(void *p)
         MaxConnects = ConnectedClients;
 
     iac = 0;
-    sbEsc = FALSE;
+    sbEsc = false;
 
     do {
         /*
@@ -1212,12 +1198,12 @@ void *TCPSessionThread(void *p)
             }
 
             if (i != -1) {              // Got a real character from the net
-                if (loggedon == FALSE) {
-                    if ((c == IAC) && (sbEsc == FALSE))
+                if (loggedon == false) {
+                    if ((c == IAC) && (sbEsc == false))
                         iac = 3;        // This is a Telnet IAC byte.  Ignore the next 2 chars
 
                     if ((c == SB) && (iac == 2))
-                        sbEsc = TRUE;   // SB is suboption begin.
+                        sbEsc = true;   // SB is suboption begin.
                 }                       // Ignore everything until SE, suboption end.
 
                 // printhex(&c,1);  //debug
@@ -1227,14 +1213,14 @@ void *TCPSessionThread(void *p)
                 bool cLFCR =  (( c == LF) || ( c == CR));
                 bool rejectCH = (((BytesRead == 0) && cLFCR) || (c == 0)) ;  //also discard NULLs
 
-                if ((rejectCH == FALSE) && (iac == 0)) {
+                if ((rejectCH == false) && (iac == 0)) {
                     if (BytesRead < BUFSIZE-3)
                         buf[BytesRead] = c;
 
                     BytesRead += i;
 
                     // Only enable control char interpreter if user is NOT logged on in client mode
-                    if (loggedon == FALSE) {
+                    if (loggedon == false) {
                         switch (c) {
                             case 0x04:  // Control-D = disconnect
                                 i = 0;
@@ -1268,8 +1254,8 @@ void *TCPSessionThread(void *p)
                                         WriteLog(szLog,MAINLOG);
                                     }
 
-                                    tncMute = FALSE;
-                                    TncSysopMode = FALSE;
+                                    tncMute = false;
+                                    TncSysopMode = false;
                                     State = BASE;   // <ESC>Turn off remote
                                     rc = SendSessionStr(session,"\r\n200 Exit remote mode successfull\r\n");
 
@@ -1283,7 +1269,7 @@ void *TCPSessionThread(void *p)
                                 //i = 0;
                                 break;
                         }; // switch
-                    } //end if (loggedon==FALSE)
+                    } //end if (loggedon==false)
 
                     if ((State == REMOTE) && (c != 0x1b) && (c != 0x0) && (c != 0x0a)) {
                         char chbuf[2];
@@ -1295,13 +1281,13 @@ void *TCPSessionThread(void *p)
             } else
                 c = 0;
 
-            if (loggedon == FALSE) {
+            if (loggedon == false) {
                 if (c == SE) {
-                    sbEsc = FALSE;
+                    sbEsc = false;
                     iac = 0;
                 }  // End of telnet suboption string
 
-                if (sbEsc == FALSE)
+                if (sbEsc == false)
                     if(iac-- <= 0)
                         iac = 0;        // Count the bytes in the Telnet command string
             }
@@ -1343,7 +1329,7 @@ void *TCPSessionThread(void *p)
             }
 
             if (State == BASE) {        // Internet to RF messaging handler
-                bool sentOnRF=FALSE;
+                bool sentOnRF=false;
 
                 TAprsString atemp(buf,session,srcUSER,szPeer,userCall);
 
@@ -1368,9 +1354,9 @@ void *TCPSessionThread(void *p)
                 unsigned idxInvalid=0;
 
                 if (atemp.aprsType == APRSLOGON) {
-                    loggedon = TRUE;
+                    loggedon = true;
 
-                    verified = FALSE;
+                    verified = false;
 
                     vd = atemp.user + atemp.pass ;
 
@@ -1380,7 +1366,7 @@ void *TCPSessionThread(void *p)
                             && (atemp.pass.length() <= 15)) {
 
                         if (validate(atemp.user.c_str(), atemp.pass.c_str(),APRSGROUP, APRS_PASS_ALLOW) == 0)
-                            verified = TRUE;
+                            verified = true;
                     } else {
                         if (idxInvalid != string::npos) {
                             char *cp = new char[256];
@@ -1405,7 +1391,7 @@ void *TCPSessionThread(void *p)
                     if (verified) {
                         szUserStatus = szVERIFIED ;
                         if (sp)
-                            sp->vrfy = TRUE;
+                            sp->vrfy = true;
                     } else
                         szUserStatus = szUNVERIFIED;
 
@@ -1514,7 +1500,7 @@ void *TCPSessionThread(void *p)
                 bool RFalways = find_rfcall(atemp.ax25Source,rfcall);
 
                 if ( verified  && (!RFalways) && (atemp.aprsType == APRSMSG) && (checkdeny == '+')) {
-                    sentOnRF = FALSE;
+                    sentOnRF = false;
                     atemp.changePath("TCPIP*","TCPIP");
 
                     sentOnRF = sendOnRF(atemp,szPeer,userCall,srcUSERVALID);    // Send on RF if dest local
@@ -1567,14 +1553,14 @@ void *TCPSessionThread(void *p)
 
                     inetpacket->changePath("TCPIP*","TCPIP") ;
 
-                    if (inetpacket->changePath("TCPXX*","TCPIP*") == FALSE)
+                    if (inetpacket->changePath("TCPXX*","TCPIP*") == false)
                         inetpacket->EchoMask = 0;       // No tcpip echo if no TCPXX* in path;
 
                     //inetpacket->print(cout);  //debug
                     sendQueue.write(inetpacket);        // note: inetpacket is deleted in DeQueue
                 }
 
-                if ((atemp.aprsType == APRSMSG) && (RFalways == FALSE) ) {
+                if ((atemp.aprsType == APRSMSG) && (RFalways == false) ) {
                     TAprsString* posit = getPosit(atemp.ax25Source,srcIGATE | srcUSERVALID | srcTNC);
                     if (posit != NULL) {
                         posit->EchoMask = src3RDPARTY;
@@ -1586,8 +1572,8 @@ void *TCPSessionThread(void *p)
                 if (configComplete
                         && verified
                         && RFalways
-                        && (StationLocal(atemp.ax25Source.c_str(),srcTNC) == FALSE)
-                        && (atemp.tcpxx == FALSE)
+                        && (StationLocal(atemp.ax25Source.c_str(),srcTNC) == false)
+                        && (atemp.tcpxx == false)
                         && (checkdeny == '+')) {
 
                     TAprsString* RFpacket = new TAprsString(buf,session,srcUSER,szPeer,userCall);
@@ -1631,7 +1617,7 @@ void *TCPSessionThread(void *p)
                 else
                     szPass[15] = '\0';
 
-                bool verified_tnc = FALSE;
+                bool verified_tnc = false;
                 unsigned idxInvalid=0;
 
                 int valid = -1;
@@ -1663,14 +1649,14 @@ void *TCPSessionThread(void *p)
                 }
 
                 if (valid == 0)
-                    verified_tnc = TRUE;
+                    verified_tnc = true;
 
                 if (verified_tnc) {
-                    if (TncSysopMode == FALSE) {
-                        TncSysopMode = TRUE;
+                    if (TncSysopMode == false) {
+                        TncSysopMode = true;
 
                         State = REMOTE;
-                        tncMute = TRUE;
+                        tncMute = true;
                         rc = SendSessionStr(session,"\r\n230 Login successful. <ESC> to exit remote mode.\r\n");
 
                         if (rc < 0)
@@ -1751,8 +1737,8 @@ void *TCPSessionThread(void *p)
     } while (BytesRead != 0);   // Loop back and get another line from remote user.
 
     if (State == REMOTE) {
-        tncMute = FALSE;
-        TncSysopMode = FALSE;
+        tncMute = false;
+        TncSysopMode = false;
     }
 
     endSession(session,szPeer,userCall,starttime);
@@ -1789,7 +1775,7 @@ void *TCPServerThread(void *p)
 
     if (s == 0) {
         perror("TCPServerThread socket error");
-        ShutDownServer = TRUE;
+        ShutDownServer = true;
         return NULL;
     }
 
@@ -1802,7 +1788,7 @@ void *TCPServerThread(void *p)
 
     if (bind(s,(struct sockaddr *)&server, sizeof(server)) <  0) {
         perror("TCPServerThread bind error");
-        ShutDownServer = TRUE;
+        ShutDownServer = true;
         return NULL;
     }
 
@@ -1883,7 +1869,7 @@ void *UDPServerThread(void *p)
     */
     if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("Failed to create datagram socket");
-        ShutDownServer = TRUE;
+        ShutDownServer = true;
         return NULL;
     }
 
@@ -1904,7 +1890,7 @@ void *UDPServerThread(void *p)
 
     if (bind(s, (struct sockaddr *)&server, sizeof(server)) < 0) {
         perror("Datagram socket bind error");
-        ShutDownServer = TRUE;
+        ShutDownServer = true;
         return NULL;
     }
 
@@ -1914,14 +1900,14 @@ void *UDPServerThread(void *p)
         client_address_size = sizeof(client);
         i = recvfrom(s, buf, UDPSIZE, 0, (struct sockaddr *) &client, &client_address_size) ; //Get client udp data
 
-        bool sourceOK = FALSE;
+        bool sourceOK = false;
         int n=0;
         do {                            // look for clients IP address in list of trusted addresses.
             long maskedTrusted = Trusted[n].sin_addr.s_addr & Trusted[n].sin_mask.s_addr;
             long maskedClient = client.sin_addr.s_addr & Trusted[n].sin_mask.s_addr;
-            if(maskedClient == maskedTrusted) sourceOK = TRUE;
+            if(maskedClient == maskedTrusted) sourceOK = true;
             n++;
-        } while ((n < nTrusted) && (sourceOK == FALSE)) ;
+        } while ((n < nTrusted) && (sourceOK == false)) ;
 
         if (sourceOK && configComplete && (i > 0)) {
             if (buf[i-1] != '\n')
@@ -1972,7 +1958,7 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
     bool abort;
 
     timeout = timeoutMax;
-    abort = FALSE;
+    abort = false;
 
     do {
         c = -1;
@@ -1980,22 +1966,22 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
         i = recv(sock, &c, 1, 0);       // get 1 byte into c
 
         if (i == 0)
-            abort = TRUE;               // recv returns ZERO when remote host disconnects
+            abort = true;               // recv returns ZERO when remote host disconnects
 
         if (i == -1) {
             *err = errno;
 
-            if ((*err != EWOULDBLOCK) || (ShutDownServer == TRUE)) {
+            if ((*err != EWOULDBLOCK) || (ShutDownServer == true)) {
                 BytesRead = 0;
                 i = -2;
-                abort = TRUE;           // exit on errors other than EWOULDBLOCK
+                abort = true;           // exit on errors other than EWOULDBLOCK
             }
 
             sleep(1);                   // Wait 1 sec. Don't hog cpu while in loop awaiting data
 
             if (timeout-- <= 0) {
                 i = 0;
-                abort = TRUE;           // Force exit if timeout
+                abort = true;           // Force exit if timeout
             }
 
             //cout << timeout << " Waiting...  abort= " << abort << "\n";  //debug code
@@ -2007,7 +1993,7 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
             bool cLFCR =  (( c == LF) || ( c == CR));   // TRUE if c is a LF or CR
             bool rejectCH = (((BytesRead == 0) && cLFCR ) || (c == 0)) ;
 
-            if ((BytesRead < (n - 3)) && (rejectCH == FALSE)) {
+            if ((BytesRead < (n - 3)) && (rejectCH == false)) {
                 // reject if LF or CR is first on line or it's a NULL
                 if ((c >= 0x20) || (c <= 0x7e)) {
                     buf[BytesRead] = (char)c;   // and discard data that runs off the end of the buffer
@@ -2017,12 +2003,12 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
             }
         }
 
-    } while ((c != CR) && (c != LF) && (abort == FALSE));   // Loop while c is not CR or LF
+    } while ((c != CR) && (c != LF) && (abort == false));   // Loop while c is not CR or LF
                                                             // And no socket errors or timeouts
 
     //cerr << "Bytes received=" << BytesRead << " abort=" << abort << endl;   //debug code
     
-    if ((BytesRead > 0) && (abort == FALSE) ) {     // 1 or more bytes needed
+    if ((BytesRead > 0) && (abort == false) ) {     // 1 or more bytes needed
         i = BytesRead -1 ;
         buf[i++] = (char)CR;            // make end-of-line CR-LF
         buf[i++] = (char)LF;
@@ -2066,7 +2052,7 @@ ConnectParams* getNextHub(ConnectParams* pcp)
 
     if (cpIGATE[i].hub) {
         cpIGATE[i].pid = getpid();
-        cpIGATE[i].connected = FALSE;
+        cpIGATE[i].connected = false;
         cpIGATE[i].bytesIn = 0;
         cpIGATE[i].bytesOut = 0;
         cpIGATE[i].starttime = time(NULL);
@@ -2109,12 +2095,12 @@ void *TCPConnectThread(void *p)
     int retryTimer;
     ConnectParams *pcp = (ConnectParams*)p;
     int err;
-    bool gotID = FALSE;
+    bool gotID = false;
     time_t connectTime = 0;
     bool hubConn = pcp->hub;            // Mark this as an IGATE or HUB connection
 
     pcp->pid = getpid();
-    pcp->connected = FALSE;
+    pcp->connected = false;
     pcp->bytesIn = 0;
     pcp->bytesOut = 0;
     pcp->starttime = time(NULL);
@@ -2172,11 +2158,11 @@ void *TCPConnectThread(void *p)
                     conQueue.write(cp,0);
                 }
 
-                gotID = FALSE;
+                gotID = false;
                 state = 0;
             } else {
                 state++;
-                pcp->connected = TRUE;
+                pcp->connected = true;
                 pcp->starttime = time(NULL);
                 pcp->bytesIn = 0;
                 pcp->bytesOut = 0;
@@ -2264,7 +2250,7 @@ void *TCPConnectThread(void *p)
                     if (!gotID) {
                         if (buf[0] == '#') {    // First line starting with '#' should be the program name and version
                             strncpy(remoteIgateInfo,buf,255);   // This gets used in the html status web page function
-                            gotID = TRUE;
+                            gotID = true;
                             pcp->remoteIgateInfo = remoteIgateInfo;
                         }
                         cerr << pcp->RemoteName << ":" << remoteIgateInfo ; //Debug
@@ -2309,7 +2295,7 @@ void *TCPConnectThread(void *p)
                     */
 
                     if ((atemp.aprsType == APRSMSG)
-                            && (atemp.tcpxx == FALSE)
+                            && (atemp.tcpxx == false)
                             && configComplete
                             && (!RFalways)) {
 
@@ -2363,8 +2349,8 @@ void *TCPConnectThread(void *p)
 
                     if(configComplete
                             && RFalways
-                            && (StationLocal(atemp.ax25Source.c_str(),srcTNC) == FALSE)
-                            && (atemp.tcpxx == FALSE)) {
+                            && (StationLocal(atemp.ax25Source.c_str(),srcTNC) == false)
+                            && (atemp.tcpxx == false)) {
 
                         TAprsString* RFpacket = new TAprsString(buf,clientSocket,srcIGATE,pcp->RemoteName,"IGATE");
                         RFpacket->changePath("TCPIP*","TCPIP");
@@ -2408,10 +2394,10 @@ void *TCPConnectThread(void *p)
 
             pthread_mutex_unlock(pmtxSend);
 
-            pcp->connected = FALSE;     // set status to unconnected
+            pcp->connected = false;     // set status to unconnected
             connectTime = time(NULL) - pcp->starttime ;     // Save how long the connection stayed up
             pcp->starttime = time(NULL);    // reset elapsed timer
-            gotID = FALSE;              // Force new aquisition of ID string next time we connect
+            gotID = false;              // Force new aquisition of ID string next time we connect
 
             ostrstream os(szLog,MAX);
             os << "Disconnected " << pcp->RemoteName
@@ -2430,7 +2416,7 @@ void *TCPConnectThread(void *p)
 
         //cerr << pcp->RemoteName << " retryTimer= " <<  retryTimer << endl;
 
-        gotID = FALSE;
+        gotID = false;
         sleep(retryTimer);
         retryTimer *= 2;                // Double retry time delay if next try is unsuccessful
 
@@ -2442,7 +2428,7 @@ void *TCPConnectThread(void *p)
             pcp = getNextHub(pcp);
             retryTimer = 60;            // Try next hub in 60 sec
         }
-    } while(ShutDownServer == FALSE);
+    } while(ShutDownServer == false);
 
     pthread_exit(0);
 }
@@ -2553,6 +2539,8 @@ char* getStats()
     aprsStreamRate =  (TotalTncChars + TotalIgateChars
                          + TotalUserChars - last_chars) / (time_now - last_time);
 
+    pthread_mutex_unlock(pmtxCount);
+
     tncStreamRate = (TotalTncChars - last_tnc_chars) / (time_now - last_time);
 
     serverLoad =  bytesSent / (time_now - last_time);
@@ -2586,7 +2574,7 @@ char* getStats()
 
     bytesSent = 0;                      // Reset this
 
-    pthread_mutex_unlock(pmtxCount);
+    //pthread_mutex_unlock(pmtxCount);
 
     return(cbuf);  // cbuf deleted by calling function... or should be :)
 }
@@ -2596,7 +2584,7 @@ char* getStats()
 //
 void resetCounters()
 {
-    pthread_mutex_lock(pmtxCount);
+    //pthread_mutex_lock(pmtxCount);
     dumpAborts = 0;
     sendQueue.overrun = 0 ;
     tncQueue.overrun = 0 ;
@@ -2606,7 +2594,7 @@ void resetCounters()
     msg_cnt = 0;
     TotalConnects = 0;
     MaxConnects = ConnectedClients;
-    pthread_mutex_unlock(pmtxCount);
+    //pthread_mutex_unlock(pmtxCount);
 }
 
 
@@ -2663,7 +2651,7 @@ void serverQuit(termios* initial_settings)
         rfClose() ;
     }
 
-    ShutDownServer = TRUE;
+    ShutDownServer = true;
 
     return ;
 }
@@ -2742,7 +2730,7 @@ int serverConfig(const string& cf)
                     }
 
                     if ((cmd.compare("IGATE") == 0) || (cmd.compare("HUB") == 0)) {
-                        cpIGATE[m].hub = (cmd.compare("HUB") == 0) ? TRUE : FALSE ;
+                        cpIGATE[m].hub = (cmd.compare("HUB") == 0) ? true : false ;
 
                     cpIGATE[m].EchoMask = 0;    // default is to not send any data to other igates
                     cpIGATE[m].user = strdup(MyCall.c_str());   // default user is MyCall
@@ -2909,9 +2897,9 @@ int serverConfig(const string& cf)
                 if (cmd.compare("RF-ALLOW") == 0) {     // Allow internet to RF message passing.
                     upcase(token[1]);
                     if (token[1].compare("YES") == 0 )
-                        RF_ALLOW = TRUE;
+                        RF_ALLOW = true;
                     else
-                        RF_ALLOW = FALSE;
+                        RF_ALLOW = false;
 
                     n = 1;
                 }
@@ -2919,9 +2907,9 @@ int serverConfig(const string& cf)
                 if (cmd.compare("IGATEMYCALL") == 0) {  // Allow igating packets from "MyCall"
                     upcase(token[1]);
                     if (token[1].compare("YES") == 0 )
-                        igateMyCall = TRUE;
+                        igateMyCall = true;
                     else
-                        igateMyCall = FALSE;
+                        igateMyCall = false;
 
                     n = 1;
                 }
@@ -2929,9 +2917,9 @@ int serverConfig(const string& cf)
                 if (cmd.compare("LOGALLRF") == 0) {     // If "YES" then all packets heard are logged to rf.log"
                     upcase(token[1]);
                     if (token[1].compare("YES") == 0 )
-                        logAllRF = TRUE;
+                        logAllRF = true;
                     else
-                        logAllRF = FALSE;
+                        logAllRF = false;
 
                     n = 1;
                 }
@@ -2939,9 +2927,9 @@ int serverConfig(const string& cf)
                 if (cmd.compare("CONVERTMICE") == 0) {  // If "YES" then all MIC-E packets converted to classic APRS"
                     upcase(token[1]);
                     if (token[1].compare("YES") == 0 )
-                        ConvertMicE = TRUE;
+                        ConvertMicE = true;
                     else
-                        ConvertMicE = FALSE;
+                        ConvertMicE = false;
 
                     n = 1;
                 }
@@ -3053,9 +3041,9 @@ int serverConfig(const string& cf)
                     upcase(token[1]);
 
                     if (token[1].compare("YES") == 0 )
-                        APRS_PASS_ALLOW = TRUE;
+                        APRS_PASS_ALLOW = true;
                     else
-                        APRS_PASS_ALLOW = FALSE;
+                        APRS_PASS_ALLOW = false;
 
                     n = 1;
                 }
@@ -3574,17 +3562,17 @@ int main(int argc, char *argv[])
     tncPktSpacing = 1500000;            // 1.5 second default
     LastNetBeacon = 0;
     LastTncBeacon = 0;
-    igateMyCall = TRUE;                 // To be compatible with previous versions set it TRUE
-    tncPresent = FALSE;
-    logAllRF = FALSE;
-    ConvertMicE = FALSE;
-    tncMute = FALSE;
+    igateMyCall = true;                 // To be compatible with previous versions set it TRUE
+    tncPresent = false;
+    logAllRF = false;
+    ConvertMicE = false;
+    tncMute = false;
     MaxClients = MAXCLIENTS;            // Set default aprsd.conf file will override this
 
     ackRepeats = 2;                     // Default extra acks to TNC
     ackRepeatTime = 5;                  // Default time between extra acks to TNC in seconds.
     msgsn = 0;                          // Clear message serial number
-    APRS_PASS_ALLOW = TRUE;             // Default allow aprs style user passcodes
+    APRS_PASS_ALLOW = true;             // Default allow aprs style user passcodes
     webCounter = 0;
     queryCounter = 0;
     error_cnt = 0;
@@ -3628,7 +3616,7 @@ int main(int argc, char *argv[])
         perror("sigaction");
 #endif
 
-    configComplete = FALSE;
+    configComplete = false;
     szComPort = NULL;                   // null string for TNC com port
     szAprsPath = NULL;
 
@@ -3641,7 +3629,7 @@ int main(int argc, char *argv[])
     strncat(szAPRSDPATH,PGVERS,64);
     strncat(szAPRSDPATH,",TCPIP*:",64); // ">APD215,TCPIP*:"
 
-    ShutDownServer = FALSE;
+    ShutDownServer = false;
 
     //szConfFile = new char[strlen(CONFPATH) + strlen(CONFFILE) + 1];
     szConfFile = CONFPATH;
@@ -3888,7 +3876,7 @@ int main(int argc, char *argv[])
         strcat(pInitTNC,TNC_INIT);
 
         rfSendFiletoTNC(pInitTNC);      // Setup TNC from initialization file
-        tncPresent = TRUE;
+        tncPresent = true;
         delete (char*)pInitTNC;
     } else
         cout << "TNC com port not defined.\n" << flush;
@@ -3901,7 +3889,7 @@ int main(int argc, char *argv[])
     WriteLog("Server Start",MAINLOG);
     cout << "Server Started\n" << flush;
 
-    bool firstHub = FALSE;
+    bool firstHub = false;
 
     if (nIGATES > 0)
         cout << "Connecting to IGATEs and Hubs now..." << endl << flush;
@@ -3913,13 +3901,13 @@ int main(int argc, char *argv[])
             //    pthread_detach(cpIGATE[i].tid);
 
             //if (cpIGATE[i].hub)
-            //    firstHub = TRUE;
+            //    firstHub = true;
 
             if (pthread_create(&cpIGATE[i].tid, NULL, TCPConnectThread, &cpIGATE[i]) == 0)
                 pthread_detach(cpIGATE[i].tid);
 
             if (cpIGATE[i].hub)
-                firstHub = TRUE;
+                firstHub = true;
 
         } else {
             if (!cpIGATE[i].hub) {
@@ -3939,7 +3927,7 @@ int main(int argc, char *argv[])
     tLastDel = Time ;
     tPstats = Time;
 
-    configComplete = TRUE;
+    configComplete = true;
 
     if (!TncBeacon.empty())
         cout << "TncBeacon every " << TncBeaconInterval << " minutes : " << TncBeacon << endl;

@@ -29,29 +29,31 @@
 
 
    This is WA4DSY's version of mic_e.c modified to compile
-   properly with g++ and not emit various warnings.  April 5, 1999 
-   
+   properly with g++ and not emit various warnings.  April 5, 1999
+
    In June of 2000 I corrected numerous errors and attempted to
    bring this into compliance with the APRS Protocol Reference 1.0 .
-   
+
    8-10-00: removed gmt time stamp from converted packet and changed
             "E>dsy" to "Mic-E".
 
    Dale Heatherington,  dale@wa4dsy.net
-   
+
    */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
+extern "C" {
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
+}
 #include "mic_e.h"
-
+using namespace std;
 
 const char *msgname[] = {
     "EMERGENCY.",

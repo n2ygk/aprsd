@@ -33,6 +33,7 @@
 #include "config.h"
 #endif
 
+extern "C" {
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -45,20 +46,19 @@
 #include <pwd.h>
 #include <grp.h>
 
-
 #include <shadow.h>
-
+}
 
 #include "validate.h"
 
 /* Steves servers response to a user logon:
 
     APRSERV>APRS,TCPIP*:USERLIST :Verified user KE3XY-4 logged on using WinAPRS 2.1.7.{3544
-    
+
     APRSERV>APRS,TCPIP*:USERLIST :Unverified user KE3XY-4 logged on using WinAPRS 2.1.7.{3544
 
-    
- Note:  The doHash(char*) function is Copyright Steve Dimse 1998    
+
+ Note:  The doHash(char*) function is Copyright Steve Dimse 1998
 */
     
 short doHash(const char *theCall);

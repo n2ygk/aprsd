@@ -27,6 +27,7 @@
 #include "config.h"
 #endif
 
+extern "C" {
 #include <unistd.h>
 #include <ctype.h>
 #include <pthread.h>
@@ -37,12 +38,15 @@
 #include <iomanip.h>
 #include <string.h>
 #include <time.h>
+}
+
 #include <string>
 #include <stdexcept>
+
 #include "constant.h"
 #include "dupCheck.h"
 
-
+using namespace std;
 
 #define TABLESIZE  0x10000              // 64K hash table containing time_t values
 
@@ -71,10 +75,10 @@ dupCheck::~dupCheck()
 
 bool dupCheck::check(TAprsString* s, int t)
 {
-    bool dup = FALSE;
+    bool dup = false;
 
     if ((hashtime == NULL) || (hashhash == NULL) || s->allowdup)
-        return FALSE;
+        return false;
 
     pthread_mutex_lock(pmtxdupCheck);
 
@@ -85,7 +89,7 @@ bool dupCheck::check(TAprsString* s, int t)
 
     if(((s->timestamp - hashtime[hash_lo]) <= t )   // See if time difference is less than t seconds
             && (hash_hi == hashhash[hash_lo])) {    // and hash_hi value is identical
-        dup = TRUE;
+        dup = true;
     }
 
     hashtime[hash_lo] = s->timestamp;   // put this new data in the tables

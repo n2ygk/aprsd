@@ -28,13 +28,10 @@
 #endif
 
 extern "C" {
-#include <unistd.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <fstream.h>
 #include <iostream.h>
 #include <strstream.h>
-#include <iomanip.h>
 }
 
 #include "constant.h"
@@ -65,7 +62,7 @@ cpQueue::cpQueue(int n, bool d)
     for (int i=0; i < size; i++) {
         base_p[i].qcp = NULL;           // NULL all the pointers
         base_p[i].qcmd = 0;
-        base_p[i].rdy = FALSE;          // Clear the ready flags
+        base_p[i].rdy = false;          // Clear the ready flags
     }
 }
 
@@ -103,7 +100,7 @@ int cpQueue::write(char *cp, int n)
     pthread_mutex_lock(Q_mutex);
     int idx = write_p;
 
-    if (base_p[idx].rdy == FALSE) {     // Be sure not to overwrite old stuff
+    if (base_p[idx].rdy == false) {     // Be sure not to overwrite old stuff
         base_p[idx].qcp = (void*)cp;    // put char* on queue
         base_p[idx].qcmd = n;           // put int (cmd) on queue
         base_p[idx].rdy = TRUE;         // Set the ready flag
@@ -144,7 +141,7 @@ int cpQueue::write(TAprsString* cs, int n)
     inWrite = 1;
     pthread_mutex_lock(Q_mutex);
     int idx = write_p;
-    if (base_p[idx].rdy == FALSE) {     // Be sure not to overwrite old stuff
+    if (base_p[idx].rdy == false) {     // Be sure not to overwrite old stuff
         base_p[idx].qcp = (void*)cs;	// put String on queue
         base_p[idx].qcmd = n;           // put int (cmd) on queue
         base_p[idx].rdy = TRUE;         // Set the ready flag
@@ -188,7 +185,7 @@ void* cpQueue::read(int *ip)
         *ip = base_p[read_p].qcmd ;     // read the optional integer command
 
     base_p[read_p].qcp = NULL;          // Set the data pointer to NULL
-    base_p[read_p].rdy = FALSE;         // Clear ready flag
+    base_p[read_p].rdy = false;         // Clear ready flag
     read_p++;
     itemsQueued--;
 
@@ -205,12 +202,12 @@ void* cpQueue::read(int *ip)
 //
 int cpQueue::ready(void)
 {
-    int rc=FALSE;
+    int rc=false;
     pthread_mutex_lock(Q_mutex);
-    //if ((read_p != write_p) || wrap) rc = TRUE ;
+    //if ((read_p != write_p) || wrap) rc = true ;
 
     if(base_p[read_p].rdy)
-        rc = TRUE;
+        rc = true;
 
     pthread_mutex_unlock(Q_mutex);
     return(rc);

@@ -32,14 +32,14 @@
 #endif
 
 #ifdef WITH_AX25 // if no AX25, do nothing
-
+extern "C" {
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/poll.h>
-#include <fcntl.h>                                    
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <net/if.h>
-#include <netinet/if_ether.h>                              
+#include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -58,9 +58,12 @@
 
 #include <iostream.h>
 #include <pthread.h>
+}
 
 #include "constant.h"
 #include "rf.h"
+
+using namespace std;
 
 //---------------------------------------------------------------------
 // AX.25 constants
@@ -179,7 +182,7 @@ bool SocketReadWrite (char buf[])
     unsigned char rxbuf[1500];
     unsigned char *textbuf;
 
-    lineTimeout = FALSE;
+    lineTimeout = false;
 
     do {
 
@@ -223,7 +226,7 @@ bool SocketReadWrite (char buf[])
         }
 
         if (result < 0)	//input error
-            lineTimeout = TRUE;	// Error has occurred
+            lineTimeout = true;	// Error has occurred
 
     } while (result == 0);
 

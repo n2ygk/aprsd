@@ -9,8 +9,32 @@
 /* The number of bytes in a long.  */
 #undef SIZEOF_LONG
 
+/* Define if you have the <fcntl.h> header file.  */
+#undef HAVE_FCNTL_H
+
+/* Define if you have the <getop.h> header file.  */
+#undef HAVE_GETOP_H
+
 /* Define if you have the <pthread/linuxthreads/pthread.h> header file.  */
 #undef HAVE_PTHREAD_LINUXTHREADS_PTHREAD_H
+
+/* Define if you have the <sys/resource.h> header file.  */
+#undef HAVE_SYS_RESOURCE_H
+
+/* Define if you have the <sys/select.h> header file.  */
+#undef HAVE_SYS_SELECT_H
+
+/* Define if you have the <sys/socket.h> header file.  */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define if you have the <sys/time.h> header file.  */
+#undef HAVE_SYS_TIME_H
+
+/* Define if you have the <time.h> header file.  */
+#undef HAVE_TIME_H
+
+/* Define if you have the <unistd.h> header file.  */
+#undef HAVE_UNISTD_H
 
 /* Name of package */
 #undef PACKAGE
@@ -45,6 +69,15 @@
 
 /* Define to use FHS-compliant file locations */
 #undef USE_FHS
+
+/* This is GNU compliant source.  Use GNU extensions. */
+#undef _GNU_SOURCE
+
+/* Define to `int' if sys/socket.h doesn't define. */
+#undef socklen_t
+
+/* Define to `unsigned short' if sys/socket.h doesn't define. */
+#undef sa_family_t
 
 
 #undef APRSDTOCALL

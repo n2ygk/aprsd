@@ -27,19 +27,21 @@
 #include "config.h"
 #endif
 
-#include <sys/time.h>
-#include <time.h>
-#include <string.h>
-#include <unistd.h>
+//extern "C" {
+#include <sys/time.h>                   // gettimeofday
+//#include <time.h>
+//#include <string.h>
+//#include <unistd.h>
 #include <stdio.h>
-#include <fstream.h>
-#include <iostream.h>
-#include <strstream.h>
-#include <iomanip.h>
-#include <pwd.h>
-#include <crypt.h>
-#include <grp.h>
-#include <vector.h>
+#include <fstream.h>                    // ifstream
+//#include <iostream.h>
+//#include <strstream.h>
+//#include <iomanip.h>
+#include <pwd.h>                        // pwd
+#include <crypt.h>                      // crypt
+#include <grp.h>                        // getgrnam
+//#include <vector.h>
+//}
 
 #include "constant.h"
 #include "utils.h"
@@ -64,14 +66,14 @@ int WriteLog(const char *pch, const char *LogFile)
     char *p;
     int rc;
     static pthread_mutex_t* pmtxLog;    // Mutual exclusion semi for WriteLog function
-    static bool logInit = FALSE;
+    static bool logInit = false;
 
     char *cp = strdup(pch);             // Make local copy of input string.
 
     if (!logInit) {
         pmtxLog = new pthread_mutex_t;
         pthread_mutex_init(pmtxLog,NULL);
-        logInit = TRUE;
+        logInit = true;
         cout << "logger initialized\n";
     }
     pthread_mutex_lock(pmtxLog);
@@ -145,14 +147,14 @@ void printhex(char *cp, int n)
 //This is for filtering out unwanted packets
 bool CmpDest(const char *line, const char *ref)
 {
-    bool rv = FALSE;
+    bool rv = false;
     char *cp = new char[strlen(ref)+3];
     strcpy(cp,">");
     strcat(cp,ref);
     strcat(cp,",");
 
     if (strstr(line,cp) !=	NULL)
-        rv = TRUE;
+        rv = true;
 
     delete cp;
     return(rv);
@@ -162,7 +164,7 @@ bool CmpDest(const char *line, const char *ref)
 //
 bool CmpPath(const char *line, const char *ref)
 {
-    bool rv = FALSE;
+    bool rv = false;
     char *cp = new char[strlen(line)+1];
     strcpy(cp,line);
     char *path_end = strchr(cp,':');    // find colon
@@ -170,7 +172,7 @@ bool CmpPath(const char *line, const char *ref)
     if (path_end != NULL) {
         *path_end = '\0';               // replace colon with a null
         if (strstr(cp,ref) != NULL)
-            rv = TRUE;
+            rv = true;
     }
 
     delete cp;
@@ -186,16 +188,16 @@ bool callsign(char *s, const char *call)
     char cp[17];
 
     if (strlen(call) > 14)
-        return FALSE;
+        return false;
 
     strncpy(cp,call,16);
     strncat(cp,">",16);
     char *ss = strstr(s,cp);
 
     if (ss != NULL)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 
@@ -211,7 +213,7 @@ bool CompareSourceCalls(char *s1, char *s2)
     if (eos != NULL)
         eos[0] = '\0';
     else
-        return FALSE;
+        return false;
 
     return(callsign(s1,call));
 }
@@ -427,13 +429,13 @@ void reformatAndSendMicE(TAprsString* inetpacket, cpQueue& sendQueue)
 //
 bool find_rfcall(const string& s, string **cl)
 {
-    bool rc = FALSE;
+    bool rc = false;
     int i = 0, pos;
 
-    while ((cl[i] != NULL) && (rc == FALSE)) {
+    while ((cl[i] != NULL) && (rc == false)) {
         pos = (cl[i])->find('*');
         if ((pos != 0) && (s.substr(0, pos).compare(cl[i]->substr(0, pos)) == 0))
-            rc = TRUE;
+            rc = true;
 
         i++;
     }
@@ -547,16 +549,16 @@ bool matchCallsign(const string& s1, const string& s2)
 
    // Try a straight out comparison
    if (s1.compare(s2) == 0)
-       return TRUE;
+       return true;
 
    // Else look for a wildcard
    else if (((pos = s2.find('*')) != 0) &&
        (s1.substr(0, pos).compare(s2.substr(0, pos)) == 0))
-       return TRUE;
+       return true;
 
    // Else failed
    else
-       return FALSE;
+       return false;
 }
 
 //---------------------------------------------------------------------
