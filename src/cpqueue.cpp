@@ -81,7 +81,7 @@ cpQueue::~cpQueue(void)
             if (base_p[read_p].qcp != NULL)
                 delete (TAprsString*)base_p[read_p++].qcp ;
     }
-
+    pthread_mutex_destroy(Q_mutex);
     delete Q_mutex;
     delete base_p;
 }
