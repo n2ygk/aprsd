@@ -162,10 +162,10 @@ using namespace std;
 //---------------------------------------------------
 extern int dumpAborts;                  // Number of history dumps aborted
 extern int ItemCount;	                // number of items in History list
-cpQueue sendQueue(1024,true);           // Internet transmit queue
-cpQueue tncQueue(64,true);              // TNC RF transmit queue
-cpQueue charQueue(1024,false);          // A queue of single characters
-cpQueue conQueue(256,true);             // data going to the console from various threads
+cpQueue sendQueue(1024, true);          // Internet transmit queue
+cpQueue tncQueue(64, true);             // TNC RF transmit queue
+cpQueue charQueue(1024, false);         // A queue of single characters
+cpQueue conQueue(256, true);            // data going to the console from various threads
 
 string MyCall;
 string MyLocation;
@@ -562,6 +562,7 @@ void SendToAllClients(TAprsString* p)
             if (p->aprsType == APRSERROR) {
                 char *fubarmsg;
                 fubarmsg = new char[2049];
+                memset(fubarmsg, 0, sizeof(fubarmsg));
                 ostrstream msg(fubarmsg, 2048);
 
                 msg << "FUBARPKT " << p->srcHeader.c_str()
@@ -911,7 +912,8 @@ void dequeueTNC(void)
         return;
     }
 
-    rfbuf = new char[300] ;
+    rfbuf = new char[300];
+    memset(rfbuf, 0, sizeof(rfbuf));
 
     if (rfbuf != NULL) {
         if (tncPresent ) {
@@ -933,7 +935,8 @@ void dequeueTNC(void)
             rfbuf[256] = NULLCHR;          // Make sure there's a null on the end
             strcat(rfbuf,"\r");         // append a CR to the end
             char* cp = new char[300];   // Will be deleted by conQueue reader.
-            ostrstream msg(cp,300);
+            memset(cp, 0, sizeof(cp));
+            ostrstream msg(cp,299);
 
             msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
             conQueue.write(cp, 0);
@@ -1026,7 +1029,8 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 
     {
         char* cp = new char[128];
-        ostrstream msg(cp,128);
+        memset(cp, 0, sizeof(cp));
+        ostrstream msg(cp,127);
         msg << szPeer << " " << userCall
             << " has disconnected\n"
             << ends;
@@ -1163,7 +1167,8 @@ void *TCPSessionThread(void *p)
 
     {
         char *cp = new char[256];
-        ostrstream msg(cp, 256);
+        memset(cp, 0, sizeof(cp));
+        ostrstream msg(cp, 255);
         msg << szPeer << " has connected to port " << serverport << endl << ends;
         conQueue.write(cp, 0);           // queue reader deletes cp
     }
@@ -1213,7 +1218,8 @@ void *TCPSessionThread(void *p)
 
         {
             char *cp = new char[256];
-            ostrstream msg(cp,256);
+            memset(cp, 0, sizeof(cp));
+            ostrstream msg(cp,255);
             msg << "Sent " << n << " history items to " << szPeer << endl << ends;
             conQueue.write(cp,0);       // queue reader deletes cp
         }
@@ -1254,7 +1260,8 @@ void *TCPSessionThread(void *p)
         cerr << "Can't find free session.\n" << flush;		// debug stuff
         endSession(session,szPeer,userCall,starttime);
         char *cp = new char[256];
-        ostrstream msg(cp,256);
+        memset(cp, 0, sizeof(cp));
+        ostrstream msg(cp,255);
         msg <<  "Can't add client to session list, too many users - closing connection.\n"
             << ends;
 
@@ -1525,7 +1532,8 @@ void *TCPSessionThread(void *p)
                     } else {
                         if (idxInvalid != string::npos) {
                             char *cp = new char[256];
-                            ostrstream msg(cp,256);
+                            memset(cp, 0, sizeof(cp));
+                            ostrstream msg(cp,255);
 
                             msg << szPeer
                                 << " Invalid character \""
@@ -1792,7 +1800,8 @@ void *TCPSessionThread(void *p)
                 } else {
                     if (idxInvalid != string::npos) {
                         char *cp = new char[256];
-                        ostrstream msg(cp,256);
+                        memset(cp, 0, sizeof(cp));
+                        ostrstream msg(cp,255);
 
                         msg << szPeer
                             << " Invalid character \""
@@ -2287,7 +2296,8 @@ void *TCPConnectThread(void *p)
 
         if (!hostinfo) {
             char* cp = new char[256];
-            ostrstream msg(cp, 256);
+            memset(cp, 0, sizeof(cp));
+            ostrstream msg(cp, 255);
             msg << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends;
             WriteLog(cp, MAINLOG);
             conQueue.write(cp,0);       // cp deleted by conQueue
@@ -2313,7 +2323,8 @@ void *TCPConnectThread(void *p)
 
                 {
                     char* cp = new char[256];
-                    ostrstream msg(cp,256);
+                    memset(cp, 0, sizeof(cp));
+                    ostrstream msg(cp,255);
                     msg <<  szLog << endl << ends;
                     conQueue.write(cp, 0);      // cp deleted by conQueue
                 }
@@ -2335,7 +2346,8 @@ void *TCPConnectThread(void *p)
                 WriteLog(szLog, MAINLOG);
 
                 char* cp = new char[256];
-                ostrstream msg(cp,256);
+                memset(cp, 0, sizeof(cp));
+                ostrstream msg(cp,255);
                 msg <<  szLog << endl << ends;
                 conQueue.write(cp, 0);               // cp deleted in queue reader
 
@@ -2592,7 +2604,8 @@ void *TCPConnectThread(void *p)
 
             {
                 char* cp = new char[256];
-                ostrstream msg(cp,256);
+                memset(cp, 0, sizeof(cp));
+                ostrstream msg(cp,255);
                 msg <<  szLog << endl << ends;
                 conQueue.write(cp,0);
 
@@ -2768,6 +2781,7 @@ char* getStats()
         serverRateX = "Bps";
     }
 
+    memset(cbuf, 0, sizeof(cbuf));
     ostrstream os(cbuf,1023);
     os << setiosflags(ios::showpoint | ios::fixed)
         << setprecision(1)
@@ -3362,7 +3376,7 @@ void segvHandler(int signum)  //For debugging seg. faults
         err = "Internet Dequeue";
 
     char buf[256];
-    ostrstream sout(buf,256);
+    ostrstream sout(buf,255);
     sout << "A segment violation (" << signum << ") has occurred in process id "
          << pid
          << " Thread: "
@@ -3370,7 +3384,7 @@ void segvHandler(int signum)  //For debugging seg. faults
          << endl ;
 
     char buf2[256];
-    ostrstream sout2(buf2,256);
+    ostrstream sout2(buf2,255);
 
     sout2 << "Died in "
          << DBstring
