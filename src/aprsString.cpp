@@ -363,7 +363,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     //
                     //msgdata = "";
 
-                    if (mlen < MAXPKT-5) {
+                    if (mlen > MAXPKT-5) {
                         aprsType = APRSERROR;
                         break;
                     }
@@ -541,7 +541,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     }
 
                 case '$' :
-                    if (mlen < MAXPKT-5) {
+                    if (mlen > MAXPKT-5) {
                         aprsType = APRSERROR;
                         //cerr << "Bad NMEA sentence packet; length = " << data.length() << endl << flush;
                         //cerr << data << endl << flush;
@@ -594,6 +594,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             else
                 tcpxx = false;
         }
+
         return;
 
     } //end try
