@@ -1,41 +1,45 @@
+2003-04-23	Chuck Byam, KG4IJB
+	-  Serial I/O support was borked; fixed but in the process I 
+	   broke ax25 code.  I'll release this and work in the ax25
+   	   code as time permits.
+	-  make dist wasn't pulling in admin and doc
+	-  string.cpp/hpp string helper functions/definitions
+	-  Logic in html to check for use of tnc
+	-  Released 2.2.5-6
 
-2002-12-8   Chuck Byam, KG4IJB
-    -  Added constants to pull tocall and program version from config.h
-       in constant.h
+2003-04-20  	Chuck Byam, KG4IJB
+	-  Fixed compile problem with gcc 3.2/automake 1.6
+	-  Fixed minor issue with Exception class
+	-  Fixed lock contention in Mutex class
+	-  Released 2.2.5-5
 
-    More fun with HTML status page
-
-    -  Added functions isAPRSD and isJAVAprsSrv.  If true, adds links to
-       the server status page.
-
-    -  Added functions convertRate and convertScale.  Displays rates in
-       bits/sec or Kb/sec.
-
-    -  Added function getQRZCall to embed href link to qrz.com for user
-       info.  Not very smart, only strips SSID from callsign.
-
+2002-12-8   	Chuck Byam, KG4IJB
+	-  Added constants to pull tocall and program version from config.h
+	   in constant.h
+	-  More fun with HTML status page
+	-  Added functions isAPRSD and isJAVAprsSrv.  If true, adds links to
+	   the server status page.
+	-  Added functions convertRate and convertScale.  Displays rates in
+	   bits/sec or Kb/sec.
+	-  Added function getQRZCall to embed href link to qrz.com for user
+	   info.  Not very smart, only strips SSID from callsign.
 
 2002-10-27	Chuck Byam, KG4IJB
 	I have taken Dale's latest source (2.1.5x) and made some heavy mods
 	and code clean-ups.
 
-	- Integrated mutex class.  This class eliviates the problem of
-	  hung locks as all locks are locally defined and expire when they 
-	  are out of scope.
-
-	- Integrated exception class.  This is a drop in replacement for
-	  the gnu class and is doing little more than the replacing the 
-	  the current lib version... for now anyway.
-
-	- Reconfigured package to use AutoTools for configuration and make.
-
-	- Removed references to STLport.  Using gnu gcc >= 3.1 should preclude
-	  the use of this library as it is supposed to be "thread-safe".  I may 
-	  re-enable this as a configure option at a later time.
-
-	- Minor mods to the httpserver pages - mostly cosmetic.
-
-	- Added ConvertUpTime() to servers.cpp which takes the server uptime, 
-	  in seconds, and converts it into a more meaningful value.  This is 
-	  used in console status output and html status pages.
+	-  Integrated mutex class.  This class eliviates the problem of
+	   hung locks as all locks are locally defined and expire when they 
+	   are out of scope.
+	-  Integrated exception class.  This is a drop in replacement for
+	   the gnu class and is doing little more than the replacing the 
+	   the current lib version... for now anyway.
+	-  Reconfigured package to use AutoTools for configuration and make.
+	-  Removed references to STLport.  Using gnu gcc >= 3.1 should preclude
+	   the use of this library as it is supposed to be "thread-safe".  
+	   I may re-enable this as a configure option at a later time.
+	-  Minor mods to the httpserver pages - mostly cosmetic.
+	-  Added ConvertUpTime() to servers.cpp which takes the server uptime, 
+	   in seconds, and converts it into a more meaningful value.  This is 
+	   used in console status output and html status pages.
       

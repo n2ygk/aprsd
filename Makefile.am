@@ -4,5 +4,3 @@ AUTOMAKE_OPTIONS = gnu
 
 SUBDIRS = src support doc admin
 
-EXTRA_DIST = acconfig.h
-
