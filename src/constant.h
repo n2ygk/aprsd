@@ -25,9 +25,11 @@
 #ifndef __CONSTANT_H
 #define __CONSTANT_H
 
+#define DEBUG
+
 /* update the next 3 lines with each version change */
 //#define SIGNON "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://aprsd.sourceforge.net \r\n"
-const char SIGNON[] = "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://aprsd.sourceforge.net \r\n";
+const char SIGNON[] = "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://sourceforge.net/projects/aprsd/ \r\n";
 #define VERS PACKAGE " " VERSION
 #define PGVERS APRSDTOCALL
 /*--------------------------------------------------*/
@@ -122,7 +124,7 @@ typedef int INT32;
 #define APRSD_INIT "INIT.APRSD"
 #define SAVE_HISTORY "history.txt"
 #define USER_DENY "user.deny"
-
+#define FUBARLOG "badpacket.log"
 
 
 /* These are for Linux user/pass logons.  They define the group used by
