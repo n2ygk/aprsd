@@ -560,14 +560,13 @@ void SendToAllClients(TAprsString* p)
                 || (p->find("Connected to") <= p->length()))) {
             if (p->aprsType == APRSERROR) {
                 char *fubarmsg;
-                fubarmsg = new char[2048](0);
-                //memset(fubarmsg, NULLCHR, sizeof(&fubarmsg));
-                ostrstream msg(fubarmsg, 2047);
+                fubarmsg = new char[2048];
+                ostrstream msg(fubarmsg, 2048);
 
                 msg << "FUBARPKT " << p->srcHeader.c_str()
                     << " " << p->c_str()
-                    << endl
-                    << ends;
+                    << ends
+                    << endl;
 
                 DBstring = "Write bad packet log";
 
@@ -911,8 +910,7 @@ void dequeueTNC(void)
         return;
     }
 
-    rfbuf = new char[256];
-    //memset(rfbuf, NULLCHR, sizeof(rfbuf));
+    rfbuf = new char[300];
 
     if (rfbuf != NULL) {
         if (tncPresent ) {
@@ -933,8 +931,7 @@ void dequeueTNC(void)
             RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
             rfbuf[255] = NULLCHR;          // Make sure there's a null on the end
             strcat(rfbuf,"\r");         // append a CR to the end
-            char* cp = new char[300](0);   // Will be deleted by conQueue reader.
-            //memset(cp, NULLCHR, sizeof(&cp));
+            char* cp = new char[300];   // Will be deleted by conQueue reader.
             ostrstream msg(cp, 299);
 
             msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
@@ -956,7 +953,7 @@ void dequeueTNC(void)
                     if(pthread_mutex_unlock(pmtxCount) != 0)
                         cerr << "Unable to unlock pmtxCount - SendToTNC - Msg.\n" << flush;
 
-                    ostrstream umsg(szUserMsg,UMSG_SIZE-1);
+                    ostrstream umsg(szUserMsg, UMSG_SIZE + 1);
                     umsg << abuff->peer << " " << abuff->user
                         << ": "
                         << abuff->getChar()
@@ -1027,9 +1024,8 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         cerr << "Unable to unlock pmtxSend - endSession.\n" << flush;
 
     {
-        char* cp = new char[128](0);
-        //memset(cp, NULLCHR, sizeof(&cp));
-        ostrstream msg(cp, 127);
+        char* cp = new char[128];
+        ostrstream msg(cp, 128);
         msg << szPeer << " " << userCall
             << " has disconnected\n"
             << ends;
@@ -1165,10 +1161,9 @@ void *TCPSessionThread(void *p)
     }
 
     {
-        char *cp = new char[256](0);
-        //memset(cp, NULLCHR, sizeof(&cp));
-        ostrstream msg(cp, 255);
-        msg << szPeer << " has connected to port " << serverport << endl << ends;
+        char *cp = new char[256];
+        ostrstream msg(cp, 256);
+        msg << szPeer << " has connected to port " << serverport << ends << endl;
         conQueue.write(cp, 0);           // queue reader deletes cp
     }
 
@@ -1216,10 +1211,9 @@ void *TCPSessionThread(void *p)
         }
 
         {
-            char *cp = new char[256](0);
-            //memset(cp, NULLCHR, sizeof(&cp));
-            ostrstream msg(cp, 255);
-            msg << "Sent " << n << " history items to " << szPeer << endl << ends;
+            char *cp = new char[256];
+            ostrstream msg(cp, 256);
+            msg << "Sent " << n << " history items to " << szPeer << ends << endl;
             conQueue.write(cp, 0);       // queue reader deletes cp
         }
     }
@@ -1259,9 +1253,8 @@ void *TCPSessionThread(void *p)
         WriteLog("Error, too many users",MAINLOG);
         cerr << "Can't find free session.\n" << flush;		// debug stuff
         endSession(session,szPeer,userCall,starttime);
-        char *cp = new char[256](0);
-        //memset(cp, NULLCHR, sizeof(&cp));
-        ostrstream msg(cp, 255);
+        char *cp = new char[256];
+        ostrstream msg(cp, 256);
         msg <<  "Can't add client to session list, too many users - closing connection.\n"
             << ends;
 
@@ -1531,19 +1524,18 @@ void *TCPSessionThread(void *p)
                             verified = true;
                     } else {
                         if (idxInvalid != string::npos) {
-                            char *cp = new char[256](0);
-                            //memset(cp, NULLCHR, sizeof(&cp));
-                            ostrstream msg(cp, 255);
+                            char *cp = new char[256];
+                            ostrstream msg(cp, 256);
 
                             msg << szPeer
                                 << " Invalid character \""
                                 << vd[idxInvalid]
                                 << "\" in APRS logon"
-                                << endl
-                                << ends ;
+                                << ends
+                                << endl ;
 
-                            conQueue.write(cp,0);       // cp deleted by queue reader
-                            WriteLog(cp,MAINLOG);
+                            conQueue.write(cp, 0);       // cp deleted by queue reader
+                            WriteLog(cp, MAINLOG);
                         }
                     }
 
@@ -1799,19 +1791,18 @@ void *TCPSessionThread(void *p)
                     valid = validate(szUser,szPass,TNCGROUP,APRS_PASS_ALLOW);   // Check user/password
                 } else {
                     if (idxInvalid != string::npos) {
-                        char *cp = new char[256](0);
-                        //memset(cp, NULLCHR, sizeof(&cp));
-                        ostrstream msg(cp, 255);
+                        char *cp = new char[256];
+                        ostrstream msg(cp, 256);
 
                         msg << szPeer
                             << " Invalid character \""
                             << vd[idxInvalid]
                             << "\" in TNC logon"
-                            << endl
-                            << ends ;
+                            << ends
+                            << endl ;
 
-                        conQueue.write(cp,0);       // cp deleted by queue reader
-                        WriteLog(cp,MAINLOG);
+                        conQueue.write(cp, 0);       // cp deleted by queue reader
+                        WriteLog(cp, MAINLOG);
                     }
                 }
 
@@ -2295,10 +2286,9 @@ void *TCPConnectThread(void *p)
             cerr << "Unable to unlock pmtxDNS - TCPConnectThread.\n" << flush;
 
         if (!hostinfo) {
-            char* cp = new char[256](0);
-            //memset(cp, NULLCHR, sizeof(&cp));
-            ostrstream msg(cp, 255);
-            msg << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends;
+            char* cp = new char[256];
+            ostrstream msg(cp, 256);
+            msg << "Can't resolve igate host name: "  << pcp->RemoteName << ends << endl;
             WriteLog(cp, MAINLOG);
             conQueue.write(cp,0);       // cp deleted by conQueue
         } else
@@ -2323,9 +2313,8 @@ void *TCPConnectThread(void *p)
 
                 {
                     char* cp = new char[256];
-                    //memset(cp, NULLCHR, sizeof(&cp));
-                    ostrstream msg(cp, 255);
-                    msg <<  szLog << endl << ends;
+                    ostrstream msg(cp, 256);
+                    msg <<  szLog << ends << endl;
                     conQueue.write(cp, 0);      // cp deleted by conQueue
                 }
 
@@ -2346,9 +2335,8 @@ void *TCPConnectThread(void *p)
                 WriteLog(szLog, MAINLOG);
 
                 char* cp = new char[256];
-                //memset(cp, NULLCHR, sizeof(&cp));
-                ostrstream msg(cp, 255);
-                msg <<  szLog << endl << ends;
+                ostrstream msg(cp, 256);
+                msg <<  szLog << ends << endl;
                 conQueue.write(cp, 0);               // cp deleted in queue reader
 
             }
@@ -2603,10 +2591,9 @@ void *TCPConnectThread(void *p)
             WriteLog(szLog, MAINLOG);
 
             {
-                char* cp = new char[256](0);
-                //memset(cp, NULLCHR, sizeof(&cp));
-                ostrstream msg(cp, 255);
-                msg <<  szLog << endl << ends;
+                char* cp = new char[256];
+                ostrstream msg(cp, 256);
+                msg <<  szLog << ends << endl;
                 conQueue.write(cp, 0);
 
             if(pthread_mutex_unlock(pmtxSend) != 0)
@@ -2745,8 +2732,7 @@ char* getStats()
     double serverRate = 0;
     double inetRate = 0;
     string inetRateX, serverRateX;
-    char *cbuf = new char[1024](0);
-    //memset(cbuf, NULLCHR, sizeof(&cbuf));
+    char *cbuf = new char[1024];
 
     time(&time_now);
     upTime = ((double)(time_now - serverStartTime) / 3600);
@@ -2782,7 +2768,7 @@ char* getStats()
         serverRateX = "Bps";
     }
 
-    ostrstream os(cbuf,1023);
+    ostrstream os(cbuf,1024);
     os << setiosflags(ios::showpoint | ios::fixed)
         << setprecision(1)
         << "#\r\n"
@@ -3502,8 +3488,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     if(pthread_mutex_lock(pmtxCount) != 0)
         cerr << "Unable to lock pmtxCount - HTTPStats2.\n" << flush;
 
-    htmlbuf = new char[HTMLSIZE](0);
-    //memset(htmlbuf, NULLCHR, sizeof(htmlbuf));
+    htmlbuf = new char[HTMLSIZE];
     ostrstream stats(htmlbuf, HTMLSIZE - 1);
 
     stats << setiosflags(ios::showpoint | ios::fixed)
@@ -3920,8 +3905,7 @@ int main(int argc, char *argv[])
 
     szServerCall = "aprsd";             // default server FROM CALL used in system generated pkts.
 
-    szAPRSDPATH = new char[64](0);
-    //memset(szAPRSDPATH, NULLCHR, 64);
+    szAPRSDPATH = new char[64];
     strcpy(szAPRSDPATH,">");
     strncat(szAPRSDPATH, PGVERS, 63);
     strncat(szAPRSDPATH, ",TCPIP*:", 63); // ">APD215,TCPIP*:"
@@ -4149,7 +4133,6 @@ int main(int argc, char *argv[])
         cout << "Setting up TNC\n" << flush;
 
         char *pInitTNC = new char[strlen(CONFPATH) + strlen(TNC_INIT) + 1];
-        //memset(pInitTNC, NULLCHR, sizeof(&pInitTNC));
         strcpy(pInitTNC, CONFPATH);
         strcat(pInitTNC, TNC_INIT);
 

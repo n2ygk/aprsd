@@ -463,16 +463,15 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
     catch (exception& rEx) {
         char *errormsg;
         errormsg = new char[500];
-        //memset(errormsg, NULLCHR, sizeof(&errormsg));
 
-        ostrstream msg(errormsg,499);
+        ostrstream msg(errormsg,500);
 
         msg << "Caught exception in TAprsString: "
             << rEx.what()
             << endl
             << " [" << peer << "] " << raw.c_str()
-            << endl
-            << ends ;
+            << ends
+            << endl ;
 
         WriteLog(errormsg, ERRORLOG);
         cerr << errormsg;
@@ -636,9 +635,8 @@ void TAprsString::mic_e_Reformat(TAprsString** posit, TAprsString** telemetry)
         mic1[l1] = mic2[l2] = '\0';
 
         if (l1) {
-            char *buf1 = new char[512](0);
-            //memset(buf1, NULLCHR, sizeof(&buf1));
-            ostrstream pbuf(buf1, 511);
+            char *buf1 = new char[512];
+            ostrstream pbuf(buf1, 512);
             pbuf <<  path << ':' << mic1 << "\r\n" << ends;
             TAprsString* Posit = new TAprsString(buf1,sourceSock,EchoMask,peer.c_str(),call.c_str());
             Posit->raw = string(raw);   // Save a copy of the raw mic_e packet
@@ -648,9 +646,8 @@ void TAprsString::mic_e_Reformat(TAprsString** posit, TAprsString** telemetry)
         }
 
         if (l2) {
-            char *buf2 = new char[512](0);
-            //memset(buf2, NULLCHR, sizeof(&buf2));
-            ostrstream tbuf(buf2, 511);
+            char *buf2 = new char[512];
+            ostrstream tbuf(buf2, 512);
             tbuf <<  path << ':' << mic2 << "\r\n" << ends;
             TAprsString* Telemetry = new TAprsString(buf2,sourceSock,EchoMask,peer.c_str(),call.c_str());
             Telemetry->raw = string(raw);   // Save a copy of the raw mic_e packet
