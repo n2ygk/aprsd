@@ -104,6 +104,7 @@ N6OAA>APRS,GATE,WIDE*:@280144z4425.56N/08513.11W/ "Mitch", Lake City, MI
 */
 
 #define DEBUG
+#define BPLOG
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -134,7 +135,8 @@ extern "C" {
 }
 
 #include <string>
-
+#include <iostream>
+#include <sstream>
 
 #include "dupCheck.h"
 #include "cpqueue.h"
@@ -528,7 +530,7 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
 //---------------------------------------------------------------------
 void CloseAllSessions(void)
 {
-    for (int i=0;i<MaxClients;i++) {
+    for (int i = 0; i < MaxClients; i++) {
         if (sessions[i].Socket != -1 ) {
             shutdown(sessions[i].Socket,2);
             close(sessions[i].Socket);
@@ -567,10 +569,19 @@ void SendToAllClients(TAprsString* p)
                     << " " << p->c_str()
                     << endl << ends;
 
+                /*string fubarmsg;
+                fubarmsg = "FUBARPKT ";
+                fubarmsg += p->srcHeader;
+                fubarmsg += " ";
+                fubarmsg += p->raw;
+                fubarmsg += "\n\r"; */
+                //ostringstream ofubarmsg;
+                //ofubarmsg << "FUBARPKT " << p->srcHeader << " " << p->raw << "\n\r";
+
                 DBstring = "Write bad packet log";
 
                 WriteLog(fubarmsg, FUBARLOG);
-                delete[] fubarmsg;
+                //delete[] fubarmsg;
             }
         }
 #endif
@@ -624,9 +635,9 @@ void SendToAllClients(TAprsString* p)
 
                         if (wantsrcheader) {// Append source header to aprs packets, duplicates ok.
                                             // Mostly for debugging the network
-                            rc = send(sessions[i].Socket,p->srcHeader.c_str(),nsh,0);
+                            rc = send(sessions[i].Socket, p->srcHeader.c_str(), nsh, 0);
                             if (rc != -1)
-                                rc = send(sessions[i].Socket,p->c_str(),n,0);
+                                rc = send(sessions[i].Socket,p->c_str(), n, 0);
 
                         }
                     }
@@ -814,6 +825,7 @@ void *DeQueue(void *)
                     || (dup)                                      // No duplicates
                     || (abuff->reformatted))) {                   // No 3rd party reformatted pkts
                 noHist = true;    //None of the above allowed in history list
+
             } else {
                 DBstring = "Execute GetMaxAgeAndCount - these are constants???";
                 GetMaxAgeAndCount(&MaxAge,&MaxCount);   // Set max ttl and count values
@@ -842,7 +854,7 @@ void *DeQueue(void *)
             DBstring = "Back in main DeQueue flow";
             if (noHist) {
                 delete abuff;           // delete it now if it didn't go to the history list.
-                abuff = NULL;
+                //abuff = NULL;
             }
         } else
             cerr << "Error in DeQueue: abuff is NULL" << endl << flush;
@@ -864,7 +876,7 @@ void *ACKrepeaterThread(void *p)
     abuff->allowdup = true;             // Bypass the dup filter!
     paprs->ttl = 0;                     // Flag tells caller we're done with it.
 
-    for (int i=0 ;i<ackRepeats;i++) {
+    for (int i = 0; i < ackRepeats; i++) {
         sleep(ackRepeatTime);
         TAprsString *ack =  new TAprsString(*abuff);
 
@@ -1008,7 +1020,7 @@ int SendSessionStr(int session, const char *s)
 //-----------------------------------------------------------------------
 void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 {
-    char szLog[MAX],infomsg[MAX];
+    char szLog[MAX], infomsg[MAX];
 
     if (ShutDownServer)
         pthread_exit(0);
@@ -1023,7 +1035,7 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         cerr << "Unable to unlock pmtxSend - endSession.\n" << flush;
 
     {
-        char* cp = new char[128];
+        char *cp = new char[128];
         ostrstream msg(cp, 128);
         msg << szPeer << " " << userCall
             << " has disconnected\n"
