@@ -519,8 +519,31 @@ void SendToAllClients(TAprsString* p)
     if (p == NULL)
         return;
 
-    if ((p->aprsType == APRSERROR) || (p->length() < 3)  )
+    if ((p->aprsType == APRSERROR) || (p->length() < 3)  ) {
+#ifdef DEBUG
+        if (!((p->find("Sent") <= p->length())
+                || (p->find("has connected") <= p->length())
+                || (p->find("Connection attempt failed") <= p->length())
+                || (p->find("has disconnected") <= p->length())
+                || (p->find("Connected to") <= p->length()))) {
+            if (p->aprsType == APRSERROR) {
+                char *fubarmsg;
+                fubarmsg = new char[2049];
+                ostrstream msg(fubarmsg, 2048);
+
+                msg << "FUBARPKT " << p->srcHeader.c_str()
+                    << " " << p->c_str()
+                    << endl
+                    << ends;
+
+                WriteLog(fubarmsg, FUBARLOG);
+                cerr << fubarmsg;
+                delete fubarmsg;
+            }
+        }
+#endif
         return;                         // Reject runts and error pkts
+    }
 
     pthread_mutex_lock(pmtxAddDelSess);
     pthread_mutex_lock(pmtxSend);
@@ -3072,7 +3095,7 @@ void segvHandler(int signum)  //For debugging seg. faults
 
     char buf[256];
     ostrstream sout(buf,256);
-    sout << "A segment violation has occured in process id "
+    sout << "A segment violation (" << signum << ") has occurred in process id "
          << pid
          << " Thread: "
          << err
