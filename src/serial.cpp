@@ -28,6 +28,7 @@
 
 #include <cstdlib>
 #include <fstream>                      // ifstream
+#include <iostream>
 
 #include <unistd.h>                     // write, read
 #include <stdio.h>                      // sys_errlist
@@ -36,12 +37,14 @@
 
 #include <termios.h>
 
+#include "serial.h"
+#include "aprsd.h"
 #include "osdep.h"
 #include "constant.h"
-#include "serial.h"
 #include "utils.h"
 #include "rf.h"
 #include "cpqueue.h"
+#include "mutex.h"
 
 
 using namespace std;
@@ -50,6 +53,7 @@ using namespace aprsd;
 int ttySread;
 int ttySwrite;
 int PortIsFile;
+char txbuffer[260];
 
 termios newSettings, originalSettings;
 speed_t newSpeed, originalOSpeed, originalISpeed;
@@ -59,66 +63,60 @@ extern cpQueue charQueue;
 extern string MyCall;
 extern char* ComBaud;
 
+Mutex pmtxWriteTNC;
+
 //---------------------------------------------------------------------
 // Sets various parameters on a COM port for use with TNC
 
-int AsyncSetupPort(int fIn, int fOut)
+int AsyncSetupPort(int fIn, int fOut, const string& TncBaud)
 {
-    speed_t baud = B0;
+    int baud;
 
-    tcgetattr (fIn, &originalSettings);
+    if (TncBaud.compare("1200") == 0)
+        baud = B1200;
+
+    if (TncBaud.compare("2400") == 0)
+        baud = B2400;
+
+    if (TncBaud.compare("4800") == 0)
+        baud = B4800;
+
+    if (TncBaud.compare("9600") == 0)
+        baud = B9600;
+
+    if (TncBaud.compare("19200") == 0)
+        baud = B19200;
+
+    tcgetattr(fIn,&originalSettings);
     newSettings = originalSettings;
 
     newSettings.c_lflag = 0;
     newSettings.c_cc[VMIN] = 0;
-    newSettings.c_cc[VTIME] = 1;	//.1 second timeout for input chars
-    newSettings.c_cflag = CLOCAL | CREAD | CS8;
+    newSettings.c_cc[VTIME] = 1;		 //.1 second timeout for input chars
+    newSettings.c_cflag = CLOCAL | CREAD | CS8 ;
     newSettings.c_oflag = 0;
-    newSettings.c_iflag = IGNBRK | IGNPAR;
+    newSettings.c_iflag = IGNBRK|IGNPAR ;
 
-    // Work out the serial port speed from the ComBaud string
-    if (strcmp(ComBaud, "300") == 0)
-        baud = B300;
-    else if (strcmp(ComBaud, "1200") == 0)
-        baud = B1200;
-    else if (strcmp(ComBaud, "2400") == 0)
-        baud = B2400;
-    else if (strcmp(ComBaud, "4800") == 0)
-        baud = B4800;
-    else if (strcmp(ComBaud, "9600") == 0)
-        baud = B9600;
-    else if (strcmp(ComBaud, "19200") == 0)
-        baud = B19200;
-    else if (strcmp(ComBaud, "38400") == 0)
-        baud = B38400;
-    else if (strcmp(ComBaud, "57600") == 0)
-        baud = B57600;
-    else if (strcmp(ComBaud, "115200") == 0)
-        baud = B115200;
-    else {
-        cerr << " Error: unrecognised baud rate \"" << baud << "\"\n";
-        return -1;
-    }
+    cfsetispeed(&newSettings, baud);
+    cfsetospeed(&newSettings, baud);
 
-    cfsetispeed (&newSettings, baud);
-    cfsetospeed (&newSettings, baud);
-
-    if (tcsetattr (fIn, TCSANOW, &newSettings) != 0) {
+    if(tcsetattr(fIn, TCSANOW, &newSettings) != 0) {
         cerr << " Error: Could not set input serial port attrbutes\n";
         return -1;
     }
 
-    if (tcsetattr (fOut, TCSANOW, &newSettings) != 0) {
+    if(tcsetattr(fOut, TCSANOW, &newSettings) != 0) {
         cerr << " Error: Could not set output serial port attrbutes\n";
         return -1;
     }
+
     return 0;
 }
 
 //--------------------------------------------------------------------
 // Open and initialise the COM port for the TNC
 
-int AsyncOpen(const char *szPort)
+int AsyncOpen(const string& szPort, const string& baudrate)
 {
     APIRET rc;
     struct stat buf;
@@ -126,7 +124,7 @@ int AsyncOpen(const char *szPort)
     // Check to see if the device is a file instead of a device;
     // if so, act a bit differently. Then we can use files as dummy ports.
 
-    if (stat(szPort, &buf) == -1) {
+    if (stat(szPort.c_str(), &buf) == -1) {
         cerr << "Error: could not find device " << szPort << endl;
         return -1;
     }
@@ -136,15 +134,15 @@ int AsyncOpen(const char *szPort)
     if (PortIsFile) {
         cerr << "Note: detected that the serial device is a pipe" << endl;
 
-        ttySwrite = open (szPort, O_WRONLY | O_SYNC);
+        ttySwrite = open(szPort.c_str(), O_WRONLY | O_SYNC);
         if (ttySwrite == -1) {
-            perror(szPort);
+            perror(szPort.c_str());
             cerr << "Error: could not open the file " << szPort << " for write" << endl;
             return -1;
         }
 
         // Use /dev/null for the input device
-        ttySread = open ("/dev/null", O_RDONLY);
+        ttySread = open("/dev/null", O_RDONLY);
         if (ttySread == -1) {
             cerr << "Error: could not open /dev/null as input device" << endl;
             return -1;
@@ -152,29 +150,32 @@ int AsyncOpen(const char *szPort)
 
     } else {
 
-        ttySwrite = open (szPort, O_WRONLY | O_NOCTTY);
+        ttySwrite = open(szPort.c_str(), O_WRONLY | O_NOCTTY);
         if (ttySwrite == -1) {
+            char buf[128];
+            strerror_r(errno, buf, sizeof(buf));
+
             cerr << "Error: Could not open serial port in WRITE mode: "
-                << szPort << " [" << sys_errlist[errno] << "]" << endl;
+                << szPort << " [" << buf << "]" << endl;
             return -1;
         }
 
-        ttySread = open (szPort, O_RDONLY | O_NOCTTY);
+        ttySread = open(szPort.c_str(), O_RDONLY | O_NOCTTY);
 
         if (ttySread == -1) {
+            char buf[128];
+            strerror_r(errno, buf, sizeof(buf));
             cerr << "Error: Could not open serial port in READ mode: "
-                << szPort << " [" << sys_errlist[errno] << "]" << endl;
+                << szPort << " [" << buf << "]" << endl;
             return -1;
         }
 
 
-        if ((rc = AsyncSetupPort (ttySread, ttySwrite)) != 0) {
-            cerr << "Error in setting up COM port rc=" << rc << endl << flush;
+        if ((rc = AsyncSetupPort(ttySread, ttySwrite, baudrate)) != 0) {
+            cerr << "Error in setting up COM port rc=" << rc << endl;
             return -2;
         }
-
     }
-
     return 0;
 }
 
@@ -184,7 +185,6 @@ int AsyncOpen(const char *szPort)
 int AsyncClose(void)
 {
     if (!PortIsFile) {
-
         if (tcsetattr (ttySread, TCSANOW, &originalSettings) != 0)
             cerr << " Error: Could not reset input serial port attrbutes\n";
 
@@ -192,9 +192,8 @@ int AsyncClose(void)
             cerr << " Error: Could not reset input serial port attrbutes\n";
 
     }
-
     close (ttySwrite);
-    return(close(ttySread));            // close COM port
+    return (close(ttySread));            // close COM port
 }
 
 //--------------------------------------------------------------------
@@ -202,22 +201,20 @@ int AsyncClose(void)
 
 bool AsyncReadWrite(char* buf)
 {
-    USHORT i;
+    unsigned short i = 0;
     unsigned char *c;
     size_t BytesRead;
     bool lineTimeout;
 
     lineTimeout = false;
 
-    i = 0;
-
     do {
-
         if (txrdy) {          //Check for data to Transmit
-            size_t len = strlen (tx_buffer);
-            write(ttySwrite, tx_buffer, len);       //Send TX data to TNC
+            size_t len = strlen (txbuffer);
+            write(ttySwrite, txbuffer, len);       //Send TX data to TNC
             if (PortIsFile)
                 write(ttySwrite, "\n", 1);
+
             txrdy = 0;      //Indicate we sent it.
         }
 
@@ -245,12 +242,37 @@ bool AsyncReadWrite(char* buf)
             c = 0;
 
     } while (((int)c != 0x0a) && ((int)c != 0x0d) && (lineTimeout == false));
-
     buf[i] = '\0';
 
     return lineTimeout;
-
 }
+
+
+//-------------------------------------------------------------------
+/*Write NULL terminated string to serial port */
+int WriteCom(char *cp)
+{
+    int rc;
+    timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 10000000; // 10mS  timeout for nanosleep()
+
+    Lock lock(pmtxWriteTNC, false);
+
+    lock.get();
+
+    strncpy(txbuffer, cp, 256);
+
+    txrdy = 1;
+    while (txrdy)
+        nanosleep(&ts, NULL);   //The ReadCom thread will clear txrdy when it takes data
+
+    lock.release();
+
+    return rc;
+}
+
+
 
 
 //---------------------------------------------------------------------
@@ -268,22 +290,22 @@ int AsyncSendFiletoTNC(const char *szName)
     char Line[256];
     const int maxToken = 15;
 
-    ifstream file (szName);
-    if (file.is_open () == false) {
-        cerr << "Can't open " << szName << endl << flush;
+    ifstream file(szName);
+    if (file.is_open() == false) {
+        cerr << "Can't open " << szName << endl;
         return -1;
     }
 
     Line[0] = 0x03;                     // Control C to get TNC into command mode
     Line[1] = '\0';
-    rfWrite (Line);
+    rfWrite(Line);
     reliable_usleep(1);
 
     while (file.good ()) {
         file.getline(Line, 256);       // Read each line in file and send to TNC
         strncat(Line, "\r", 256);
 
-        if ((Line[0] != '*') && (Line[0] != '#') && (strlen (Line) >= 2)) { //Reject comments
+        if ((Line[0] != '*') && (Line[0] != '#') && (strlen(Line) >= 2)) { //Reject comments
             string sLine(Line);
             string token[maxToken];
             nTokens = split(sLine, token, maxToken, RXwhite);  //Parse line into tokens
@@ -296,20 +318,20 @@ int AsyncSendFiletoTNC(const char *szName)
                     MyCall[9] = '\0';       // Truncate to 9 chars.
             }
 
-            if ((token[0].compare("UNPROTO") == 0)
-                    && (nTokens >= 2)) {       // Insert APDxxx into ax25 dest addr of UNPROTO
+            if ((token[0].compare("UNPROTO") == 0) && (nTokens >= 2)) { 
+                // Insert APDxxx into ax25 dest addr of UNPROTO
                 size_t idx2 = sLine.find(token[1],6);
                 sLine.replace(idx2, token[1].length(), PGVERS);
             }
 
-            cout << sLine.c_str() << endl;      //print it to the console
+            cout << sLine << endl;      //print it to the console
             int len = sLine.length();
 
             write (ttySwrite, Line, len);
             reliable_usleep(500000);	//sleep for 500ms between lines
         }
     }
-    file.close ();
+    file.close();
     return 0;
 }
 

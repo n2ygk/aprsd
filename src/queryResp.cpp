@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,83 +22,91 @@
  * Look at the README for more information on the program.
  */
 
- 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
-#include <unistd.h>                     // gethostname
-#include <sys/socket.h>                 // send
-#include <netdb.h>                      // gethostbyname2_r
+#include <unistd.h>
+#include <string>
+#include <ctime>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <netdb.h>
+#include <pthread.h>
+
+#include <fstream>
+#include <iostream>
 #include <strstream>
+#include <iomanip>
+#include <cerrno>
 
-#include "osdep.h"
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include "constant.h"
 #include "utils.h"
 #include "aprsString.h"
 #include "queryResp.h"
+#include "history.h"
+#include "servers.h"
+#include "mutex.h"
 
 using namespace std;
-
-extern void BroadcastString(const char *cp);
-
-extern char* szAPRSDPATH ;
-extern string szServerCall;
-extern string MyLocation;
-extern string MyCall;
-extern string MyEmail;
-
-extern int msgsn;
-extern cpQueue tncQueue;
-extern RecursiveMutex mtxCount;
-extern RecursiveMutex mtxDNS;
+using namespace aprsd;
 
 char szHostIP[HOSTIPSIZE];
 int queryCounter;
 
 
-void queryResp(int session, const TAprsString* pkt)
+
+void queryResp(int source, const aprsString* pkt)
 {
     int rc;
-    struct hostent *hostinfo = NULL;
+    struct hostent *h = NULL;
     struct hostent hostinfo_d;
     char h_buf[512];
     int h_err;
-    Lock dnsLock(mtxDNS, false);
-    Lock countLock(mtxCount, false);
+    Lock countLock(pmtxCount, false);
 
-    TAprsString *rfpacket, *ackRFpacket;
-    char* hostname = new char[180];
+    aprsString *rfpacket, *inetpkt;
+    char* hostname = new char[80];
     unsigned char hip[5];
     char* cp = new char[256];
     char* cpAck = new char[256];
     memset(cp,0,256);
     memset(cpAck,0,256);
-    ostrstream reply(cp, 255);
-    ostrstream ack(cpAck, 255);
-    bool wantAck = false;
+    ostrstream reply(cp,255);
+    ostrstream ack(cpAck,255);
 
-    for (int i = 0; i < 4; i++)
+
+    for (int i=0;i<4;i++)
         hip[i] = 0;
 
-    // Get hostname and host IP
-    if ((rc = gethostname(hostname, 179)) < 0 )
-        strcpy(hostname,"Host_Unknown");
+    /* Get hostname and host IP */
+    if ((rc = gethostname(hostname,80)) != 0)
+        strcpy(hostname, "Host_Unknown");
     else {
-        dnsLock.get();
-        // Thread-Safe verison of gethostbyname2() ?  Actually it's not so lock after all
-        if ((rc = gethostbyname_r(hostname, &hostinfo_d, h_buf, sizeof(h_buf), &hostinfo, &h_err)) < 0 ){
-            if (hostinfo != NULL) {
-                strncpy(hostname, hostinfo->h_name, 80);             // Full host name
-                strncpy((char*)hip, hostinfo->h_addr_list[0], 4);    // Host IP
-            } else
-                return;     // gethost failed so bail out.
+
+        //Thread-Safe verison of gethostbyname()
+        h = NULL;
+        rc = gethostbyname_r(hostname,
+                                &hostinfo_d,
+                                h_buf,
+                                512,
+                                &h,
+                                &h_err);
+
+
+
+        if ((rc == 0) && (h!= NULL)) {
+            strncpy(hostname,h->h_name,80);            //Copy Full host name
+            hostname[79] = '\0';                      //Be sure it's terminated
+            strncpy((char*)hip,h->h_addr_list[0],4);   //Copy Host IP
         }
     }
 
-    // debug
-   /*
-   cout  << "Hostname: " << hostname << endl
+
+    /*debug*/
+    /*
+    cout  << "Hostname: " << hostname << endl
          << "IP: "
          << (int)hip[0] << "."
          << (int)hip[1] << "."
@@ -109,84 +117,67 @@ void queryResp(int session, const TAprsString* pkt)
 
     //cout << pkt << endl;
 
-    // Send ack only if there was a line number on the end of the query.
-    if (pkt->acknum.length() == 0)
-        wantAck = false;
-    else
-        wantAck = true;
+    /* Now build the query specfic packet.
+      Only "IGATE" supported at this time. */
 
-    char sourceCall[] = "         ";    // 9 blanks
-    int i = 0;
-
-    while ((i <9) && (pkt->ax25Source.c_str()[i] != '\0')) {
-        sourceCall[i] = pkt->ax25Source.c_str()[i];
-        i++;
-    }
-
-    if (wantAck) {                      // construct an ack packet
-        ack << pkt->stsmDest << szAPRSDPATH << ":"
-            << sourceCall << ":ack"
-            << pkt->acknum << endl;    // use senders sequence number
-    }
-
-    // Now build the query specfic packet(s)
     if (pkt->query.compare("IGATE") == 0) {
+        //pthread_mutex_lock(pmtxCount) ;
         countLock.get();
-        queryCounter++;                 // Count this query
+        queryCounter++;                   //Count this query
+        //pthread_mutex_unlock(pmtxCount);
         countLock.release();
-        reply << szServerCall << szAPRSDPATH << ":"
-            << sourceCall << ":"
-            << MyCall << " "
-            << MyLocation << " "
-            << hostname << " "
+
+        reply << szServerCall << ">" << PGVERS << ",TCPIP*:"
+            << "<IGATE,"
+            << "MSG_CNT="
+            << msg_cnt << ","
+            << "LOC_CNT="
+            << localCount() << ","    /* <--  scan history lists for local items */
+            << "CALL="
+            << MyCall << ","
+            << "LOCATION="
+            << MyLocation << ","
+            << "HOST="
+            << hostname << ","
+            << "IP="
             << (int)hip[0] << "."
             << (int)hip[1] << "."
             << (int)hip[2] << "."
-            << (int)hip[3] << " "
-            << MyEmail << " "
+            << (int)hip[3] << ","
+            << "EMAIL="
+            << MyEmail << ","
+            << "VERS="
             << VERS
-            << "\r\n"                   // Don't send a sequence number!
+            << "\r\n"
             << ends;
 
-        switch (session) {
+        switch (source) {
             case SRC_IGATE:
-                if (wantAck)            // To the whole aprs network
-                    BroadcastString(cpAck);
-
-                BroadcastString(cp);
+                inetpkt = new aprsString(cp, SRC_INTERNAL, srcBEACON);
+                inetpkt->addIIPPE('I');   //Make it an Internal packet
+                inetpkt->addPath(MyCall,'*');
+                sendQueue.write(inetpkt); //DeQueue() deletes the *msgbuf
                 break;
 
             case SRC_TNC:
-                if (wantAck) {
-                    ackRFpacket = new TAprsString(cpAck);  // Ack reply
-                    ackRFpacket->stsmReformat(MyCall);
-                    tncQueue.write(ackRFpacket);
-                }
-
-                rfpacket = new TAprsString(cp);     // Query reply
-                rfpacket->stsmReformat(MyCall);     // Reformat it for RF delivery
-                //cout << rfpacket << endl;         //debug
-                tncQueue.write(rfpacket);           // queue read deletes rfpacket
-
+                rfpacket = new aprsString(cp);   // Query reply
+                //cout << rfpacket << endl;      //debug
+                tncQueue.write(rfpacket);        // queue read deletes rfpacket
                 break;
 
-
             default:
-                if (session > 0) {
-                    if (wantAck)
-                        rc = send(session, (const void*)cpAck, strlen(cpAck), 0);  //Only to one user
-
-                    rc = send(session, (const void*)cp, strlen(cp), 0);
+                if (source >= 0) {
+                    inetpkt = new aprsString(cp, SRC_INTERNAL, srcBEACON);
+                    inetpkt->addIIPPE('I');   //Make it an Internal packet
+                    inetpkt->addPath(MyCall,'*');
+                    rc = send(source,(const void*)inetpkt->c_str(),strlen(inetpkt->c_str()),0);  //Only to one user
+                    delete inetpkt;
                 }
         }
-    }
 
-    delete[] cp;
-    cp = NULL;
-    delete[] cpAck;
-    cpAck = NULL;
-    delete[] hostname;
-    hostname = NULL;
+    }
+    delete cp;
+    delete cpAck;
+    delete hostname;
 }
 
-// eof: queryResp.cpp

@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,180 +23,211 @@
  */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
-extern "C"
-{
+#include <unistd.h>
+#include <pthread.h>
 #include <stdio.h>
-}
+#include <fstream>
+#include <iostream>
+#include <strstream>
+#include <iomanip>
 
-#include "osdep.h"
 #include "constant.h"
 #include "cpqueue.h"
 #include "aprsString.h"
-#include "assert.h"
+
+using namespace std;
+using namespace aprsd;
 
 /*-------------------------------------------------------*/
 
 //Build a Queue object
-namespace aprsd
-{
-    using std::queue;
-    using std::string;
 
-    cpQueue::cpQueue(int n, bool d) throw(AssertException, exception)
-    {
-        overrun = 0;
-        maxQueueSize = n;
-        dyn = d;
-        itemsQueued = 0;
-        HWItemsQueued = 0;
-        lock = 0;
-    }
+cpQueue::cpQueue(int n, bool d)
+{  
+    overrun = 0;
+    size = n;
+    dyn = d;
+    base_p = new queueData[size];
+    write_p = 0;
+    read_p = 0;
+    itemsQueued = 0;
+    lock = 0;
+    inRead = 0;
+    inWrite = 0;
 
-    //Destroy Queue object
-    //
-    cpQueue::~cpQueue(void) throw()
-    {
-        lock = 1;
-        while (!ls.empty())
-            ls.pop();
-    }
-
-
-    // Place a pointer and an Integer in the queue
-    // returns 0 on success;
-    //
-    bool cpQueue::write(const char *cp, int n) throw(AssertException, exception)
-    {
-        int rc = true;
-        Lock lock(mutex);
-
-        lock.get();
-        if ((int)ls.size() < maxQueueSize) {
-            ls.push((void*)cp);
-            itemsQueued = ls.size();
-
-            if (itemsQueued > HWItemsQueued)
-                HWItemsQueued = itemsQueued;
-        } else {
-            overrun++ ;
-            rc = false;
-            delete[] cp;
-            cp = NULL;
-        }
-
-        lock.release();
-        return(rc);
-    }
-
-    bool cpQueue::write(char *cp, int n) throw(AssertException, exception)
-    {
-        return(write((const char*)cp, n));
-    }
-
-    bool cpQueue::write(unsigned char *cp, int n) throw(AssertException, exception)
-    {
-        return(write((const char*)cp, n));
-    }
-
-
-    bool cpQueue::write(TAprsString* cs, int n) throw(AssertException, exception)
-    {
-        int rc = true;
-        Lock lock(mutex);
-
-        lock.get();
-        if ((int)ls.size() < maxQueueSize) {     // limit size of queue
-            ls.push((void*)cs);             // push new item onto queue
-            itemsQueued = ls.size();
-            if (itemsQueued > HWItemsQueued)
-                HWItemsQueued = itemsQueued;
-        } else {
-            overrun++ ;
-            delete cs;                      // Delete the object that couldn't be put in the queue
-            cs = NULL;
-            rc = false;
-        }
-        lock.release();
-        return(rc);
-    }
-
-
-    bool cpQueue::write(TAprsString* cs) throw(AssertException, exception)
-    {
-        return(write(cs, cs->sourceSock));
-    }
-
-    //Read a pointer and Integer from the Queue
-    //
-    void* cpQueue::read(int *ip) throw(AssertException, exception)
-    {
-        Lock lock(mutex);
-
-        lock.get();
-        if (!ls.empty()) {
-            void* cp = ls.front();              // Read from the front of queue
-            ls.pop();                           // pop the node (del)
-            itemsQueued = ls.size();
-            lock.release();
-            return(cp);
-        }
-        lock.release();
-        return(NULL);
-    }
-
-    //returns TRUE if data available
-    //
-    bool cpQueue::ready(void) throw(AssertException, exception)
-    {
-        int rc=true;
-        Lock lock(mutex);
-
-        lock.get();
-        if (ls.empty())
-            rc = false;
-
-        lock.release();
-        return(rc);
-    }
-
-    int cpQueue::getItemsQueued(void) throw(AssertException, exception)
-    {
-        int inq;
-        Lock lock(mutex);
-
-        lock.get();
-        inq = itemsQueued;
-        lock.release();
-
-        return(inq);
-    }
-
-    int cpQueue::getHWItemsQueued(void) throw(AssertException, exception)
-    {
-        int HWinq;
-        Lock lock(mutex);
-
-        lock.get();
-        HWinq = HWItemsQueued;
-        lock.release();
-
-        return(HWinq);
-    }
-
-
-    int cpQueue::getQueueSize(void) throw(AssertException, exception)
-    {
-        int Qsize;
-        Lock lock(mutex);
-
-        lock.get();
-        Qsize = maxQueueSize;
-        lock.release();
-
-        return(Qsize);
+    for (int i = 0; i < size; i++) {
+        base_p[i].qcp = NULL;           // NULL all the pointers
+        base_p[i].qcmd = 0;
+        base_p[i].rdy = false;          // Clear the ready flags
     }
 }
+
+//Destroy Queue object
+
+cpQueue::~cpQueue(void)
+{
+    lock = 1;
+
+    while(inRead);
+    while(inWrite);
+
+    if (dyn) {
+        while (read_p != write_p)
+            if (base_p[read_p].qcp != NULL)
+                delete (aprsString*)base_p[read_p++].qcp ;
+    }
+    delete base_p;
+}
+
+
+//Place a pointer and an Integer in the queue
+//returns 0 on success;
+int cpQueue::write(char *cp, int n)
+{
+    int rc = 0;
+    Lock qlock(Q_mutex, false);
+
+    if (lock)
+        return -2;  //Lock is only set true in the destructor
+
+    inWrite = 1;
+    qlock.get();
+    int idx = write_p;
+
+    if (base_p[idx].rdy == false) {         // Be sure not to overwrite old stuff
+        base_p[idx].qcp = (void*)cp;        // put char* on queue
+        base_p[idx].qcmd = n;               // put int (cmd) on queue
+        base_p[idx].rdy = true;             // Set the ready flag
+        idx++;
+        itemsQueued++;
+        if (idx >= size)
+            idx = 0;
+
+        write_p = idx;
+    } else {
+        overrun++ ;
+        if (dyn) {
+            delete[] cp;      //Added [] brackets 14-July-2001 wa4dsy
+            cp = NULL;        //Added set to NULL 14-July-2001 wa4dsy
+        }
+        rc = -1;
+    }
+
+    qlock.release();
+    inWrite = 0;
+    return rc;
+}
+
+int cpQueue::write(unsigned char *cp, int n)
+{
+    return write((char*)cp, n);
+}
+
+int cpQueue::write(const char* cp, int n)
+{
+    return write((char*)cp, n);
+}
+
+
+int cpQueue::write(aprsString* cs, int n)
+{
+    int rc = 0;
+    Lock qlock(Q_mutex, false);
+
+    if (lock)
+        return -2;
+
+    inWrite = 1;
+    qlock.get();
+    int idx = write_p;
+
+    if (base_p[idx].rdy == false) {         // Be sure not to overwrite old stuff
+        base_p[idx].qcp = (void*)cs;        // put String on queue
+        base_p[idx].qcmd = n;               // put int (cmd) on queue
+        base_p[idx].rdy = true;             // Set the ready flag
+        itemsQueued++;
+        idx++;
+
+        if (idx >= size)
+            idx = 0;
+
+        write_p = idx;
+    }else {
+        overrun++ ;
+        if (dyn){
+            delete cs;                      // Delete the object that couldn't be put in the queue
+            cs = NULL;
+        }
+        rc = -1;
+    }
+
+    qlock.release();
+    inWrite = 0;
+    return rc;
+}
+
+
+int cpQueue::write(aprsString* cs)
+{
+    return write(cs, cs->sourceSock);
+}
+
+//Read a pointer and Integer from the Queue
+
+void* cpQueue::read(int *ip)
+{
+    Lock qlock(Q_mutex, false);
+
+    inRead = 1;
+
+    qlock.get();
+    void* cp = base_p[read_p].qcp ;     // Read the aprsString*
+
+    if (ip)
+        *ip = base_p[read_p].qcmd ;     // read the optional integer command
+
+    base_p[read_p].qcp = NULL;          // Set the data pointer to NULL
+    base_p[read_p].rdy = false;         // Clear ready flag
+    read_p++;
+    itemsQueued--;
+    if(read_p >= size)
+        read_p = 0;
+
+    inRead = 0;
+
+    qlock.release();
+    return cp;
+}
+
+
+int cpQueue::ready(void)            //returns true if data available
+{
+    int rc=false;
+    Lock qlock(Q_mutex);
+
+    //if ((read_p != write_p) || wrap) rc = true ;
+    if(base_p[read_p].rdy)
+        rc = true;
+
+    //pthread_mutex_unlock(Q_mutex);
+    return rc;
+}
+
+int cpQueue::getWritePtr(void)
+{
+    return write_p;
+}
+
+int cpQueue::getReadPtr(void)
+{
+    return read_p;
+}
+
+int cpQueue::getItemsQueued(void)
+{
+    return itemsQueued;
+}
+
+
+

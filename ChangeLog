@@ -1,379 +1,41 @@
-2001-06-27 12:59  kg4ijb
 
-	* aprsd/src/aprsd.cpp, src/aprsd.cpp: Added link to badpacket.log
-	from stats page.
+2002-12-8   Chuck Byam, KG4IJB
+    -  Added constants to pull tocall and program version from config.h
+       in constant.h
 
-2001-06-27 09:59  hmoffatt
+    More fun with HTML status page
 
-	* acinclude.m4, config.h.in, configure, configure.in,
-	aprsd/acinclude.m4, aprsd/config.h.in, aprsd/configure,
-	aprsd/configure.in: 
-	Added configure parameter --enable-fhs to enable the use of
-	"FHS-compliant" paths for files eg data in /var/lib/aprsd,
-	configuration file in /etc rather than the traditional paths. Some
-	files automatically updated by autoconf/automake/autoheader.
+    -  Added functions isAPRSD and isJAVAprsSrv.  If true, adds links to
+       the server status page.
 
-2001-06-27 09:12  hmoffatt
+    -  Added functions convertRate and convertScale.  Displays rates in
+       bits/sec or Kb/sec.
 
-	* Makefile.in, configure, aprsd/Makefile.in, aprsd/configure,
-	aprsd/admin/Makefile.in, aprsd/doc/Makefile.in, admin/Makefile.in,
-	doc/Makefile.in: 
-	Updated by automake.
+    -  Added function getQRZCall to embed href link to qrz.com for user
+       info.  Not very smart, only strips SSID from callsign.
 
-2001-06-27 09:11  hmoffatt
 
-	* README.VK3SB, aprsd/README.VK3SB: 
-	Imported this file from my 2.14.vk3sb.2 release.
+2002-10-27	Chuck Byam, KG4IJB
+	I have taken Dale's latest source (2.1.5x) and made some heavy mods
+	and code clean-ups.
 
-2001-06-27 09:10  hmoffatt
+	- Integrated mutex class.  This class eliviates the problem of
+	  hung locks as all locks are locally defined and expire when they 
+	  are out of scope.
 
-	* aprsd/src/Makefile.in, aprsd/src/aprsString.cpp,
-	aprsd/src/aprsString.h, aprsd/src/aprsd.cpp, aprsd/src/history.cpp,
-	aprsd/src/history.h, aprsd/src/utils.cpp, aprsd/src/utils.h,
-	src/Makefile.in, src/aprsString.cpp, src/aprsString.h,
-	src/aprsd.cpp, src/history.cpp, src/history.h, src/utils.cpp,
-	src/utils.h: 
-	Implemented wildcard support in the POSIT2RF call command. 
-	(Imported from 2.14.vk3sb.2 release.)
+	- Integrated exception class.  This is a drop in replacement for
+	  the gnu class and is doing little more than the replacing the 
+	  the current lib version... for now anyway.
 
-2001-06-27 09:07  hmoffatt
+	- Reconfigured package to use AutoTools for configuration and make.
 
-	* aprsd/src/rf.cpp, src/rf.cpp: 
-	Modified sockets code to work with new autoconf libax25 tests.
+	- Removed references to STLport.  Using gnu gcc >= 3.1 should preclude
+	  the use of this library as it is supposed to be "thread-safe".  I may 
+	  re-enable this as a configure option at a later time.
 
-2001-06-27 09:07  hmoffatt
+	- Minor mods to the httpserver pages - mostly cosmetic.
 
-	* aprsd/src/serial.cpp, src/serial.cpp: 
-	General cleanup.
-
-2001-06-27 09:05  hmoffatt
-
-	* aprsd/src/sockets.cpp, src/sockets.cpp: 
-	Removed filtering of corrupted calls.  Added #ifdef / #endif so
-	nothing is compiled if no libax25 present.  There's probably a
-	better way to do this with autoconf...
-
-2001-06-26 22:51  kg4ijb
-
-	* aprsd/src/aprsString.cpp, src/aprsString.cpp: check for source <
-	10 bytes (take into account } and *) and data payload > 7 bytes but
-	less than 253 bytes
-
-2001-06-26 20:32  kg4ijb
-
-	* aprsd/src/constant.h, src/constant.h: - added DEBUG define -
-	added Packet logging define
-
-2001-06-26 20:31  kg4ijb
-
-	* aprsd/src/aprsd.cpp, src/aprsd.cpp: - add support for "bad"
-	packet logging
-
-2001-06-26 20:30  kg4ijb
-
-	* aprsd/src/aprsString.cpp, src/aprsString.cpp: - more filter stuff
-
-2001-06-26 14:43  kg4ijb
-
-	* aprsd/admin/aprsd.conf, admin/aprsd.conf: - version number change
-	- removed cospring.aprs.net from central server list (defunct)
-
-2001-06-25 00:25  kg4ijb
-
-	* aprsd/src/aprsd.cpp, src/aprsd.cpp: - disabled JAVA broadcast. 
-	Should this be a user config option? - Modified :USERLIST:
-	connect/disconnect to show user count (I just like to know :) )
-
-2001-06-24 18:23  kg4ijb
-
-	* aprsd/src/queryResp.cpp, src/queryResp.cpp: forgot to unlock
-	pmtxDNS in queryResp
-
-2001-06-23 19:45  kg4ijb
-
-	* aprsd/src/queryResp.cpp, src/queryResp.cpp: - added mutex_lock on
-	gethostbyname2_r() -- thread-safe? queryResp()
-
-2001-06-23 19:43  kg4ijb
-
-	* aprsd/src/cpqueue.cpp, src/cpqueue.cpp: - mutex_destroy() in
-	~cpQueue
-
-2001-06-23 19:41  kg4ijb
-
-	* aprsd/src/aprsd.cpp, src/aprsd.cpp: - shuffled several
-	mutex_lock/unlock calls in SendToAllClients - delete posit not
-	occuring TCPConnectThread
-
-2001-06-23 19:35  kg4ijb
-
-	* aprsd/src/aprsString.cpp, src/aprsString.cpp: - PGVERS ->
-	APRSDTOCALL
-
-2001-06-22 21:04  kg4ijb
-
-	* aprsd/src/aprsd.cpp, src/aprsd.cpp: shuffled some
-	pthread_mutex_lock/unlocks around and added frame count and frame
-	error counts.
-
-2001-06-22 12:48  kg4ijb
-
-	* aprsd/src/rf.cpp, src/rf.cpp: quite compiler with return
-	statements in rfSendFiletoTNC and rfClose
-
-2001-06-22 12:46  kg4ijb
-
-	* aprsd/src/aprsString.cpp, src/aprsString.cpp: lame paren mistake.
-	 playing with differently filter techniques
-
-2001-06-22 12:44  kg4ijb
-
-	* aprsd/src/mic_e.cpp, src/mic_e.cpp: line: 207 if (lx >=0)  lx is
-	unsigned and therefore always true
-
-2001-06-21 13:10  kg4ijb
-
-	* aprsd/admin/aprsd.conf, aprsd/src/aprsString.cpp,
-	aprsd/src/aprsd.cpp, aprsd/src/utils.cpp, admin/aprsd.conf,
-	src/aprsString.cpp, src/aprsd.cpp, src/utils.cpp: more garbage
-	checks and code clean up
-
-2001-06-21 12:37  kg4ijb
-
-	* Makefile.in, README, config.h.in, configure, aprsd/Makefile.in,
-	aprsd/README, aprsd/config.h.in, aprsd/configure: Test :/
-
-2001-06-19 23:04  kg4ijb
-
-	* aprsd/src/constant.h, aprsd/src/cpqueue.cpp, aprsd/src/cpqueue.h,
-	aprsd/src/dupCheck.cpp, aprsd/src/dupCheck.h,
-	aprsd/src/history.cpp, aprsd/src/history.h, aprsd/src/mic_e.cpp,
-	aprsd/src/mic_e.h, aprsd/src/queryResp.cpp, aprsd/src/queryResp.h,
-	aprsd/src/rf.cpp, aprsd/src/serial.cpp, src/constant.h,
-	src/cpqueue.cpp, src/cpqueue.h, src/dupCheck.cpp, src/dupCheck.h,
-	src/history.cpp, src/history.h, src/mic_e.cpp, src/mic_e.h,
-	src/queryResp.cpp, src/queryResp.h, src/rf.cpp, src/serial.cpp: -
-	cleaned many comile warnings - moving many char * to string objects
-	- bzero -> memset
-
-2001-06-19 23:02  kg4ijb
-
-	* aprsd/src/utils.cpp, aprsd/src/utils.h, src/utils.cpp,
-	src/utils.h: - compile warnings cleaned - removeCtlCodes,
-	removeHTML added
-
-2001-06-19 23:00  kg4ijb
-
-	* aprsd/src/aprsd.cpp, src/aprsd.cpp: - moved many char * to string
-	objects - many compile warnings cleaned up - daemonInit writes PID
-	for cron check - removeCtrl() in TCPSessionThread, dequeueTNC -
-	testing remove HTML in stats - segvhandler active
-
-2001-06-19 22:51  kg4ijb
-
-	* aprsd/src/aprsString.h, src/aprsString.h: compile clean up
-
-2001-06-19 22:50  kg4ijb
-
-	* aprsd/src/aprsString.cpp, src/aprsString.cpp: constructorSetup:
-	source verification and filters for 'bad' stuff
-
-2001-06-19 22:46  kg4ijb
-
-	* README, aprsd/README: Test
-
-2001-04-08 08:13  kg4ijb
-
-	* aprsd/src/aprsString.cpp, aprsd/src/aprsString.h,
-	aprsd/src/aprspass.cpp, aprsd/src/constant.h,
-	aprsd/src/cpqueue.cpp, aprsd/src/cpqueue.h, aprsd/src/crc.h,
-	aprsd/src/dupCheck.cpp, aprsd/src/dupCheck.h,
-	aprsd/src/history.cpp, aprsd/src/history.h, aprsd/src/mic_e.cpp,
-	aprsd/src/mic_e.h, aprsd/src/queryResp.cpp, aprsd/src/queryResp.h,
-	aprsd/src/rf.cpp, aprsd/src/rf.h, aprsd/src/serial.cpp,
-	aprsd/src/serial.h, aprsd/src/sniptype.h, aprsd/src/sockets.cpp,
-	aprsd/src/sockets.h, aprsd/src/utils.cpp, aprsd/src/utils.h,
-	aprsd/src/validate.cpp, aprsd/src/validate.h, src/aprsString.cpp,
-	src/aprsString.h, src/aprspass.cpp, src/constant.h,
-	src/cpqueue.cpp, src/cpqueue.h, src/crc.h, src/dupCheck.cpp,
-	src/dupCheck.h, src/history.cpp, src/history.h, src/mic_e.cpp,
-	src/mic_e.h, src/queryResp.cpp, src/queryResp.h, src/rf.cpp,
-	src/rf.h, src/serial.cpp, src/serial.h, src/sniptype.h,
-	src/sockets.cpp, src/sockets.h, src/utils.cpp, src/utils.h,
-	src/validate.cpp, src/validate.h: lots of mods to headers, defines
-	and code cleanup...
-
-2001-04-08 08:12  kg4ijb
-
-	* aprsd/src/aprsd.cpp, src/aprsd.cpp: - code reformat - daemon_init
-	now writes pid_file for later checking - using string objects
-	instead of char * where possible
-
-2001-04-08 08:09  kg4ijb
-
-	* README, configure.in, aprsd/README, aprsd/configure.in: minor
-	mods
-
-2001-04-08 08:07  kg4ijb
-
-	* aprsd/admin/chkaprsd, admin/chkaprsd: shell script for checking
-	aprsd pid
-
-2001-04-08 08:04  kg4ijb
-
-	* acconfig.h, aprsd/acconfig.h: the beginnings of basic defines
-
-2001-04-08 08:03  kg4ijb
-
-	* INSTALL, aprsd/INSTALL: generic GNU install file
-
-2001-04-08 08:01  kg4ijb
-
-	* AUTHORS, aprsd/AUTHORS: Who is everyone?
-
-2001-04-05 12:20  kg4ijb
-
-	* aprsd/src/dupCheck.cpp, aprsd/src/history.cpp,
-	aprsd/src/mic_e.cpp, aprsd/src/queryResp.cpp, aprsd/src/rf.cpp,
-	aprsd/src/serial.cpp, aprsd/src/sockets.cpp, aprsd/src/utils.cpp,
-	aprsd/src/utils.h, aprsd/src/validate.cpp, src/dupCheck.cpp,
-	src/history.cpp, src/mic_e.cpp, src/queryResp.cpp, src/rf.cpp,
-	src/serial.cpp, src/sockets.cpp, src/utils.cpp, src/utils.h,
-	src/validate.cpp: Mods for autotools.
-
-2001-04-05 12:19  kg4ijb
-
-	* aprsd/src/crc.h, aprsd/src/crc32.c, src/crc.h, src/crc32.c,
-	aprsd/src/sniptype.h, src/sniptype.h: Mods for autotools.  Added
-	extern "C" {}
-
-2001-04-05 12:18  kg4ijb
-
-	* aprsd/src/cpqueue.cpp, src/cpqueue.cpp: Mods for autotools
-
-2001-04-05 12:12  kg4ijb
-
-	* aprsd/src/aprsString.cpp, src/aprsString.cpp,
-	aprsd/src/aprsString.h, src/aprsString.h, aprsd/src/aprsd.cpp,
-	src/aprsd.cpp, aprsd/src/aprspass.cpp, src/aprspass.cpp: Mods for
-	autotools
-
-2001-04-05 12:08  kg4ijb
-
-	* Makefile.am, Makefile.in, NEWS, acinclude.m4, config.h.in,
-	configure, configure.in, configure.scan, aprsd/Makefile.am,
-	aprsd/Makefile.in, aprsd/NEWS, aprsd/acinclude.m4,
-	aprsd/config.h.in, aprsd/configure, aprsd/configure.in,
-	aprsd/configure.scan, aprsd/admin/Makefile.am,
-	aprsd/admin/Makefile.in, aprsd/doc/Makefile.am,
-	aprsd/doc/Makefile.in, aprsd/src/Makefile.am,
-	aprsd/src/Makefile.in, admin/Makefile.am, admin/Makefile.in,
-	doc/Makefile.am, doc/Makefile.in, src/Makefile.am, src/Makefile.in:
-	autotools conversion
-
-2001-03-28 15:02  kg4ijb
-
-	* aprsd/admin/INSTALLDAEMON, aprsd/admin/INSTALLPGM,
-	aprsd/admin/REMOVE, aprsd/admin/RESTORE.TNC,
-	aprsd/admin/aprsd.conf, aprsd/admin/aprsd.init,
-	aprsd/admin/udp_example, aprsd/admin/user.deny,
-	aprsd/admin/welcome.txt, admin/INSTALLDAEMON, admin/INSTALLPGM,
-	admin/REMOVE, admin/RESTORE.TNC, admin/aprsd.conf,
-	admin/aprsd.init, admin/udp_example, admin/user.deny,
-	admin/welcome.txt, aprsd/doc/aprsddoc.html, aprsd/doc/ports.html,
-	aprsd/src/Makefile.old, aprsd/src/aprsString.cpp,
-	aprsd/src/aprsString.h, aprsd/src/aprsd.cpp,
-	aprsd/src/aprspass.cpp, aprsd/src/constant.h,
-	aprsd/src/cpqueue.cpp, aprsd/src/cpqueue.h, aprsd/src/crc.h,
-	aprsd/src/crc32.c, aprsd/src/dupCheck.cpp, aprsd/src/dupCheck.h,
-	aprsd/src/hex.fmt, aprsd/src/history.cpp, aprsd/src/history.h,
-	aprsd/src/mic_e.cpp, aprsd/src/mic_e.h, aprsd/src/queryResp.cpp,
-	aprsd/src/queryResp.h, aprsd/src/rf.cpp, aprsd/src/rf.h,
-	aprsd/src/serial.cpp, aprsd/src/serial.h, aprsd/src/sniptype.h,
-	aprsd/src/sockets.cpp, aprsd/src/sockets.h, aprsd/src/utils.cpp,
-	aprsd/src/utils.h, aprsd/src/validate.cpp, aprsd/src/validate.h,
-	doc/aprsddoc.html, doc/ports.html, src/Makefile.old,
-	src/aprsString.cpp, src/aprsString.h, src/aprsd.cpp,
-	src/aprspass.cpp, src/constant.h, src/cpqueue.cpp, src/cpqueue.h,
-	src/crc.h, src/crc32.c, src/dupCheck.cpp, src/dupCheck.h,
-	src/hex.fmt, src/history.cpp, src/history.h, src/mic_e.cpp,
-	src/mic_e.h, src/queryResp.cpp, src/queryResp.h, src/rf.cpp,
-	src/rf.h, src/serial.cpp, src/serial.h, src/sniptype.h,
-	src/sockets.cpp, src/sockets.h, src/utils.cpp, src/utils.h,
-	src/validate.cpp, src/validate.h: Restructure
-
-2001-03-28 15:00  kg4ijb
-
-	* INIT.TNC, INSTALLDAEMON, INSTALLPGM, Makefile, README, REMOVE,
-	RESTORE.TNC, aprsString.cpp, aprsString.h, aprsd.conf, aprsd.cpp,
-	aprsd.init, aprsd214.vpj, aprsddoc.html, aprspass.cpp, constant.h,
-	cpqueue.cpp, cpqueue.h, crc.h, crc32.c, dupCheck.cpp, dupCheck.h,
-	hex.fmt, history.cpp, history.h, mic_e.cpp, mic_e.h, ports.html,
-	queryResp.cpp, queryResp.h, aprsd/INIT.TNC, aprsd/INSTALLDAEMON,
-	aprsd/INSTALLPGM, aprsd/Makefile, aprsd/README, aprsd/REMOVE,
-	aprsd/RESTORE.TNC, aprsd/aprsString.cpp, aprsd/aprsString.h,
-	aprsd/aprsd.conf, aprsd/aprsd.cpp, aprsd/aprsd.init,
-	aprsd/aprsd214.vpj, aprsd/aprsddoc.html, aprsd/aprspass.cpp,
-	aprsd/constant.h, aprsd/cpqueue.cpp, aprsd/cpqueue.h, aprsd/crc.h,
-	aprsd/crc32.c, aprsd/dupCheck.cpp, aprsd/dupCheck.h, aprsd/hex.fmt,
-	aprsd/history.cpp, aprsd/history.h, aprsd/mic_e.cpp, aprsd/mic_e.h,
-	aprsd/ports.html, aprsd/queryResp.cpp, aprsd/queryResp.h, rf.cpp,
-	rf.h, serial.cpp, serial.h, sniptype.h, sockets.cpp, sockets.h,
-	udp_example, user.deny, utils.cpp, utils.h, validate.cpp,
-	validate.h, welcome.txt, aprsd/rf.cpp, aprsd/rf.h,
-	aprsd/serial.cpp, aprsd/serial.h, aprsd/sniptype.h,
-	aprsd/sockets.cpp, aprsd/sockets.h, aprsd/udp_example,
-	aprsd/user.deny, aprsd/utils.cpp, aprsd/utils.h,
-	aprsd/validate.cpp, aprsd/validate.h, aprsd/welcome.txt,
-	aprsd/admin/INIT.TNC, admin/INIT.TNC: restructure
-
-2001-03-22 16:31  kg4ijb
-
-	* INIT.TNC, RESTORE.TNC, aprsString.cpp, aprsString.h, aprsd.conf,
-	aprsd.cpp, aprsd.init, aprsd/INIT.TNC, aprsd/RESTORE.TNC,
-	aprsd/aprsString.cpp, aprsd/aprsString.h, aprsd/aprsd.conf,
-	aprsd/aprsd.cpp, aprsd/aprsd.init, INSTALLDAEMON, INSTALLPGM,
-	Makefile, README.VK3SB, REMOVE, aprsd214.vpj, aprsddoc.html,
-	aprspass.cpp, constant.h, cpqueue.cpp, cpqueue.h, crc.h, crc32.c,
-	dupCheck.cpp, dupCheck.h, hex.fmt, history.cpp, history.h,
-	mic_e.cpp, mic_e.h, ports.html, queryResp.cpp, queryResp.h, rf.cpp,
-	rf.h, serial.cpp, serial.h, sniptype.h, sockets.cpp, sockets.h,
-	udp_example, user.deny, utils.cpp, utils.h, validate.cpp,
-	validate.h, welcome.txt, aprsd/INSTALLDAEMON, aprsd/INSTALLPGM,
-	aprsd/Makefile, aprsd/README.VK3SB, aprsd/REMOVE,
-	aprsd/aprsd214.vpj, aprsd/aprsddoc.html, aprsd/aprspass.cpp,
-	aprsd/constant.h, aprsd/cpqueue.cpp, aprsd/cpqueue.h, aprsd/crc.h,
-	aprsd/crc32.c, aprsd/dupCheck.cpp, aprsd/dupCheck.h, aprsd/hex.fmt,
-	aprsd/history.cpp, aprsd/history.h, aprsd/mic_e.cpp, aprsd/mic_e.h,
-	aprsd/ports.html, aprsd/queryResp.cpp, aprsd/queryResp.h,
-	aprsd/rf.cpp, aprsd/rf.h, aprsd/serial.cpp, aprsd/serial.h,
-	aprsd/sniptype.h, aprsd/sockets.cpp, aprsd/sockets.h,
-	aprsd/udp_example, aprsd/user.deny, aprsd/utils.cpp, aprsd/utils.h,
-	aprsd/validate.cpp, aprsd/validate.h, aprsd/welcome.txt: Initial
-	revision
-
-2001-03-22 16:31  kg4ijb
-
-	* INIT.TNC, RESTORE.TNC, aprsString.cpp, aprsString.h, aprsd.conf,
-	aprsd.cpp, aprsd.init, aprsd/INIT.TNC, aprsd/RESTORE.TNC,
-	aprsd/aprsString.cpp, aprsd/aprsString.h, aprsd/aprsd.conf,
-	aprsd/aprsd.cpp, aprsd/aprsd.init, INSTALLDAEMON, INSTALLPGM,
-	Makefile, README.VK3SB, REMOVE, aprsd214.vpj, aprsddoc.html,
-	aprspass.cpp, constant.h, cpqueue.cpp, cpqueue.h, crc.h, crc32.c,
-	dupCheck.cpp, dupCheck.h, hex.fmt, history.cpp, history.h,
-	mic_e.cpp, mic_e.h, ports.html, queryResp.cpp, queryResp.h, rf.cpp,
-	rf.h, serial.cpp, serial.h, sniptype.h, sockets.cpp, sockets.h,
-	udp_example, user.deny, utils.cpp, utils.h, validate.cpp,
-	validate.h, welcome.txt, aprsd/INSTALLDAEMON, aprsd/INSTALLPGM,
-	aprsd/Makefile, aprsd/README.VK3SB, aprsd/REMOVE,
-	aprsd/aprsd214.vpj, aprsd/aprsddoc.html, aprsd/aprspass.cpp,
-	aprsd/constant.h, aprsd/cpqueue.cpp, aprsd/cpqueue.h, aprsd/crc.h,
-	aprsd/crc32.c, aprsd/dupCheck.cpp, aprsd/dupCheck.h, aprsd/hex.fmt,
-	aprsd/history.cpp, aprsd/history.h, aprsd/mic_e.cpp, aprsd/mic_e.h,
-	aprsd/ports.html, aprsd/queryResp.cpp, aprsd/queryResp.h,
-	aprsd/rf.cpp, aprsd/rf.h, aprsd/serial.cpp, aprsd/serial.h,
-	aprsd/sniptype.h, aprsd/sockets.cpp, aprsd/sockets.h,
-	aprsd/udp_example, aprsd/user.deny, aprsd/utils.cpp, aprsd/utils.h,
-	aprsd/validate.cpp, aprsd/validate.h, aprsd/welcome.txt: Initial
-	sourceforge import 2.1.4 with vk3sb mods
-
+	- Added ConvertUpTime() to servers.cpp which takes the server uptime, 
+	  in seconds, and converts it into a more meaningful value.  This is 
+	  used in console status output and html status pages.
+      

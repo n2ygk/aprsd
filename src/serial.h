@@ -24,13 +24,15 @@
 
 #ifndef __SERIAL_H
 #define __SERIAL_H
+#include <string>
 
 #include "constant.h"
 
 bool AsyncReadWrite(char* buf);
-int AsyncOpen(const char* szPort);
+int AsyncOpen(const std::string& szPort, const std::string& TncBaud);
 int AsyncClose(void);
 int AsyncSendFiletoTNC(const char *szName);
+int WriteCom(char *cp);
 
 #endif
 

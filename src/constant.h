@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,78 +22,60 @@
  * Look at the README for more information on the program.
  */
 
-#ifndef __CONSTANT_H
-#define __CONSTANT_H
 
-//#define DEBUG
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#ifndef CONSTANT_H
+#define CONSTANT_H
 
 #include <string>
+#include "config.h"
 
-/* update the next 3 lines with each version change */
-//#define SIGNON "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://aprsd.sourceforge.net \r\n"
-//const char SIGNON[] = "# " PACKAGE " " VERSION " (c) 2001-2002, aprsd Dev Team http://sourceforge.net/projects/aprsd/ \r\n";
-extern string SIGNON;
-#define VERS PACKAGE " " VERSION
-#define PGVERS APRSDTOCALL
-/*--------------------------------------------------*/
 
-#ifndef TRUE
-#define TRUE (!FALSE)
-#endif
 
-#ifndef FALSE
-#define FALSE 0
-#endif
 
-// The following shortens all the type casts of pointer arguments
-#define SA struct sockaddr
+//If you really must convert Mic-E packets to traditional APRS
+//change this to TRUE and add "ConvertMicE yes" to your aprsd.conf file.
+//#define CONVERT_MIC_E FALSE
+const bool CONVERT_MIC_E = false;
 
-#ifndef ULONG
-typedef unsigned long ULONG;            // 4 bytes, unsigned
-#endif
+/* Define this to write 3rd party pkts to debug.log */
+// #define DEBUGTHIRDPARTY
 
-#ifndef LONG
-typedef long LONG;
-#endif
 
-#ifndef USHORT
-typedef unsigned short int USHORT;
-#endif
+//If this is defined the qAc,CallSign construct is added to path
+#define INET_TRACE
 
-#ifndef INT16
-typedef unsigned short int INT16;
-#endif
-
+#define ULONG unsigned long
+#define LONG long
+#define USHORT unsigned short int
+#define INT16 unsigned short int
 #define APIRET int
-
-#ifndef INT32
-typedef int INT32;
-#endif
-
+#define INT32 int
+#define echomask_t unsigned long
 #define LF 0x0a
 #define CR 0x0d
 #define RXwhite " \t\n\r"
-#define NULLCHR '\0'
 
 //#define LINK_SERVER_PORT 1313
 
 #define CMD_END_THREAD -1L
-#define SRC_TNC -2L
-#define SRC_USER -3L
+#define SRC_TNC	-2L
+#define SRC_USER	-3L
 #define SRC_INTERNAL -4L
 #define SRC_UDP -5L
 #define SRC_IGATE -6L
 
+
 #define MAXCLIENTS 30
+#define MAXLOAD 200000
 
 //This sets the Internet line input buffer size.
 //Lines longer than this, including CR,LF,NULL, will be truncated.
 //Actually, the data will be truncated but a CR,LF,NULL will always be on the end.
 #define BUFSIZE 255
+
+//Defines duplicate detection window time in seconds
+#define DUPWINDOW 20
+
 
 
 #define RUNTSIZE 0
@@ -105,33 +87,9 @@ typedef int INT32;
 #define destTNC  2
 
 
-/* To run aprsd from another directory change the next line */
-#ifdef USE_FHS
-#define HOMEDIR "/var/log/aprsd/"
-#define CONFPATH "/etc/aprsd/"
-#define LOGPATH "/var/log/aprsd/"
-#define VARPATH "/var/lib/aprsd/"
-#else
-#define HOMEDIR "/home/aprsd2"
-#define CONFPATH ""
-#define LOGPATH ""
-#define VARPATH ""
-#endif
 
-#define CONFFILE "aprsd.conf"
-#define MAINLOG "aprsd.log"
-#define STSMLOG "stsm.log"
-#define RFLOG "rf.log"
-#define UDPLOG "udp.log"
-#define ERRORLOG "error.log"
-#define WELCOME "welcome.txt"
-#define TNC_INIT  "INIT.TNC"
-#define TNC_RESTORE "RESTORE.TNC"
-#define APRSD_INIT "INIT.APRSD"
-#define SAVE_HISTORY "history.txt"
-#define USER_DENY "user.deny"
-#define FUBARLOG "badpacket.log"
-//  #define BPLOG		// Uncomment this for logging of filtered packets 
+
+
 
 /* These are for Linux user/pass logons.  They define the group used by
    /etc/group .   You must have these groups and users defined in /etc/group.
@@ -146,9 +104,10 @@ typedef int INT32;
 
 #define APRSGROUP "aprs"
 #define TNCGROUP "tnc"
-#define	stricmp(x, y) strcasecmp(x, y)
+
 
 /* this is not used in production code*/
-#define TEST "WA4DSY>APRS,WIDE:!3405.31N/08422.46WyWA4DSY APRS Internet Server running on Linux.\r\n"
+//#define TEST "WA4DSY>APRS,WIDE:!3405.31N/08422.46WyWA4DSY APRS Internet Server running on Linux.\r\n"
 
-#endif // __CONSTANT_H
+
+#endif      // CONSTANT_H

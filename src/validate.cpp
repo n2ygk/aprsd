@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,53 +22,124 @@
  * Look at the README for more information on the program.
  */
 
-/* validate.cpp version 2  May 23 1999
-
- Put in thread-safe verisons of getgrnam and getpwnam, vers 2.1.2 Jun 22 2000
-*/
-
-//#define DEBUG 1
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
 #endif
 
-#include <ctype.h>                      // toupper
-#include <string.h>
-#include <stdlib.h>                     // atoi
+#include <cctype>
+#include <string>
+#include <cstdlib>
 #include <unistd.h>
-#include <iomanip>
-#include <pwd.h>
-#include <grp.h>
-#include <shadow.h>
+#include <cstdio>
 #include <iostream>
+#include <strstream>
+#include <iomanip>
 
-#include "osdep.h"
+using namespace std;
+
+#ifdef USE_PAM
+#include <security/pam_appl.h>
+#include <security/pam_misc.h>
+
+struct user_info {
+   const string username;
+   const string password;
+   const string group;
+};
+#else
+#include <crypt.h>
+#include <grp.h>
+#include <pwd.h>
+#include <shadow.h>
+#endif
+
 #include "validate.h"
 
 using namespace std;
-using namespace aprsd;
+
 
 /* Steves servers response to a user logon:
 
     APRSERV>APRS,TCPIP*:USERLIST :Verified user KE3XY-4 logged on using WinAPRS 2.1.7.{3544
-
+    
     APRSERV>APRS,TCPIP*:USERLIST :Unverified user KE3XY-4 logged on using WinAPRS 2.1.7.{3544
 
-
- Note:  The doHash(char*) function is Copyright Steve Dimse 1998
+    
+ Note:  The doHash(char*) function is Copyright Steve Dimse 1998    
 */
     
 short doHash(const char *theCall);
-
-    
+   
 #define kKey 0x73e2		// This is the key for the data
 
 
 //-----------------------------------------------------------------------------------
-
-int  checkSystemPass(const char *szUser, const char *szPass, const char *szGroup)
+#ifdef USE_PAM
+static int my_conv(int num_msg, const struct pam_message **msg,
+        struct pam_response **response, void *data)
 {
+    struct user_info *userInfo = (struct user_info *)data;
+    struct pam_response *reply;
+
+    reply = (struct pam_response *)malloc(num_msg * sizeof(struct pam_response));
+    
+    if (reply == NULL) 
+        return PAM_CONV_ERR;
+
+    for (int count = 0; count < num_msg; count++) {
+        reply[count].resp_retcode = 0;
+        reply[count].resp = NULL;
+
+        switch (msg[count]->msg_style) {
+            case PAM_PROMPT_ECHO_ON:
+                reply[count].resp = strdup(userInfo->username);
+                break;
+
+            case PAM_PROMPT_ECHO_OFF:
+                reply[count].resp = strdup(userInfo->password);
+                break;
+
+            default:
+                for (int i = 0; i < count; i++)
+                    if (reply[i].resp != NULL)
+                        free(reply[i].resp);
+                
+                free(reply);
+                return PAM_CONV_ERR;
+        }
+    }
+
+    *response = reply;
+    return PAM_SUCCESS;
+}
+#endif
+
+
+//-----------------------------------------------------------------------------------
+
+int  checkSystemPass(const string szUser, const string szPass, const string szGroup)
+{
+#ifdef USE_PAM
+    struct user_info userInfo;
+    struct pam_conv conv = { my_conv, (void *)&userInfo };
+    pam_handle_t *pamh = NULL;
+
+    userInfo.username = szUser;
+    userInfo.password = szPass;
+    userInfo.group = szGroup;
+
+    if (pam_start("aprsd", szUser, &conv, &pamh) != PAM_SUCCESS)
+        return BADUSER;
+
+    if (pam_authenticate(pamh, 0) != PAM_SUCCESS)
+        return BADPASSWD;
+
+    if (pam_acct_mgmt(pamh, 0) != PAM_SUCCESS)
+        return BADUSER;
+
+    pam_end(pamh, PAM_SUCCESS);
+    return 0;
+#else
     passwd *ppw = NULL;
     group *pgrp = NULL;
     spwd *pspwd = NULL;
@@ -80,197 +151,178 @@ int  checkSystemPass(const char *szUser, const char *szPass, const char *szGroup
     int usrfound = 0 ;
     int pwLength = 0;
     int rc = BADGROUP;
+   
 
 #ifdef DEBUG
     cout << szUser << " " << szPass << " " << szGroup << endl;  //debug
 #endif
 
+  
     size_t bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
     char *buffer1 = new char[bufsize];
     //Thread-Safe getgrnam()
-    getgrnam_r(szGroup,                 // Does group name szGroup exist?
-              &grp,
-              buffer1,
-              bufsize,
-              &pgrp);
+    getgrnam_r(szGroup.c_str(),         /* Does group name szGroup exist? */
+                &grp,
+                buffer1,
+                bufsize,
+                &pgrp);
 
     if (pgrp == NULL) {
-        delete[] buffer1;
-        buffer1 = NULL;
-        return rc;                      // return BADGROUP if not
+        delete buffer1;
+        return rc;	  /* return BADGROUP if not */
     }
 
     bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+   
     char *buffer2 = new char[bufsize];
     //Thread-Safe getpwnam()
-    getpwnam_r(szUser,
-            &pwd,
-            buffer2,
-            bufsize,
-            &ppw);
+    getpwnam_r(szUser.c_str(),
+                &pwd,
+                buffer2,
+                bufsize,
+                &ppw);
 
-    if (ppw == NULL){
-        delete[] buffer2;
-        buffer2 = NULL;
-        delete[] buffer1;
-        buffer1 = NULL;
-        return BADUSER ;                // return BADUSER if no such user
+    if (ppw == NULL){ 
+        delete buffer2;
+        delete buffer1;
+        return BADUSER ; /* return BADUSER if no such user */
     }
-
+   
     i = 0;
 
-    // find out if user is a member of szGroup
+    /* find out if user is a member of szGroup */
     while(((member = pgrp->gr_mem[i++]) != NULL) && (usrfound == 0 )) {
 #ifdef DEBUG
-        cerr << member << endl;	 //debug code
-#endif
-        if (strcmp(member,szUser) == 0)
-            usrfound = 1;
+        cerr << member << endl; //debug code
+ #endif
+        if (strcmp(member, szUser.c_str()) == 0)  
+            usrfound = 1	;
     }
 
-    if (usrfound == 0) {
-        delete[] buffer1;
-        buffer1 = NULL;
-        delete[] buffer2;
-        buffer1 = NULL;
-        return BADGROUP;                // return BADGROUP if user not in group
+    if (usrfound == 0) { 
+        delete buffer1;
+        delete buffer2;
+        return BADGROUP;	 /* return BADGROUP if user not in group */
     }
 
-    // check the password
+    /* check the password */
+
 #ifdef DEBUG
     cout << ppw->pw_passwd << endl
-        << crypt(szPass,salt) << endl;
+        << crypt(szPass.c_str(),salt) << endl;
 #endif
 
     pwLength = strlen(ppw->pw_passwd);
 
     if (ppw->pw_passwd[0] != '$') {
-        // DES salt
+        /* DES salt */
         strncpy(salt,ppw->pw_passwd,2);
         salt[2] = '\0';
-    } else {                            // MD5 salt
+    } else {   /* MD5 salt */
         int i;
-        for (i = 0; i < 3; i++)
-            if (i < pwLength)
+        for (i = 0; i < 3; i++) 
+            if (i < pwLength) 
                 salt[i] = ppw->pw_passwd[i];
 
-        while((i < 14) && (ppw->pw_passwd[i] != '$')) {
-            salt[i] = ppw->pw_passwd[i];
-            i++;
-        }
-        salt[i] = '$';
-        i++;
+        while ((i < 14) && (ppw->pw_passwd[i] != '$')) 
+            salt[i++] = ppw->pw_passwd[i];
+
+        salt[i++] = '$';
         salt[i] = '\0';
-
     }
-
 #ifdef DEBUG
     cout << "salt=" << salt << endl;
 #endif
 
-    if (strcmp(crypt(szPass,salt), ppw->pw_passwd) == 0 )
-        rc = 0;
-    else
+    if (strcmp(crypt(szPass.c_str(), salt), ppw->pw_passwd) == 0 ) 
+        rc = 0; 
+    else 
         rc = BADPASSWD;
 
     if ((rc == BADPASSWD) && (strcmp("x",ppw->pw_passwd) == 0)) {
 #ifdef DEBUG
         cout << "Shadow passwords enabled\n";
 #endif
-        pspwd = getspnam(szUser);       //Get shadow password file data for user
-
+        pspwd = getspnam(szUser.c_str());  //Get shadow password file data for user
         if (pspwd == NULL) {
             cout << "validate: Can't read shadowed password file.  This program must run as root\n";
-            delete[] buffer1;
-            buffer1 = NULL;
-            delete[] buffer2;
-            buffer2 = NULL;
+            delete buffer1;
+            delete buffer2;
             return MUSTRUNROOT;
         }
-
         pwLength = strlen(pspwd->sp_pwdp);
-
 #ifdef DEBUG
         cout << "pw=" << pspwd->sp_pwdp << endl;
 #endif
-
         if (pspwd->sp_pwdp[0] != '$') {
-            // DES salt
+            /* DES salt */
             strncpy(salt,pspwd->sp_pwdp,2);
             salt[2] = '\0';
-        } else {
-            // MD5 salt
+        } else {     /* MD5 salt */
             int i;
-            for (i = 0; i < 3; i++)
-                if (i < pwLength)
+            for (i = 0; i < 3; i++) 
+                if (i < pwLength) 
                     salt[i] = pspwd->sp_pwdp[i];
 
-            while ((i < 14) && (pspwd->sp_pwdp[i] != '$')) {
-                salt[i] = pspwd->sp_pwdp[i];
-                i++;
-            }
-            salt[i] = '$';
-            i++;
+            while ((i < 14) && (pspwd->sp_pwdp[i] != '$')) 
+                salt[i++] = pspwd->sp_pwdp[i];
+
+            salt[i++] = '$';
             salt[i] = '\0';
         }
 
 #ifdef DEBUG
         cout << "salt=" << salt << endl;
 #endif
-
-        if (strcmp(crypt(szPass,salt), pspwd->sp_pwdp) == 0 )
-            rc = 0;
-        else
+        if (strcmp(crypt(szPass.c_str(), salt), pspwd->sp_pwdp) == 0 ) 
+            rc = 0; 
+        else 
             rc = BADPASSWD;
 
 #ifdef DEBUG
-      cout  << pspwd->sp_pwdp
-            << " :  "
-            << crypt(szPass,salt)
-            << "  :  "
-            << szPass
+        cout  << pspwd->sp_pwdp 
+            << " :  " 
+            << crypt(szPass.c_str(), salt) 
+            << "  :  " 
+            << szPass 
             << endl;
 #endif
     }
-    delete[] buffer1;
-    buffer1 = NULL;
-    delete[] buffer2;
-    buffer1 = NULL;
+    delete buffer1;
+    delete buffer2;
     return rc;
+#endif
 }
 
 
 //------------------------------------------------------------------------------------
 
-bool validate(const char* user,const char* pass, const char* group, bool allow_hash)
+bool validate(const string& user, const string& pass, const string& group, 
+        bool allow_hash)
 {
-
-
-    if(allow_hash && (strcmp("tnc",group) != 0)) {
-        // Don't allow tnc users to use aprs numerical password
-        // "allow_hash" must be TRUE to use the HASH test.
-        // If allow_hash is false only the Linux user/pass validation is used
-        short iPass = atoi(pass);
-
-        if (iPass == -1)
-            return BADUSER;             // -1 is known to be not registered
-
-        if (strlen(user) <= 9) {        // Limit user call sign to 9 chars or less (2.1)
-            if (doHash(user) == iPass)  // return Zero if hash test is passed
-                return 0;
+    if (allow_hash && (group.compare("tnc") != 0)) {    // Don't allow tnc users to use aprs numerical password
+                                                        // "allow_hash" must be TRUE to use the HASH test.
+                                                        // If allow_hash is false only the Linux user/pass validation is used
+        short iPass = atoi(pass.c_str());
+        if (iPass == -1) 
+            return BADUSER;        // -1 is known to be not registered
+      
+        if (user.length() <= 9) {                  // Limit user call sign to 9 chars or less (2.1)
+            if (doHash(user.c_str()) == iPass) 
+                return 0;    // return Zero if hash test is passed
         }
     }
                                                //if hash fails, test for
-    int rc = checkSystemPass(user,pass,group); // valid  Linux system user/pass
+    int rc = checkSystemPass(user, pass, group); // valid  Linux system user/pass
 
 #ifdef DEBUG
     cout << "checkSystemPass returned: " << rc << endl;
 #endif
 
-    if (rc == BADPASSWD)
+    if (rc == BADPASSWD) 
         sleep(10);
-
-    return rc;
+    
+    return rc;   
 }
 
 //-----------------------------------------------------------------------------------
@@ -278,30 +330,24 @@ bool validate(const char* user,const char* pass, const char* group, bool allow_h
 /* As of April 11 2000 Steve Dimse has released this code to the open
 source aprs community */
 
-short doHash(const char *theCall)
+short doHash(const char* theCall)
 {
-    char rootCall[10];                  // need to copy call to remove ssid from parse
+    char rootCall[10];      // need to copy call to remove ssid from parse
     char *p1 = rootCall;
 
-    while ((*theCall != '-') && (*theCall != 0))
-        *p1++ = toupper(*theCall++);
+    while ((*theCall != '-') && (*theCall != 0)) *p1++ = toupper(*theCall++);
+        *p1 = 0;
 
-    *p1 = 0;
-
-    short hash = kKey;                  // Initialize with the key value
+    short hash = kKey;      // Initialize with the key value
     short i = 0;
     short len = strlen(rootCall);
     char *ptr = rootCall;
-
-    while (i < len) {                   // Loop through the string two bytes at a time
-        hash ^= (*ptr++)<<8;            // xor high byte with accumulated hash
-        hash ^= (*ptr++);               // xor low byte with accumulated hash
+    
+    while (i < len) {             // Loop through the string two bytes at a time
+        hash ^= (*ptr++)<<8;    // xor high byte with accumulated hash
+        hash ^= (*ptr++);       // xor low byte with accumulated hash
         i += 2;
     }
-
-    return hash & 0x7fff;		// mask off the high bit so number is always positive
+    return hash & 0x7fff;       // mask off the high bit so number is always positive
 }
-
-//--------------------------------------------------------------------------------------
-//End of file
 

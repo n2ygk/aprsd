@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,18 +23,10 @@
  */
 
 
-#ifndef _XOPEN_SOURCE_EXTENDED
-#define _XOPEN_SOURCE_EXTENDED
-#endif
-
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE
-#endif
-
+#include <cstdlib>
 #include <unistd.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <ctype>
+#include <cstdio>
 #include <iostream>
 #include <strstream>
 #include <iomanip>
@@ -43,20 +35,18 @@
 
 using namespace std;
 
-int main(int argc, char *argv[])
-{
-	
-   if(argc < 2){
-       cout << "Usage: aprspass <call sign>\n";
-       exit(1);
-   }
-   
-   cout  << "APRS passcode for " 
+
+int main(int argc, char *argv[]) {
+    if(argc < 2) {
+        cout << "Usage: aprspass <call sign>" << endl;
+        exit(1);
+    }
+
+    cout  << "APRS passcode for "
          << argv[1]
          << " = "
-         << doHash(argv[1]) 
+         << doHash(argv[1])
          << endl;
 
-   return 0;
-   
+    return 0;
 }

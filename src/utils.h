@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,19 +23,21 @@
  */
 
 
-#ifndef __UTILS_H
-#define __UTILS_H
+#ifndef UTILS_H
+#define UTILS_H
 
-#include <vector.h>
-#include "constant.h"
+//#include "constant.h"
 #include "aprsString.h"
 #include "cpqueue.h"
+#include <vector>
+
 
 #define BADUSER -1
 #define BADGROUP -2
 #define BADPASSWD -3
-using namespace aprsd;
 
+
+int WriteLog(const std::string& sp, const std::string& LogFile);
 int WriteLog(const char *cp, const char *LogFile);
 char* strupr(char *cp);
 void printhex(char *cp, int n);
@@ -46,24 +48,26 @@ bool CompareSourceCalls(char *s1, char *s2);
 void GetMaxAgeAndCount( int *MaxAge, int *MaxCount);
 int  checkpass(const char *szUser, const char *szGroup, const char *szPass);
 void RemoveCtlCodes(char *cp);
-void makePrintable(char *cp);
-void removeHTML(string& sp);
 char* StripPath(char* cp);
 bool getMsgDestCall(char *data, char* cp, int n);
 bool getMsgSourceCall(char* data, char* cp, int n);
 char checkUserDeny(string& user);
 
-//int stricmp(const char* szX, const char* szY);
+int stricmp(const char* szX, const char* szY);
+void removeHTML(string& sp);
+
+
 int split(  string& s, string sa[],   int saSize,  const char* delim);
 int freq(string& s, char c);
 void upcase(string& s);
-void reformatAndSendMicE(TAprsString* inetpacket, cpQueue& sendQueue);
+void reformatAndSendMicE(aprsString* inetpacket, cpQueue& sendQueue);
 bool find_rfcall(const string& s, string* rfcall[]);
 bool find_rfcall(const string& s, vector<string*>& rfcall);
-bool matchCallsign(const string& s1, const string& s2);
 
 void strElapsedTime(time_t starttime,  char* timeStr);
 
-#endif
+unsigned int string_hash(const string& s);
+void crc_byte(const char data, unsigned int *crc16);
+void makeAlias(string& s);
 
-
+#endif      // UTILS_H

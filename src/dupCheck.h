@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,11 +22,11 @@
  * Look at the README for more information on the program.
  */
 
-
 #ifndef DUPCHECK_H
 #define DUPCHECK_H
 
 #include <string>
+
 #include "constant.h"
 #include "aprsString.h"
 #include "mutex.h"
@@ -34,19 +34,22 @@
 using namespace std;
 using namespace aprsd;
 
-
 class dupCheck
 {
 public:
-    dupCheck() throw(AssertException, exception);
-    ~dupCheck() throw();
 
-    bool check(TAprsString* s, int t) throw(AssertException, exception);
-    void clear(void) throw(AssertException, exception);
+    dupCheck();
+    ~dupCheck();
+
+    bool check(aprsString* s, int t);
+    void clear(void);
+
 private:
     Mutex mutex;
+
     time_t*  hashtime;
     INT16*   hashhash;
-};
+    unsigned long seed;
+} ;
 
-#endif  // DUPCHECK_H
+#endif      // DUPCHECK__H

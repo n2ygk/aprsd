@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,24 +23,28 @@
  */
 
 
-#ifndef __HISTORY_H
-#define __HISTORY_H
+#ifndef HISTORY_H
+#define HISTORY_H
+
+#include "aprsString.h"
+
+extern int dumpAborts;  //Number of history dumps aborted
+extern int ItemCount;   //number of items in History list
 
 void CreateHistoryList();
-bool AddHistoryItem(TAprsString *hp);
-void DeleteHistoryItem(TAprsString *hp);
+bool AddHistoryItem(aprsString *hp);
+void DeleteHistoryItem(aprsString *hp);
 int DeleteOldItems(int x);
-int DeleteItem(TAprsString* ref);
-bool DupCheck(TAprsString* ref, time_t t);
+int DeleteItem(aprsString* ref);
+bool DupCheck(aprsString* ref, time_t t);
 int SendHistory(int session,int em);
-int SaveHistory(char *name);
-int ReadHistory(char *name);
-bool StationLocal(const char *cp, int em);
-TAprsString* getPosit(const string& call, int em);
-bool timestamp(long sn, time_t t);
-TAprsString* getPositAndUpdate(const string& call, int em, time_t earliestTime, time_t newTime);
-time_t GetLastPositTx(TAprsString *hp);
+int SaveHistory(const string& name);
+int ReadHistory(const string& name);
+bool StationLocal(const std::string& sp, int em);
+aprsString* getPosit(const std::string& call, int em);
+bool timestamp(unsigned long sn, time_t t);
+int localCount();
 
 
-#endif  // __HISTORY_H
+#endif      // HISTORY_H
 

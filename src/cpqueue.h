@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -26,45 +26,49 @@
 #ifndef CPQUEUE_H
 #define CPQUEUE_H
 
-#include <queue>
-
 #include "aprsString.h"
 #include "mutex.h"
-#include "exception.h"
 
-namespace aprsd
+using namespace aprsd;
+
+class  queueData
 {
-    using std::queue;
+public:
+    void* qcp;      //Pointer to dynamically allocated aprsString or char string.
+    int	qcmd;     //Optional interger data command or info
+    bool rdy;
+};
 
-    class cpQueue
-    {
-    public:
-        int overrun;                        // times queue has overrun
-        int itemsQueued;                    // number of items currently in queue
-        int HWItemsQueued;                  // HighWater mark for queue
-        cpQueue(int n, bool d) throw(AssertException, exception);             // fifo Queue constructor
-        ~cpQueue(void) throw();                     // destructor
 
-        bool write(TAprsString* cs, int cmd) throw(AssertException, exception);
-        bool write(TAprsString* cs) throw(AssertException, exception);
-        bool write(char* cs, int cmd) throw(AssertException, exception);
-        bool write(const char* cs, int cmd) throw(AssertException, exception);
-        bool write(unsigned char* cs, int cmd) throw(AssertException, exception);
-        //bool write(string& sp, int cmd);
+class cpQueue
+{
+private:
+    queueData *base_p;
+    int write_p;
+    int read_p;
+    int size, lock, inRead, inWrite;
+    Mutex Q_mutex;
+    bool dyn;
 
-        void* read(int *cmd) throw(AssertException, exception);
-        bool ready(void) throw(AssertException, exception);                    // return non-zero when queue data is available
+public:
+    int overrun;
+    int itemsQueued;
+    cpQueue(int n, bool d);     // fifo Queue constructor
+    ~cpQueue(void);             // destructor
 
-        int getItemsQueued(void) throw(AssertException, exception);
-        int getHWItemsQueued(void) throw(AssertException, exception);
-        int getQueueSize(void) throw(AssertException, exception);
+    int write(aprsString* cs, int cmd);
+    int write(aprsString* cs);
+    int write(char* cs, int cmd);
+    int write(unsigned char* cs, int cmd);
+    int write(const char* cs, int cmd);
 
-    private:
-        int maxQueueSize, lock, inRead, inWrite;
-        pthread_mutex_t* pmtxQ;
-        bool dyn;
-        queue<void*> ls;
-        Mutex mutex;
-    };
-}
-#endif
+    void* read(int *cmd);
+    int ready(void);            //return non-zero when queue data is available
+
+    int getWritePtr(void);      //For debugging
+    int getReadPtr(void);
+    int getItemsQueued(void);
+};
+
+#endif      // CPQUEUE_H
+

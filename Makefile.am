@@ -1,9 +1,8 @@
-SUBDIRS = admin doc src
+## Process this file with automake to produce Makefile.in
 
-EXTRA_DIST = AUTHORS COPYING ChangeLog INSTALL README TODO
+AUTOMAKE_OPTIONS = gnu
 
-AUTOMAKE_OPTIONS = foreign
+SUBDIRS = src support doc admin
 
-MAINTAINERCLEANFILES = subdirs configure.in acinclude.m4 configure.files
-
+EXTRA_DIST = acconfig.h
 

@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,11 +22,6 @@
  * Look at the README for more information on the program.
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <unistd.h>
 #include <ctype.h>
 #include <pthread.h>
@@ -35,79 +30,94 @@
 #include <iostream>
 #include <strstream>
 #include <iomanip>
-#include <string.h>
-#include <time.h>
-
+#include <string>
+#include <ctime>
 #include <string>
 #include <stdexcept>
 
-#include "osdep.h"
 #include "constant.h"
 #include "dupCheck.h"
 #include "mutex.h"
 
+#define TABLESIZE  0x10000    /* 64K hash table containing time_t values */
+
 using namespace std;
 using namespace aprsd;
 
-#define TABLESIZE  0x10000              // 64K hash table containing time_t values
 
-
-dupCheck::dupCheck() throw(AssertException, exception)
+dupCheck::dupCheck()
 {
     hashtime = new time_t[TABLESIZE];
     hashhash = new INT16[TABLESIZE];
     clear();
-
+    time_t t = time(NULL);  //Make sure no two aprsd servers user the same seed in the hash function
+    seed = (unsigned long)t;
     if ((hashtime == NULL) || (hashhash == NULL))
         cerr << "Dup Filter failed to initialize" << endl;
 }
 
 
-dupCheck::~dupCheck() throw()
+dupCheck::~dupCheck()
 {
-    delete[] hashtime;
-    hashtime = NULL;
+    try {
+        if (hashtime != NULL) {
+            delete hashtime;
+            hashtime = NULL;
+        }
+
+        if (hashhash != NULL) {
+            delete hashhash;
+            hashhash = NULL;
+        }
+    } catch (...) { }
 }
 
 
-bool dupCheck::check(TAprsString* s, int t) throw(AssertException, exception)
+
+bool dupCheck::check(aprsString* s, int t)
 {
     bool dup = false;
-    Lock lock(mutex);
+    time_t dt = 0;
+    static int processed = 0;
+    static int dupcount = 0;
+    Lock locker(mutex);
 
     if ((hashtime == NULL) || (hashhash == NULL) || s->allowdup)
         return false;
 
-    // Get a mutex around this
-    lock.get();
-    INT32 hash = s->gethash();
-    INT16 hash_lo = hash & 0xffff;      // be sure we stay inside the table!
-    INT16 hash_hi = hash >> 16;         // upper 16 bits of hash
+    INT32 hash = s->gethash(seed);  //Generate hash value from initial seed based on pgm start time.
+    INT16 hash_lo = hash & 0xffff;  //be sure we stay inside the table!
+    INT16 hash_hi = hash >> 16;     //upper 16 bits of hash
     hash_hi &= 0xffff;
 
-    if (((s->timestamp - hashtime[hash_lo]) <= t )   // See if time difference is less than t seconds
+    dt =  s->timestamp - hashtime[hash_lo];
+
+    if (( dt <= t )  // See if time difference is less than t seconds
             && (hash_hi == hashhash[hash_lo])) {    // and hash_hi value is identical
+
         dup = true;
     }
 
     hashtime[hash_lo] = s->timestamp;   // put this new data in the tables
     hashhash[hash_lo] = hash_hi;
 
-    // release the lock
-    lock.release();
-    // printf("hash32= %08X  hash_hi= %04X  hash_lo= %04X %s",s->hash, hash_hi, hash_lo, s->raw.c_str()); //debug
-    return(dup);
+    if (dup)
+        dupcount++;
+
+    processed++;
+
+    return dup;
 }
 
-void dupCheck::clear() throw(AssertException, exception)
+
+void dupCheck::clear()
 {
-    for (int i = 0; i < TABLESIZE; i++) {
+    for (int i = 0; i < TABLESIZE; i++){
         if (hashtime)
-            hashtime[i] = 0;            // Initialize tables
+            hashtime[i] = 0;  //Initialize tables
 
         if (hashhash)
             hashhash[i] = 0;
     }
 }
-
 

@@ -1,15 +1,31 @@
-/* +++Date last modified: 05-Jul-1997 */
-
 /*
-**  SNIPTYPE.H - Include file for SNIPPETS data types and commonly used macros
-*/
+ * $Id$
+ *
+ * aprsd, Automatic Packet Reporting System Daemon
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ * Look at the README for more information on the program.
+ */
 
-#ifndef __SNIPTYPE__H
-#define __SNIPTYPE__H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef SNIPTYPE__H
+#define SNIPTYPE__H
+
 #include <stdlib.h>                             /* For free()           */
 #include <string.h>                             /* For NULL & strlen()  */
 
@@ -36,9 +52,5 @@ typedef enum {Error_ = -1, Success_, False_ = 0, True_} Boolean_T;
 #define LAST_CHAR(s) (((char *)s)[strlen(s) - 1])
 #define TOBOOL(x) (!(!(x)))
 #define FREE(p) (free(p),(p)=NULL)
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* SNIPTYPE__H */

@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,27 +22,34 @@
  * Look at the README for more information on the program.
  */
 
-#ifndef __MIC_E_H
-#define __MIC_E_H
 
+#ifndef MIC_E_H
+#define MIC_E_H
+
+#ifndef u_char
 #define u_char unsigned char
+#endif
 
-extern int fmt_mic_e(const u_char *t,   // tocall
-    const u_char *i,                    // info
-    const int l,                        // length of info
-    u_char *buf1,                       // output buffer */
-    int *l1,                            // length of output buffer
-    u_char *buf2,                       // 2nd output buffer
-    int *l2,                            // length of 2nd output buffer
-    time_t tick);                       // received timestamp of the packet
+extern bool ConvertMicE;
 
-extern int fmt_x1j4(const u_char *t,    // tocall
-    const u_char *i,                    // info
-    const int l,                        // length of info
-    u_char *buf1,                       // output buffer
-    int *l1,                            // length of output buffer
-    u_char *buf2,                       // 2nd output buffer
-    int *l2,                            // length of 2nd output buffer
-    time_t tick);                       // received timestamp of the packet
+unsigned int hex2i(u_char,u_char);
 
-#endif  // __MIC_E_H
+int fmt_mic_e(const u_char *t,      // tocall
+    const u_char *i,                // info
+    const int l,                    // length of info
+    u_char *buf1,                   // output buffer
+    int *l1,                        // length of output buffer
+    u_char *buf2,                   // 2nd output buffer
+    int *l2,                        // length of 2nd output buffer
+    time_t tick);                   // received timestamp of the packet
+
+int fmt_x1j4(const u_char *t,       // tocall
+    const u_char *i,                // info
+    const int l,                    // length of info
+    u_char *buf1,                   // output buffer
+    int *l1,                        // length of output buffer
+    u_char *buf2,                   // 2nd output buffer
+    int *l2,                        // length of 2nd output buffer
+    time_t tick);                   // received timestamp of the packet
+
+#endif      // MIC_E_H

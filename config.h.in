@@ -1,130 +1,197 @@
-/* config.h.in.  Generated automatically from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.in by autoheader.  */
 
-/* Define as the return type of signal handlers (int or void).  */
-#undef RETSIGTYPE
+/* Define to 1 if you have the <arpa/inet.h> header file. */
+#undef HAVE_ARPA_INET_H
 
-/* Define to the type of arg1 for select(). */
-#undef SELECT_TYPE_ARG1
+/* Define to 1 if you have the declaration of `strerror_r', and to 0 if you
+   don't. */
+#undef HAVE_DECL_STRERROR_R
 
-/* Define to the type of args 2, 3 and 4 for select(). */
-#undef SELECT_TYPE_ARG234
-
-/* Define to the type of arg5 for select(). */
-#undef SELECT_TYPE_ARG5
-
-/* Define to `unsigned' if <sys/types.h> doesn't define.  */
-#undef size_t
-
-/* Define if you have the ANSI C header files.  */
-#undef STDC_HEADERS
-
-/* Define if you can safely include both <sys/time.h> and <time.h>.  */
-#undef TIME_WITH_SYS_TIME
-
-/* Define if you have the getopt_long function.  */
-#undef HAVE_GETOPT_LONG
-
-/* Define if you have the getrlimit function.  */
-#undef HAVE_GETRLIMIT
-
-/* Define if you have the hstrerror function.  */
-#undef HAVE_HSTRERROR
-
-/* Define if you have the pthread_attr_getdetachstate function.  */
-#undef HAVE_PTHREAD_ATTR_GETDETACHSTATE
-
-/* Define if you have the pthread_attr_setdetachstate function.  */
-#undef HAVE_PTHREAD_ATTR_SETDETACHSTATE
-
-/* Define if you have the regcomp function.  */
-#undef HAVE_REGCOMP
-
-/* Define if you have the select function.  */
-#undef HAVE_SELECT
-
-/* Define if you have the setpgrp function.  */
-#undef HAVE_SETPGRP
-
-/* Define if you have the setsid function.  */
-#undef HAVE_SETSID
-
-/* Define if you have the sigaction function.  */
-#undef HAVE_SIGACTION
-
-/* Define if you have the sigblock function.  */
-#undef HAVE_SIGBLOCK
-
-/* Define if you have the signal function.  */
-#undef HAVE_SIGNAL
-
-/* Define if you have the sigprocmask function.  */
-#undef HAVE_SIGPROCMASK
-
-/* Define if you have the socket function.  */
-#undef HAVE_SOCKET
-
-/* Define if you have the uname function.  */
-#undef HAVE_UNAME
-
-/* Define if you have the <fcntl.h> header file.  */
+/* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
-/* Define if you have the <getopt.h> header file.  */
-#undef HAVE_GETOPT_H
+/* Define to 1 if you have the `fork' function. */
+#undef HAVE_FORK
 
-/* Define if you have the <pthread.h> header file.  */
-#undef HAVE_PTHREAD_H
+/* Define to 1 if you have the `gethostbyname' function. */
+#undef HAVE_GETHOSTBYNAME
 
-/* Define if you have the <string.h> header file.  */
-#undef HAVE_STRING_H
+/* Define to 1 if you have the `gethostname' function. */
+#undef HAVE_GETHOSTNAME
 
-/* Define if you have the <sys/resource.h> header file.  */
-#undef HAVE_SYS_RESOURCE_H
+/* Define to 1 if you have the `getspnam' function. */
+#undef HAVE_GETSPNAM
 
-/* Define if you have the <sys/select.h> header file.  */
-#undef HAVE_SYS_SELECT_H
+/* Define to 1 if you have the `gettimeofday' function. */
+#undef HAVE_GETTIMEOFDAY
 
-/* Define if you have the <sys/socket.h> header file.  */
-#undef HAVE_SYS_SOCKET_H
+/* Define to 1 if you have the `inet_ntoa' function. */
+#undef HAVE_INET_NTOA
 
-/* Define if you have the <sys/time.h> header file.  */
-#undef HAVE_SYS_TIME_H
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
 
-/* Define if you have the <time.h> header file.  */
-#undef HAVE_TIME_H
-
-/* Define if you have the <unistd.h> header file.  */
-#undef HAVE_UNISTD_H
-
-/* Define if you have the ax25 library (-lax25).  */
-#undef HAVE_LIBAX25
-
-/* Define if you have the cma library (-lcma).  */
-#undef HAVE_LIBCMA
-
-/* Define if you have the crypt library (-lcrypt).  */
+/* Define to 1 if you have the `crypt' library (-lcrypt). */
 #undef HAVE_LIBCRYPT
 
-/* Define if you have the dce library (-ldce).  */
-#undef HAVE_LIBDCE
-
-/* Define if you have the gcc library (-lgcc).  */
-#undef HAVE_LIBGCC
-
-/* Define if you have the pthread library (-lpthread).  */
+/* Define to 1 if you have the `pthread' library (-lpthread). */
 #undef HAVE_LIBPTHREAD
+
+/* Define to 1 if your system has a GNU libc compatible `malloc' function, and
+   to 0 otherwise. */
+#undef HAVE_MALLOC
+
+/* Define to 1 if you have the `memchr' function. */
+#undef HAVE_MEMCHR
+
+/* Define to 1 if you have the `memmove' function. */
+#undef HAVE_MEMMOVE
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the `memset' function. */
+#undef HAVE_MEMSET
+
+/* Define to 1 if you have the <netdb.h> header file. */
+#undef HAVE_NETDB_H
+
+/* Define to 1 if you have the <netinet/in.h> header file. */
+#undef HAVE_NETINET_IN_H
+
+/* Define to 1 if you have the <pthread.h> header file. */
+#undef HAVE_PTHREAD_H
+
+/* Define to 1 if you have the `select' function. */
+#undef HAVE_SELECT
+
+/* Define to 1 if you have the <shadow.h> header file. */
+#undef HAVE_SHADOW_H
+
+/* Define to 1 if you have the `socket' function. */
+#undef HAVE_SOCKET
+
+/* Define to 1 if `stat' has the bug that it succeeds when given the
+   zero-length file name argument. */
+#undef HAVE_STAT_EMPTY_STRING_BUG
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `strchr' function. */
+#undef HAVE_STRCHR
+
+/* Define to 1 if you have the `strdup' function. */
+#undef HAVE_STRDUP
+
+/* Define to 1 if you have the `strerror' function. */
+#undef HAVE_STRERROR
+
+/* Define to 1 if you have the `strerror_r' function. */
+#undef HAVE_STRERROR_R
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strpbrk' function. */
+#undef HAVE_STRPBRK
+
+/* Define to 1 if you have the `strstr' function. */
+#undef HAVE_STRSTR
+
+/* Define to 1 if you have the <sys/ioctl.h> header file. */
+#undef HAVE_SYS_IOCTL_H
+
+/* Define to 1 if you have the <sys/select.h> header file. */
+#undef HAVE_SYS_SELECT_H
+
+/* Define to 1 if you have the <sys/socket.h> header file. */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/timeb.h> header file. */
+#undef HAVE_SYS_TIMEB_H
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+#undef HAVE_SYS_TIME_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
+#undef HAVE_SYS_WAIT_H
+
+/* Define to 1 if you have the <termios.h> header file. */
+#undef HAVE_TERMIOS_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `vfork' function. */
+#undef HAVE_VFORK
+
+/* Define to 1 if you have the <vfork.h> header file. */
+#undef HAVE_VFORK_H
+
+/* Define to 1 if `fork' works. */
+#undef HAVE_WORKING_FORK
+
+/* Define to 1 if `vfork' works. */
+#undef HAVE_WORKING_VFORK
+
+/* Define to 1 if `lstat' dereferences a symlink specified with a trailing
+   slash. */
+#undef LSTAT_FOLLOWS_SLASHED_SYMLINK
 
 /* Name of package */
 #undef PACKAGE
 
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Define as the return type of signal handlers (`int' or `void'). */
+#undef RETSIGTYPE
+
+/* Define to the type of arg 1 for `select'. */
+#undef SELECT_TYPE_ARG1
+
+/* Define to the type of args 2, 3 and 4 for `select'. */
+#undef SELECT_TYPE_ARG234
+
+/* Define to the type of arg 5 for `select'. */
+#undef SELECT_TYPE_ARG5
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Define to 1 if strerror_r returns char *. */
+#undef STRERROR_R_CHAR_P
+
+/* Defines the AX25 tocall constant */
+#undef TOCALL
+
 /* Version number of package */
 #undef VERSION
-
-/* HP/UX specific stuff. */
-#undef _CMA_NOWRAPPERS_
-
-/* Define to use FHS-compliant file locations */
-#undef USE_FHS
 
 /* This is a GNU compliant source, use GNU extensions. */
 #undef _GNU_SOURCE
@@ -132,12 +199,11 @@
 /* Use reentrant code if available. */
 #undef _REENTRANT
 
-/* Define to `int' if sys/socket.h doesn't define. */
-#undef socklen_t
+/* Define to rpl_malloc if the replacement function should be used. */
+#undef malloc
 
-/* Define to `unsigned short' if sys/socket.h doesn't define. */
-#undef sa_family_t
+/* Define to `int' if <sys/types.h> does not define. */
+#undef pid_t
 
-
-#undef APRSDTOCALL
-
+/* Define as `fork' if `vfork' does not work. */
+#undef vfork

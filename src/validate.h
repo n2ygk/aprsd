@@ -2,8 +2,8 @@
  * $Id$
  *
  * aprsd, Automatic Packet Reporting System Daemon
- * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 1997,2002 Dale A. Heatherington, WA4DSY
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,19 +22,19 @@
  * Look at the README for more information on the program.
  */
 
-#ifndef __VALIDATE_H
-#define __VALIDATE_H
+#ifndef VALIDATE_H
+#define VALIDATE_H
+
+#include <string>
 
 #define BADUSER -1
 #define BADGROUP -2
 #define BADPASSWD -3
 #define MUSTRUNROOT -4
 
-
-bool validate(const char* user,const char* pass, const char* group, const bool allow_hash);
+bool validate(const std::string& user, const std::string& pass, const std::string& group, const bool allow_hash);
 short doHash(const char *theCall);
 
-#endif
 
-
+#endif      // VALIDATE_H
 

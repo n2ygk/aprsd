@@ -27,11 +27,14 @@
 #endif
 
 #include <unistd.h>                     // getpid
+#include <iostream>
 
 #include "rf.h"
+#include "aprsd.h"
+#include "servers.h"
 #include "serial.h"
-#include "sockets.h"
-
+#include "ax25socket.h"
+#include "aprsString.h"
 #include "osdep.h"
 #include "constant.h"
 #include "utils.h"
@@ -42,39 +45,30 @@
 using namespace std;
 using namespace aprsd;
 
-struct pidList {
+/*struct pidList {
     pid_t main;
     pid_t SerialInp;
     pid_t TncQueue;
     pid_t InetQueue;
-};
+};*/
 
-extern ULONG WatchDog, tickcount, TotalConnects, TotalTncChars, TotalLines;
-extern ULONG MaxConnects;
-extern bool ShutDownServer;
-extern cpQueue sendQueue;
-extern cpQueue charQueue;
-extern const int srcTNC;
-extern bool configComplete;
-extern bool igateMyCall;
-extern bool logAllRF;
-extern pidList pidlist;
+//extern ULONG WatchDog, tickcount, TotalConnects, TotalTncChars, TotalLines;
+//extern ULONG MaxConnects;
+//extern bool ShutDownServer;
+//extern cpQueue sendQueue;
+//extern cpQueue charQueue;
+//extern bool configComplete;
+//extern bool igateMyCall;
+//extern bool logAllRF;
+//extern pidList pidlist;
 
-extern const int srcTNC;
-extern const int srcUSER;
-extern const int srcUSERVALID;
-extern const int srcIGATE;
-extern const int srcSYSTEM;
-extern const int srcUDP;
-extern const int srcHISTORY;
-extern const int src3RDPARTY;
-extern const int sendHISTORY;
+
 
 //extern char *szServerCall;
-extern string szServerCall;
+//extern string szServerCall;
 
 pthread_t tidReadCom;
-extern string MyCall;
+//extern string MyCall;
 //pthread_mutex_t *pmtxWriteTNC;
 Mutex mtxWriteTNC;
 
@@ -117,7 +111,7 @@ int rfOpen (const char *szPort)
     APIRET rc;
 
     if (AsyncPort)
-        result = AsyncOpen(szPort);
+        result = AsyncOpen(szPort, ComBaud);
 #ifdef HAVE_LIBAX25
     else
         result = SocketOpen(szPort, AprsPath);
@@ -138,8 +132,7 @@ int rfOpen (const char *szPort)
 
     rc = pthread_create (&tidReadCom, NULL, rfReadCom, NULL);
     if (rc) {
-        cerr << "Error: ReadCom thread creation failed. Error code = " << rc
-            << endl;
+        cerr << "Error: ReadCom thread creation failed. Error code = " << rc << endl;
 
         CloseAsync = true;
     }
@@ -152,6 +145,7 @@ int rfOpen (const char *szPort)
 int rfClose(void)
 {
     CloseAsync = true;                  // Tell the read thread to quit
+    
     while (threadAck == false)
         reliable_usleep (1000);                  // wait till it does
 
@@ -172,10 +166,8 @@ int rfClose(void)
 int rfWrite (const char *cp)
 {
     int rc = 0;
-    Lock writeTNCLock(mtxWriteTNC, false);
+    Lock writeTNCLock(mtxWriteTNC);
 
-    //rc = pthread_mutex_lock(pmtxWriteTNC);
-    writeTNCLock.get();
     strncpy(tx_buffer, cp, 256);
 
     txrdy = 1;
@@ -199,7 +191,7 @@ void* rfReadCom (void *vp)
     // FILE *rxc = (FILE *) vp;
     // size_t BytesRead;
     bool lineTimeout = false;
-    TAprsString *abuff;
+    aprsString *abuff;
 
     i = 0;
 
@@ -229,7 +221,7 @@ void* rfReadCom (void *vp)
             buf[i++] = '\0';
 
             if ((i > 0) && (!TncSysopMode) && (configComplete)) {
-                abuff = new TAprsString ((char *) buf, SRC_TNC, srcTNC, "TNC", "*");
+                abuff = new aprsString ((char *) buf, SRC_TNC, srcTNC, "TNC", "*");
 
                 if (abuff != NULL) {        //don't let a null pointer get past here!
 
@@ -243,13 +235,13 @@ void* rfReadCom (void *vp)
                         if ((stricmp(szServerCall.c_str(), abuff->stsmDest.c_str()) == 0)
                             || (stricmp("aprsd", abuff->stsmDest.c_str()) == 0)
                             || (stricmp("igate", abuff->stsmDest.c_str()) == 0)) {    // Is query for us?
-                            queryResp (SRC_TNC, abuff);         // Yes, respond.
+                            queryResp(SRC_TNC, abuff);         // Yes, respond.
                         }
 
                     }
 
                     if (logAllRF || abuff->ax25Source.compare(MyCall) == 0)
-                        WriteLog (abuff->c_str (), RFLOG);        //Log our own packets that were digipeated
+                        WriteLog(abuff->c_str(), RFLOG);        //Log our own packets that were digipeated
 
                     if ((abuff->reformatted)
                         || ((abuff->ax25Source.compare(MyCall) == 0)
@@ -261,7 +253,7 @@ void* rfReadCom (void *vp)
 
                         if (abuff->aprsType == APRSMSG)        //find matching posit for 3rd party msg
                         {
-                            TAprsString *posit =
+                            aprsString *posit =
                                 getPosit(abuff->ax25Source,
                                           srcIGATE | srcUSERVALID | srcTNC);
 
@@ -289,7 +281,7 @@ void* rfReadCom (void *vp)
 
     }                                // Loop until server is shut down
 
-    cerr << "Exiting Async com thread\n" << endl << flush;
+    cerr << "Exiting Async com thread\n" << endl;
     threadAck = true;
     pthread_exit(0);
 
