@@ -1,11 +1,9 @@
 
 
-extra_dist = aprsd.conf \
+EXTRA_DIST = aprsd.conf \
 	aprsd.init \
 	chkaprsd \
 	INIT.TNC \
-	INSTALLDEAMON \
-	INSTALLPGM \
 	Makefile.am \
 	REMOVE \
 	RESTORE.TNC \
