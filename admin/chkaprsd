@@ -15,6 +15,8 @@
 # Note: Most implementations of crontab will accepts stepping; */5 * * * * for example
 # will step every 5 minutes
 
+cd /your/aprsd/bin/dir
+
 if test -r /var/run/aprsd.pid
 then
    aprsdpid=`cat /var/run/aprsd.pid`
@@ -29,6 +31,6 @@ then
    echo "Stale $bin.pid file, erasing..."
    echo ""
    rm -f /var/run/aprsd.pid
-   /home/aprsd2/aprsd -d
+   ./aprsd -d
    echo "restarted."
 fi
