@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
-AC_INIT(aprsd, 2.2.5-6, cbyam@virginia.edu)
+AC_INIT(aprsd, 2.2.5-7, cbyam@virginia.edu)
 AC_CONFIG_AUX_DIR(support)
 AC_CONFIG_SRCDIR([src/aprsd.cpp])
 AM_CONFIG_HEADER([config.h])
@@ -69,5 +69,6 @@ AC_CONFIG_FILES([Makefile \
 	src/Makefile \
 	support/Makefile \
 	doc/Makefile \
-	admin/Makefile])
+	admin/Makefile \
+	aprspass/Makefile])
 AC_OUTPUT

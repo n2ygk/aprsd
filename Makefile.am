@@ -2,5 +2,5 @@
 
 AUTOMAKE_OPTIONS = gnu
 
-SUBDIRS = src support doc admin
+SUBDIRS = src support doc admin aprspass
 

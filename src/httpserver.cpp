@@ -261,7 +261,7 @@ void buildPage(StringList& htmlpage)
         << "<TR VALIGN=\"BASELINE\" BGCOLOR=\"#9999CC\">\n"
         << "<TH COLSPAN=11 ALIGN=\"CENTER\">Server Connections</TH></TR>\n"
         << "<TR BGCOLOR=\"#CCCCFF\"><TH>Domain Name</TH><TH>Hex IP<br>Alias</TH><TH>Port</TH><TH>Type</TH><TH>Status</TH><TH>Igate Pgm</TH>\n"
-        << "<TH>Last active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes<BR> Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>\n";
+        << "<TH>Last active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes<BR> Out</TH><TH>Time<BR> H:M:S</TH></TR>\n";
     
     htmlpage.push_back(igateheader.str());
 
@@ -339,7 +339,7 @@ void buildPage(StringList& htmlpage)
                 << "<TD>"  << cpIGATE[i].bytesIn / 1024 << " K</TD>"
                 << "<TD>" << cpIGATE[i].bytesOut / 1024 << " K</TD>"
                 << "<TD>" << timeStr << "</TD>"
-                << "<TD>" << cpIGATE[i].pid << "</TD>"
+                //<< "<TD>" << cpIGATE[i].pid << "</TD>"
                 << "</TR>\n";
             htmlpage.push_back(igateinfo.str());
         }
@@ -352,7 +352,7 @@ void buildPage(StringList& htmlpage)
         << "<TR  VALIGN=\"BASELINE\" BGCOLOR=\"#9999CC\">\n"
         << "<TH COLSPAN=10>Client Connections</TH></TR>\n"
         << "<TR ALIGN=\"CENTER\" BGCOLOR=\"#CCCCFF\"><TH>IP Address</TH><TH>Port</TH><TH>Call</TH><TH>Vrfy</TH>"
-        << "<TH>Program Vers</TH><TH>Last Active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes <BR>Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>\n";
+        << "<TH>Program Vers</TH><TH>Last Active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes <BR>Out</TH><TH>Time<BR> H:M:S</TH></TR>\n";
 
     htmlpage.push_back(userheader.str());
 
@@ -423,7 +423,7 @@ void buildPage(StringList& htmlpage)
                 << "<TD>" << bytesin << " K</TD>"
                 << "<TD>" << bytesout << " K</TD>"
                 << "<TD>" << TtimeStr  << "</TD>"
-                << "<TD>" << npid << "</TD>"
+                //<< "<TD>" << npid << "</TD>"
                 << "</TR>" << endl;
 
             htmlpage.push_back(userinfo.str());

@@ -1,3 +1,8 @@
+2003-05-04	Chuck Byam, KG4IJB
+	-  Added aprspass dir and rules to build binary
+	-  aprspass.cpp - lame include
+	-  admin/ still wasn't populated
+	-  Released 2.2.5-7
 2003-04-23	Chuck Byam, KG4IJB
 	-  Serial I/O support was borked; fixed but in the process I 
 	   broke ax25 code.  I'll release this and work in the ax25
