@@ -220,6 +220,11 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             return;
         }
 
+        if ((find("cmd:") == 0 || find("CMD:") == 0)) { // TNC commands
+            aprsType = APRSERROR;
+            return;
+        }
+
         if ((find("user ") == 0 || find("USER ") == 0)) {   // Must be a logon string
             int n = split(*this, words, MAXWORDS, RXwhite);
             if (n > 1)
@@ -278,6 +283,11 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             if (pathSize >= 2)
                 ax25Dest = ax25Path[1]; // AX25 destination
 
+            	if (ax25Dest.find("cmd:") <= ax25Dest.length()) {
+		    aprsType = APRSERROR;
+		    return;
+	        }
+
             if (pathSize >= 1) {
                 ax25Source = ax25Path[0];           //AX25 Source
                 //upcase(ax25Source);
@@ -299,13 +309,29 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     return;
                 }
 
-                if ((ax25Source.find("cmd:") || (ax25Source.find("CMD:")) <= ax25Source.length()) {
+                if (ax25Source.find("cmd:") <= ax25Source.length()) {
+                    aprsType = APRSERROR;
+                    //print(cout);
+                    return;
+                }
+                if (ax25Source.find("CMD:") <= ax25Source.length()) {
+                    aprsType = APRSERROR;
+                    //print(cout);
+                    return;
+                }
+                if (ax25Source.find("EH?") <= ax25Source.length()) {
                     aprsType = APRSERROR;
                     //print(cout);
                     return;
                 }
 
-                if ((ax25Source.find("EH?") || (ax25Source.find("?EH")) <= ax25Source.length()) {
+                if (ax25Source.find("?EH") <= ax25Source.length()) {
+                    aprsType = APRSERROR;
+                    //print(cout);
+                    return;
+                }
+
+                if (ax25Source.find("UNPROTO") <= ax25Source.length()) {
                     aprsType = APRSERROR;
                     //print(cout);
                     return;
