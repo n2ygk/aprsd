@@ -2652,7 +2652,8 @@ int SendFiletoClient(int session, char *szName)
     int throttle;
     
     if(pthread_mutex_lock(pmtxSendFile) != 0)
-    	cerr << "Unable to lock pmtxSendFile - SendFilteToClient.\n" << flush;
+        cerr << "Unable to lock pmtxSendFile - SendFilteToClient.\n" << flush;
+
     ifstream file(szName);
 
     if (!file) {
@@ -2720,18 +2721,44 @@ char* getStats()
     static time_t last_time = 0;
     static ULONG last_chars = 0;
     static ULONG last_tnc_chars=0;
-
+    double serverRate = 0;
+    double inetRate = 0;
+    string inetRateX, serverRateX;
     char *cbuf = new char[1024];
 
     time(&time_now);
-    upTime = (double) (time_now - serverStartTime) / 3600;
+    upTime = ((double)(time_now - serverStartTime) / 3600);
 
     if(pthread_mutex_lock(pmtxCount) != 0)
         cerr << "Unable to lock pmtxCount - Calculate text stats.\n" << flush;
 
-    aprsStreamRate =  (TotalTncChars + TotalIgateChars + TotalUserChars - last_chars) / (time_now - last_time);
-    tncStreamRate = (TotalTncChars - last_tnc_chars) / (time_now - last_time);
-    serverLoad =  bytesSent / (time_now - last_time);
+    aprsStreamRate =  ((TotalTncChars + TotalIgateChars + TotalUserChars - last_chars) / (time_now - last_time));
+    tncStreamRate = ((TotalTncChars - last_tnc_chars) / (time_now - last_time));
+    serverLoad =  (bytesSent / (time_now - last_time));
+
+    if (aprsStreamRate > 1024) {
+        inetRate = ((double)aprsStreamRate / 1024);
+        inetRateX = "Kbps";
+        if (inetRate > 1000) {
+            inetRate = (inetRate / 1000);
+            inetRateX = "Mbps";
+        }
+    } else {
+        inetRate = (double)aprsStreamRate;
+        inetRateX = "Bps";
+    }
+
+    if (serverLoad > 1024) {
+        serverRate = ((double)serverLoad / 1024);
+        serverRateX = "Kbps";
+        if (serverRate > 1000) {
+            serverRate = (serverRate / 1000);
+            serverRateX = "Mbps";
+        }
+    } else {
+        serverRate = (double)serverLoad;
+        serverRateX = "Bps";
+    }
 
     ostrstream os(cbuf,1023);
     os << setiosflags(ios::showpoint | ios::fixed)
@@ -2744,8 +2771,8 @@ char* getStats()
         << "Connect count     = " << TotalConnects << "\r\n"
         << "Users             = " << ConnectedClients << "\r\n"
         << "Peak Users        = " << MaxConnects << "\r\n"
-        << "APRS Stream rate  = " << aprsStreamRate << " bytes/sec" << "\r\n"
-        << "Server load       = " << serverLoad << " bytes/sec" << "\r\n"
+        << "APRS Stream rate  = " << inetRate << " " << inetRateX << "\r\n"
+        << "Server load       = " << serverRate << " " << serverRateX << "\r\n"
         << "History Items     = " << ItemCount << "\r\n"
         << "TAprsString Objs  = " << TAprsString::getObjCount() << "\r\n"
         << "Items in InetQ    = " << sendQueue.getItemsQueued() << "\r\n"
@@ -3363,6 +3390,7 @@ void segvHandler(int signum)  //For debugging seg. faults
 
     if(pthread_mutex_lock(pmtxCount) != 0)
         cerr << "Unable to lock pmtxCount - HTTPStats1.\n" << flush;
+
     webCounter++ ;
 
     if (aprsStreamRate > 1024) {
@@ -3483,7 +3511,6 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>Sysop email</TD><TD><A HREF=\"mailto:" << MyEmail << "\">" << MyEmail << "</A></TD></TR>\n"
         << "</TABLE><P>"
         << ends;
-
     if(pthread_mutex_unlock(pmtxCount) != 0)
         cerr << "Unable to unlock pmtxCount - HTTPStats2.\n" << flush;
 
@@ -3841,7 +3868,7 @@ int main(int argc, char *argv[])
     pidlist.main = getpid();
 
 #ifdef DEBUG
-    memset(&sa, 0, sizeof(sa));
+    memset(&sa, NULLCHR, sizeof(sa));
     sa.sa_handler = segvHandler;
     if (sigaction(SIGSEGV, &sa, NULL))
         perror("sigaction");
@@ -4215,9 +4242,9 @@ int main(int argc, char *argv[])
 
         /*debug*/
    /*
-	 if (Time != lastSec)	  //send the test message for debugging
-		 {
-		      char *test = "W4ZZ>APRS,TCPIP:!BOGUS PACKET ";
+    if (Time != lastSec)	  //send the test message for debugging
+     {
+          char *test = "W4ZZ>APRS,TCPIP:!BOGUS PACKET ";
             char testbuf[256];
             ostrstream os(testbuf,255);
             os << test << Time << "\r\n" << ends;
@@ -4225,13 +4252,12 @@ int main(int argc, char *argv[])
             inetpacket->changePath("TCPIP*","TCPIP") ;
             tncQueue.write(inetpacket); //note: inetpacket is deleted in DeQueue
 
-		 }
-  	 */
+     }
+    */
 
         if ((Time - tPstats) > 60) {    // 1 minute
-            if (WatchDog < 2) {
-		cerr << "** No data from TNC during previous 2 minutes **\n" << flush;
-            }
+            if (WatchDog < 2)
+                cerr << "** No data from TNC during previous 2 minutes **\n" << flush;
 
             /*       //# Tickle  has been commented out.
             if(aprsStreamRate == 0){    //Send  tickle if nothing else is being sent.
@@ -4248,9 +4274,9 @@ int main(int argc, char *argv[])
             sendQueue.write(monStats);
             delete stats;
 
-          /*  
+          /*
             for(int i=0;i<MaxClients;i++)
-		         cout << setw(4) << sessions[i].Socket  ;
+             cout << setw(4) << sessions[i].Socket  ;
 
           cout << endl;
           */
@@ -4263,7 +4289,6 @@ int main(int argc, char *argv[])
                 cerr << "Unable to lock pmtxCount - main-DeleteOldItems.\n" << flush;
 
             int di = DeleteOldItems(5);
-
             if(pthread_mutex_unlock(pmtxCount) != 0)
                 cerr << "Unable to unlock pmtxCount - main-DeleteOldItems.\n" << flush;
 
@@ -4273,13 +4298,13 @@ int main(int argc, char *argv[])
             tLastDel = Time;
         }
 
-	/*    					// N5VFF This was commented out -- why??
-	if ((Time - tLast) > 900)		//Save history list every 15 minutes
-		{
-		  SaveHistory(pSaveHistory);
-		  tLast = Time;
-		}
-	*/
+    /*    					// N5VFF This was commented out -- why??
+    if ((Time - tLast) > 900)		//Save history list every 15 minutes
+    {
+      SaveHistory(pSaveHistory);
+      tLast = Time;
+    }
+    */
 
     } while (1 == 1);                     // ctrl-C to quit
 
