@@ -87,7 +87,7 @@ char* pax25 (char*, const unsigned char*);
 //---------------------------------------------------------------------
 // Open the AX.25 sockets
 
-int SocketOpen (const char *rfport, const char *destcall)
+int SocketOpen(const char *rfport, const char *destcall)
 {
     char* portcall;
 
@@ -161,7 +161,7 @@ int SocketClose (void)
 // It polls the socket, and returns any data received
 // (after reformatting it to raw TNC format).
 
-bool SocketReadWrite (char buf[])
+bool SocketReadWrite(char buf[])
 {
     bool lineTimeout;
     struct pollfd pfd;
@@ -229,62 +229,67 @@ bool SocketReadWrite (char buf[])
 //---------------------------------------------------------------------
 // fmt converts a received packet into a TNC message string
 
-void fmt (const unsigned char *buf, int len, unsigned char **outbuf)
+void fmt(const unsigned char *buf, int len, unsigned char **outbuf)
 {
     static unsigned char buf1[1000];
     char from[10], to[10], digis[100];
-    int i, hadlast, l;
+    int i, hadlast;
     char tmp[15];
 
     *buf1 = '\0';
     *outbuf = buf1;
-    if ((buf[0] & 0xf) != 0)	/* not a kiss data frame */
-	return;
+    if ((buf[0] & 0xf) != 0)            // not a kiss data frame
+        return;
+
     ++buf;
     --len;
-    if (len < (AXLEN + ALEN + 1))	/* too short */
-	return;
 
-    pax25 (to, buf);		/* to call */
-    pax25 (from, &buf[AXLEN]);	/* from call */
+    if (len < (AXLEN + ALEN + 1))       // too short
+        return;
+
+    pax25 (to, buf);                    // to call
+    pax25 (from, &buf[AXLEN]);          // from call
 
     buf += AXLEN;		/* skip over the from call now... */
     len -= AXLEN;
     *digis = '\0';
-    if (!(buf[ALEN] & HDLCAEB)) {	/* is there a digipeater path? */
-	for (l = 0, buf += AXLEN, len -= AXLEN, i = 0;
-	     i < 6 && len >= 0; i++, len -= AXLEN, buf += AXLEN) {
-	    int nextrept = buf[AXLEN + ALEN] & REPEATED;
-	    if (buf[ALEN] & HDLCAEB)
-		nextrept = 0;
-	    pax25 (tmp, buf);
 
-	    if (*tmp) {
-		sprintf (&digis[l], ",%s%s", tmp,
-			 (buf[ALEN] & REPEATED && !nextrept) ? "*" : "");
-		++hadlast;
-		l += strlen (&digis[l]);
-	    }
-	    if (buf[ALEN] & HDLCAEB)
-		break;
-	}
+    if (!(buf[ALEN] & HDLCAEB)) {       // is there a digipeater path?
+        for (int l = 0, buf += AXLEN, len -= AXLEN, i = 0;
+                i < 6 && len >= 0; i++, len -= AXLEN, buf += AXLEN) {
+
+            int nextrept = buf[AXLEN + ALEN] & REPEATED;
+            if (buf[ALEN] & HDLCAEB)
+                nextrept = 0;
+
+        pax25 (tmp, buf);
+
+        if (*tmp) {
+            sprintf (&digis[l], ",%s%s", tmp, (buf[ALEN] & REPEATED && !nextrept) ? "*" : "");
+            ++hadlast;
+            l += strlen (&digis[l]);
+        }
+
+        if (buf[ALEN] & HDLCAEB)
+            break;
     }
+    //}
     buf += AXLEN;
     len -= AXLEN;
     if (len <= 0)
-	return;			/* no data after callsigns */
+        return;  // no data after callsigns
+
     if (*buf++ == UI && *buf++ == PID_NO_L3) {
-	len -= 2;
+        len -= 2;
     } else {
-	return;			/* must have UI text to be useful */
+        return;     // must have UI text to be useful
     }
 
-    /* No rewriting for mic-e frames because aprsd does this later */
+    // No rewriting for mic-e frames because aprsd does this later
     sprintf ((char*)buf1, "%s>%s%s:", from, to, digis);
     l = strlen ((char*)buf1);
-    for (i = 0; i < len; i++, l++) {
-        buf1[l] = (isprint (buf[i])) ? buf[i] : ' ';	/* keep it clean */
-    }
+    for (int i = 0; i < len; i++, l++)
+        buf1[l] = (isprint (buf[i])) ? buf[i] : ' ';    // keep it clean
 
     buf1[l++] = 0x0d;
     buf1[l++] = 0x0a;
@@ -298,23 +303,23 @@ void fmt (const unsigned char *buf, int len, unsigned char **outbuf)
 
 char * pax25 (char *buf, const unsigned char *data)
 {
-    int i, ssid;
+    int ssid;
     char *s;
     char c;
 
     s = buf;
 
-    for (i = 0; i < ALEN; i++) {
-	c = (data[i] >> 1) & 0x7F;
+    for (int i = 0; i < ALEN; i++) {
+        c = (data[i] >> 1) & 0x7F;
 
-	if (c != ' ')
-	    *s++ = c;
+        if (c != ' ')
+            *s++ = c;
     }
 
     if ((ssid = (data[ALEN] & SSID) >> 1) != 0)
-	sprintf (s, "-%d", ssid);
+        sprintf (s, "-%d", ssid);
     else
-	*s = '\0';
+        *s = '\0';
 
     return (buf);
 }

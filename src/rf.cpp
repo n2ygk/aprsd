@@ -131,16 +131,12 @@ int rfOpen (const char *szPort)
     if (result != 0)
         return(result);
 
-    //pmtxWriteTNC = new pthread_mutex_t;
-    //pthread_mutex_init (pmtxWriteTNC, NULL);
-
     CloseAsync = false;
     threadAck = false;
 
     // Now start the serial port reader thread
 
-    rc = pthread_create (&tidReadCom, NULL, rfReadCom, NULL);
-    if (rc) {
+    if ((rc = pthread_create (&tidReadCom, NULL, rfReadCom, NULL)) < 0) {
         cerr << "Error: ReadCom thread creation failed. Error code = " << rc
             << endl;
 
@@ -157,10 +153,6 @@ int rfClose(void)
     CloseAsync = true;                  // Tell the read thread to quit
     while (threadAck == false)
         reliable_usleep (1000);                  // wait till it does
-
-    //pthread_mutex_destroy(pmtxWriteTNC);
-    //delete pmtxWriteTNC;
-    //pmtxWriteTNC = NULL;
 
     if (AsyncPort)
         return(AsyncClose());
@@ -181,7 +173,6 @@ int rfWrite (const char *cp)
     int rc = 0;
     Lock writeTNCLock(mtxWriteTNC, false);
 
-    //rc = pthread_mutex_lock(pmtxWriteTNC);
     writeTNCLock.get();
     strncpy(tx_buffer, cp, 256);
 
@@ -189,7 +180,6 @@ int rfWrite (const char *cp)
     while (txrdy)
         reliable_usleep(10000);                  // The rfReadCom thread will clear txrdy when it takes data
 
-    //rc = pthread_mutex_unlock(pmtxWriteTNC);
     writeTNCLock.release();
     return(rc);
 }

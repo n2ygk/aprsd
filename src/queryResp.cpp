@@ -43,19 +43,13 @@ using namespace std;
 extern void BroadcastString(const char *cp);
 
 extern char* szAPRSDPATH ;
-//extern char* szServerCall ;
 extern string szServerCall;
-//extern char* MyLocation ;
 extern string MyLocation;
-//extern char* MyCall;
 extern string MyCall;
-//extern char* MyEmail;
 extern string MyEmail;
 
 extern int msgsn;
 extern cpQueue tncQueue;
-//extern pthread_mutex_t* pmtxCount;
-//extern pthread_mutex_t* pmtxDNS;
 extern RecursiveMutex mtxCount;
 extern RecursiveMutex mtxDNS;
 
@@ -66,7 +60,7 @@ int queryCounter;
 void queryResp(int session, const TAprsString* pkt)
 {
     int rc;
-    struct hostent *h = NULL;
+    struct hostent *hostinfo = NULL;
     struct hostent hostinfo_d;
     char h_buf[512];
     int h_err;
@@ -74,7 +68,7 @@ void queryResp(int session, const TAprsString* pkt)
     Lock countLock(mtxCount, false);
 
     TAprsString *rfpacket, *ackRFpacket;
-    char* hostname = new char[80];
+    char* hostname = new char[180];
     unsigned char hip[5];
     char* cp = new char[256];
     char* cpAck = new char[256];
@@ -84,33 +78,21 @@ void queryResp(int session, const TAprsString* pkt)
     ostrstream ack(cpAck, 255);
     bool wantAck = false;
 
-    for (int i=0;i<4;i++)
+    for (int i = 0; i < 4; i++)
         hip[i] = 0;
 
     // Get hostname and host IP
-    rc = gethostname(hostname,80);
-
-    if (rc != 0)
+    if ((rc = gethostname(hostname, 179)) < 0 )
         strcpy(hostname,"Host_Unknown");
     else {
-        //if(pthread_mutex_lock(pmtxDNS) != 0)
-        //    cerr << "Unable to lock pmtxDNS - queryResp.\n" << flush;
         dnsLock.get();
         // Thread-Safe verison of gethostbyname2() ?  Actually it's not so lock after all
-        rc = gethostbyname2_r(hostname, AF_INET,
-                                &hostinfo_d,
-                                h_buf,
-                                512,
-                                &h,
-                                &h_err);
-
-        // if(pthread_mutex_unlock(pmtxDNS) != 0)
-        //  cerr << "Unable to unlock pmtxDNS - queryResp.\n" << flush;
-        dnsLock.release();
-
-        if (h != NULL) {
-            strncpy(hostname,h->h_name,80);             // Full host name
-            strncpy((char*)hip,h->h_addr_list[0],4);    // Host IP
+        if ((rc = gethostbyname_r(hostname, &hostinfo_d, h_buf, sizeof(h_buf), &hostinfo, &h_err)) < 0 ){
+            if (hostinfo != NULL) {
+                strncpy(hostname, hostinfo->h_name, 80);             // Full host name
+                strncpy((char*)hip, hostinfo->h_addr_list[0], 4);    // Host IP
+            } else
+                return;     // gethost failed so bail out.
         }
     }
 
@@ -144,21 +126,14 @@ void queryResp(int session, const TAprsString* pkt)
     if (wantAck) {                      // construct an ack packet
         ack << pkt->stsmDest << szAPRSDPATH << ":"
             << sourceCall << ":ack"
-            << pkt->acknum << "\r\n"    // use senders sequence number
-            << ends;
+            << pkt->acknum << endl;    // use senders sequence number
     }
 
     // Now build the query specfic packet(s)
-
     if (pkt->query.compare("IGATE") == 0) {
-        //if(pthread_mutex_lock(pmtxCount) != 0)
-        //    cerr << "Unable to lock pmtxCount - queryresp-queryCounter.\n" << flush;
         countLock.get();
         queryCounter++;                 // Count this query
         countLock.release();
-        //if(pthread_mutex_unlock(pmtxCount) != 0)
-        //    cerr << "Unable to unlock pmtxCount - queryresp-queryCounter.\n" << flush;
-
         reply << szServerCall << szAPRSDPATH << ":"
             << sourceCall << ":"
             << MyCall << " "
@@ -197,11 +172,11 @@ void queryResp(int session, const TAprsString* pkt)
 
 
             default:
-                if (session >= 0) {
+                if (session > 0) {
                     if (wantAck)
-                        rc = send(session,(const void*)cpAck,strlen(cpAck),0);  //Only to one user
+                        rc = send(session, (const void*)cpAck, strlen(cpAck), 0);  //Only to one user
 
-                    rc = send(session,(const void*)cp,strlen(cp),0);
+                    rc = send(session, (const void*)cp, strlen(cp), 0);
                 }
         }
     }

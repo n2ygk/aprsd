@@ -400,36 +400,7 @@ bool find_rfcall(const string& s, string **cl)
     return(rc);
 }
 
-//------------------------------------------------------------------
-//
-//  Case insensitive c char string compare function
-//
-/*int stricmp(const char* szX, const char* szY)
-{
-    int i;
-    int len = strlen(szX);
-    char* a = new char[len+1];
 
-    for (i = 0;i<len;i++)
-        a[i] = tolower(szX[i]);
-
-    a[i]='\0';
-    len = strlen(szY);
-    char* b = new char[len+1];
-
-    for (i = 0;i<len;i++)
-        b[i] = tolower(szY[i]);
-
-    b[i]='\0';
-
-    int rc = strcmp(a,b);
-    delete[] a;
-    a = NULL;
-    delete[] b;
-    b = NULL;
-    return(rc);
-}
-*/
 //--------------------------------------------------------------------
 /* Returns the deny code if user found or "+" if user not in list
    Deny codes:  L = no login   R = No RF access
