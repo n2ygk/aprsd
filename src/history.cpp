@@ -535,12 +535,13 @@ int SendHistory(int session, int em)
 
     int n = hr[0].count;                // n has total number of items
     count = 0;
-    float throttle = 30;                // Initial rate  about 250kbaud
-
+    float throttle = 150;                // Initial rate  about 50kbaud
+    //cerr << " Top of SendHistory Loop.\n" << flush;	// debug stuff
     for (i=0;i < n; i++) {
         if ((hr[i].EchoMask & em)
                 && (hr[i].reformatted == FALSE)) {      // filter data intended for this users port
             count++;                    // Count how many items we actually send
+	    //cerr << "Sending History Item " << count << ".\n" << flush; 	// debug stuff
             size_t dlen  = strlen(hr[i].data);
             retrys = 0;
 
@@ -551,16 +552,23 @@ int SendHistory(int session, int em)
                 if(rc < 0) {
                     sleep(1 );          // Pause output 1 second if resource unavailable
 
-                    if (retrys == 0)
+                    if (retrys == 0) {
                         throttle = throttle * 2; //cut our speed in half
+			//cerr << "SendHistory Throttle Down to" << throttle   //debug stuff
+			//     << ".\n" << flush;
+		    }				
 
-                    if (throttle > 3333)
+                    if (throttle > 3333) {
                         throttle = 3333;    // Don't go slower than 2400 baud
-
+			//cerr << "SendHistory Throttle at Min.\n" << flush;
+		    }
                     retrys++;
                 } else
-                    if (throttle > 30)
+                    if (throttle > 7.5) {		// max speed of about 1mbaud
                         throttle = throttle * 0.98;     // Speed up 2%
+			//cerr << "SendHistory Throttle Up to " << throttle // debug stuff
+			//     << ".\n" << flush;
+		    }
 
             } while((errno == EAGAIN) && (rc < 0) && ( retrys <= 180));  //Keep trying for 3 minutes
 
@@ -568,16 +576,20 @@ int SendHistory(int session, int em)
                 cerr <<  "send() error in SendHistory() errno= " << errno << " retrys= " << retrys
                     << " \n[" << strerror(errno) <<  "]" << endl;
 
-                deleteHistoryArray(hr);
                 pthread_mutex_lock(pmtxHistory);    // grab mutex semaphore
+                deleteHistoryArray(hr);
                 dumpAborts++;
                 pthread_mutex_unlock(pmtxHistory);  // release mutex semaphore
                 return(-1);
             }
         }
     }
-
+    //cerr << "Out of SendHistory loop.\n" << flush;		// debug stuff
+    pthread_mutex_lock(pmtxHistory);
     deleteHistoryArray(hr);
+    //cerr << "SendHistory Array deleted.\n" << flush;		// debug stuff
+    pthread_mutex_unlock(pmtxHistory);
+    //cerr << "History mutex unlocked - time to return.\n" << flush;	// debug stuff
     return(count);
 }
 

@@ -521,7 +521,7 @@ void SendToAllClients(TAprsString* p)
 
     if (p == NULL)
         return;
-
+    DBstring = "Top of Error Check"; 
     if ((p->aprsType == APRSERROR) || (p->length() < 3)  ) {
 #ifdef DEBUG
         if (!((p->find("Sent") <= p->length())
@@ -533,11 +533,11 @@ void SendToAllClients(TAprsString* p)
                 char *fubarmsg;
                 fubarmsg = new char[2049];
                 ostrstream msg(fubarmsg, 2048);
-
-                //msg << "FUBARPKT " << p->srcHeader.c_str()
-                //    << " " << p->c_str()
-                //    << endl
-                //    << ends;
+                DBstring = "Write bad packet log";
+                msg << "FUBARPKT " << p->srcHeader.c_str()
+                    << " " << p->c_str()
+                    << endl
+                    << ends;
 
                 WriteLog(fubarmsg, FUBARLOG);
                 //cerr << fubarmsg;
@@ -548,9 +548,10 @@ void SendToAllClients(TAprsString* p)
         return;                         // Reject runts and error pkts
     }
     try {
+	DBstring = "Lock mutexes before send";
         pthread_mutex_lock(pmtxAddDelSess);
         pthread_mutex_lock(pmtxSend);
-
+	DBstring = "Mutexes locked for send";
         n = p->length();
         nraw = p->raw.length();
         nsh = p->srcHeader.length();
@@ -603,7 +604,7 @@ void SendToAllClients(TAprsString* p)
                     if (rc == -1) {
                         if (errno == EAGAIN)
                             sessions[i].overruns++;
-
+			    cerr << "Session overrun\n" << flush;
                         if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
                             sessions[i].EchoMask = 0;   // No more data for you!
                             sessions[i].dead = true;    // Mark connection as dead for later removal...
@@ -1105,7 +1106,6 @@ void *TCPSessionThread(void *p)
             conQueue.write(cp,0);       // queue reader deletes cp
         }
     }
-
     char *pWelcome = new char[strlen(CONFPATH) + strlen(WELCOME) + 1];
     strcpy(pWelcome, CONFPATH);
     strcat(pWelcome, WELCOME);
