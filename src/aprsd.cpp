@@ -3,7 +3,7 @@
  *
  * aprsd, Automatic Packet Reporting System Daemon
  * Copyright (C) 1997,2001 Dale A. Heatherington, WA4DSY
- * Copyright (C) 2001 aprsd Dev Team
+ * Copyright (C) 2001-2002 aprsd Dev Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -563,8 +563,12 @@ void CloseAllSessions(void)
 {
     for (int i=0;i<MaxClients;i++) {
         if (sessions[i].Socket != -1 ) {
-            shutdown(sessions[i].Socket,2);
-            close(sessions[i].Socket);
+            if (shutdown(sessions[i].Socket, SHUT_RDWR) < 0) { // Close socket
+                if (close(sessions[i].Socket) < 0) {           // Close socket, really
+                    char buff[100];
+                    throw SocketException(strerror_r(errno, buff, sizeof(buff)));
+                }
+            }
             sessions[i].Socket = -1;
             sessions[i].EchoMask = 0;
         }
@@ -1080,7 +1084,8 @@ int SendSessionStr(int session, const char *s)
 //-----------------------------------------------------------------------
 void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 {
-    char szLog[MAX],infomsg[MAX];
+    char szLog[MAX], infomsg[MAX];
+    string sLog;
     Lock sendLock(mtxSend, false);
     Lock countLock(mtxCount, false);
 
@@ -1089,10 +1094,16 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 
     //if(pthread_mutex_lock(pmtxSend) != 0)
     //    cerr << "Unable to lock pmtxSend - endSession.\n" << flush;
-
+    sendLock.get();
     DeleteSession(session);             // remove it  from list
-    shutdown(session, 2);
-    close(session);                     // Close socket
+    if (shutdown(session, SHUT_RDWR) < 0) { // Close socket
+        if (close(session) < 0) {           // Close socket, really
+            char buff[100];
+            throw SocketException(strerror_r(errno, buff, sizeof(buff)));
+        }
+    }
+
+    sendLock.release();
     //if(pthread_mutex_unlock(pmtxSend) != 0)
     //    cerr << "Unable to unlock pmtxSend - endSession.\n" << flush;
 
@@ -1107,10 +1118,15 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         conQueue.write(cp, 0);
     }
 
-    strncpy(szLog, szPeer, MAX - 1);
-    strcat(szLog, " ");
-    strcat(szLog, userCall);
-    strcat(szLog, " disconnected ");
+    //strncpy(szLog, szPeer, MAX - 1);
+    //strcat(szLog, " ");
+    //strcat(szLog, userCall);
+    //strcat(szLog, " disconnected ");
+    sLog += szPeer;
+    sLog += " ";
+    sLog += userCall;
+    sLog += " disconnected ";
+
     time_t endtime = time(NULL);
     double dConnecttime = difftime(endtime , starttime);
     int iMinute = (int)(dConnecttime / 60);
@@ -1118,10 +1134,10 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
     int iHour = (int)dConnecttime / 3600;
     int iSecond = (int)dConnecttime % 60;
     char timeStr[32];
-    sprintf(timeStr, "%3d:%02d:%02d", iHour, iMinute, iSecond);
-    strcat(szLog, timeStr);
-
-    WriteLog(szLog, MAINLOG);
+    snprintf(timeStr, sizeof(timeStr), "%3d:%02d:%02d", iHour, iMinute, iSecond);
+    //strcat(szLog, timeStr);
+    sLog += timeStr;
+    WriteLog(sLog, MAINLOG);
 
     {
         memset(infomsg, '\0', MAX);
@@ -1570,11 +1586,8 @@ void *TCPSessionThread(void *p)
 
                 TAprsString atemp(buf, session, srcUSER, szPeer, userCall);
 
-                if ((atemp.aprsType == APRSQUERY) &&
-                        ((!respondToIgateQueries) || (!respondToAprsdQueries))) {   // non-directed query ?
+                if (atemp.aprsType == APRSQUERY) {   // non-directed query ?
                     queryResp(session, &atemp);      // yes, send our response
-                } else {
-                    cerr << "Ignored APRSQUERY from " << atemp.ax25Source << endl;
                 }
 
                 //cout << atemp << endl;
@@ -2112,13 +2125,14 @@ void *TCPServerThread(void *p)
         }
         if (rc != 0) {
             cerr << "Error creating new client thread.\n" << flush;
-            shutdown(session->Socket,2);
-            rc = close(session->Socket);        // Close it if thread didn't start
+            if (shutdown(session->Socket, SHUT_RDWR) < 0) { // Close socket
+                if (close(sessions->Socket) < 0) {           // Close socket, really
+                    char buff[100];
+                    throw SocketException(strerror_r(errno, buff, sizeof(buff)));
+                }
+            }
             delete session;
             session = NULL;
-
-            if (rc < 0)
-                perror("Session Thread close()");
         } else                                  // session will be deleted in TCPSession Thread
             pthread_detach(SessionThread);      // run session thread DETACHED!
 
@@ -2723,9 +2737,12 @@ void *TCPConnectThread(void *p)
             if (sp)
                 sp->EchoMask = 0;       // Turn off the session output data stream if it's enabled
 
-            shutdown(clientSocket, 2);
-            close(clientSocket);
-
+            if (shutdown(clientSocket, SHUT_RDWR) < 0) { // Close socket
+                if (close(clientSocket) < 0) {           // Close socket, really
+                    char buff[100];
+                    throw SocketException(strerror_r(errno, buff, sizeof(buff)));
+                }
+            }
 
             pcp->connected = false;     // set status to unconnected
             connectTime = time(NULL) - pcp->starttime ;     // Save how long the connection stayed up
@@ -2854,8 +2871,13 @@ int SendFiletoClient(int session, char *szName)
             //if (rc == -1) {
             if (rc < 0) {
                 perror("SendFileToClient()");
-                shutdown(session,2);
-                close(session);         // close the socket if error happened
+                if (shutdown(session, SHUT_RDWR) < 0) { // Close socket
+                    if (close(session) < 0) {           // Close socket, really
+                        char buff[100];
+                        throw SocketException(strerror_r(errno, buff, sizeof(buff)));
+                    }
+                }
+
             }
 
         }

@@ -18,8 +18,6 @@ dnl AC_LANG_CPLUSPLUS
 if test "$GCC" = "yes"; then
 	CXXFLAGS="$CXXFLAGS -Wall -pipe"
 fi
-APRSD_CHECK_NAMESPACES
-APRSD_CHECK_FHS
 
 dnl Checks for libraries.
 AC_CHECK_LIB(pthread, pthread_create)
@@ -57,5 +55,8 @@ AC_REPLACE_FUNCS(getopt_long)
 AC_CHECK_FUNCS(regcomp select socket uname hstrerror)
 AC_CHECK_FUNCS(pthread_attr_setdetachstate pthread_attr_getdetachstate)
 AC_CHECK_FUNCS(getrlimit setsid setpgrp sigaction signal sigprocmask sigblock)
+
+dnl FHS-compliant paths for data files
+CHECK_FHS
 
 AC_OUTPUT(Makefile admin/Makefile doc/Makefile src/Makefile)

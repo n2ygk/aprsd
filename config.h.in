@@ -123,9 +123,6 @@
 /* HP/UX specific stuff. */
 #undef _CMA_NOWRAPPERS_
 
-/* Define to use FHS-compliant file locations */
-#undef USE_FHS
-
 /* This is a GNU compliant source, use GNU extensions. */
 #undef _GNU_SOURCE
 
