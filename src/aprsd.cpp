@@ -830,7 +830,7 @@ void *DeQueue(void *)
             DBstring = "Entrance to dup check";
             dup = false;
             if (!((abuff->EchoMask) & (srcSTATS | srcSYSTEM)))
-                dup  = dupFilter.check(abuff,15);   // Check for duplicates within 15 second window
+                dup  = dupFilter.check(abuff,30);   // Check for duplicates within 15 second window
 
             if (((abuff->EchoMask & src3RDPARTY)&&((abuff->aprsType == APRSPOS)) // No Posits fetched from history list
                     || (abuff->aprsType == COMMENT)               // No comment packets in the history buffer
