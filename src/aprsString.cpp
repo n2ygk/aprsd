@@ -668,7 +668,7 @@ void TAprsString::mic_e_Reformat(TAprsString** posit, TAprsString** telemetry)
             pbuf <<  path << ':' << mic1 << "\r\n" << ends;
             TAprsString* Posit = new TAprsString(buf1,sourceSock,EchoMask,peer.c_str(),call.c_str());
             Posit->raw = string(raw);   // Save a copy of the raw mic_e packet
-            Posit->changePath(PGVERS,ax25Dest.c_str());
+            Posit->changePath(APRSDTOCALL,ax25Dest.c_str());
             delete buf1;
             *posit = Posit;
         }
@@ -679,7 +679,7 @@ void TAprsString::mic_e_Reformat(TAprsString** posit, TAprsString** telemetry)
             tbuf <<  path << ':' << mic2 << "\r\n" << ends;
             TAprsString* Telemetry = new TAprsString(buf2,sourceSock,EchoMask,peer.c_str(),call.c_str());
             Telemetry->raw = string(raw);   // Save a copy of the raw mic_e packet
-            Telemetry->changePath(PGVERS,ax25Dest.c_str());
+            Telemetry->changePath(APRSDTOCALL,ax25Dest.c_str());
             delete buf2;
             *telemetry = Telemetry;
         }
