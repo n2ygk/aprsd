@@ -22,12 +22,9 @@ Glen Burnie, MD 21060
 */
 
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
-
-#define _REENTRANT 1
-#define _PTHREADS
 
 #include <unistd.h>
 #include <ctype.h>
@@ -48,6 +45,7 @@ Glen Burnie, MD 21060
 #include "mic_e.h"
 #include "crc.h"
 
+
 pthread_mutex_t* aprsString::pmtxCounters = NULL;  // mutex semaphore pointer common to all instances of aprsString
 
 int aprsString::NN = 0;
@@ -59,51 +57,46 @@ extern int ttlDefault;
 extern BOOL ConvertMicE;
 
 
-
-
-
-
-aprsString::aprsString(const char* cp, int s, int e, const char* szPeer, const char* userCall) : string(cp) 
+aprsString::aprsString(const char* cp, int s, int e, const char* szPeer, const char* userCall) : string(cp)
 {
-   constructorSetUp(cp,s,e);
-   peer = szPeer;
-   call = userCall;
-   srcHeader = "!" + peer + ":" + call + "!";    //Build the source ip header
+    constructorSetUp(cp,s,e);
+    peer = szPeer;
+    call = userCall;
+    srcHeader = "!" + peer + ":" + call + "!";  // Build the source ip header
 }
- 
-aprsString::aprsString(const char* cp, int s, int e) : string(cp) 
+
+aprsString::aprsString(const char* cp, int s, int e) : string(cp)
 {
-   peer = "";
-   user = "";
-   call = "";
-   srcHeader = "!:!";
-   constructorSetUp(cp,s,e);
-   
+    peer = "";
+    user = "";
+    call = "";
+    srcHeader = "!:!";
+    constructorSetUp(cp,s,e);
 }
 
 aprsString::aprsString(const char* cp) : string(cp)
 {
-   peer = "";
-   user = "";
-   call = "";
-   srcHeader = "!:!";
-   constructorSetUp(cp,0,0);
+    peer = "";
+    user = "";
+    call = "";
+    srcHeader = "!:!";
+    constructorSetUp(cp,0,0);
 }
 
 
 aprsString::aprsString(string& cp) : string(cp)
 {
-   peer = "";
-   user = "";
-   call = "";
-   srcHeader = "!:!";
-   constructorSetUp(cp.c_str(),0,0);
+    peer = "";
+    user = "";
+    call = "";
+    srcHeader = "!:!";
+    constructorSetUp(cp.c_str(),0,0);
 }
 
 
 //Copy constructor
 
-aprsString::aprsString(aprsString& as)
+aprsString::aprsString(aprsString& as) : string(as)
 {
    *this = as;
    ax25Source = as.ax25Source;
@@ -153,7 +146,7 @@ aprsString::~aprsString(void)
    NN--;
    pthread_mutex_unlock(pmtxCounters);
    
-       
+
 }
 
 
@@ -253,15 +246,15 @@ try{
                             replace(0,savepIdx,rsPath);
                             path = rsPath;                  
                                                                                     
-                            AEA = TRUE; 
+                            AEA = TRUE;
                                                                                                   
-                                                                                    
+
                        }                                                                               
 
 
                                           
                      if ((pIdx+1) < length()) data = substr(pIdx+1,MAXPKT);  //The data portion of the packet
-                                          
+
                       
                      pathSize = split(path ,ax25Path,MAXPATH,pathDelm);
                      if (pathSize >= 2) ax25Dest = ax25Path[1];             //AX25 destination
@@ -271,7 +264,7 @@ try{
 
                      if (data.length() == 0) return;
 
-                     
+
                      size_type idx,qidx;
 
                      if(ax25Dest.compare("ID") == 0){      //ax25 ID packet
@@ -280,12 +273,12 @@ try{
                      }
 
                      switch(data[0])                                                                             
-                                                                                                                 
+
                      {                                                                                           
-                                                                                                                 
+
                      case ':' :    /* station to station message, new 1998 format*/  
                                     /* example of string in "data" :N0CLU    :ack1   */                            
-                                         
+
                                           stsmDest = data.substr(1,MAXPKT); 
                                           idx = stsmDest.find(":");
                                           if (idx == npos) break;
@@ -315,7 +308,7 @@ try{
                                                                                                                  
                      case '_' :           aprsType = APRSWX ; break;/* weather */                                                          
                      case '@' :                    /* APRS mobile station */                                              
-                     case '=' :                    /* APRS fixed station */                                               
+                     case '=' :                    /* APRS fixed station */
                      case '!' :                    /* APRS not runing, fixed short format */                              
                      case '/' :           aprsType = APRSPOS;  /* APRS not running, fade to gray in 2 hrs */                          
                                           break; 
@@ -336,7 +329,7 @@ try{
                      case 0x60:          //These indicate it's a Mic-E packet
                      case 0x27:
                      case 0x1c:
-                     case 0x1d:           
+                     case 0x1d:
                                           aprsType = APRSMIC_E;
                                           break;
 
@@ -352,16 +345,16 @@ try{
                      case '$' :           aprsType = NMEA;
                                           break;
 
-                     
+
                                           /* check for messages in the old format */                             
                                                                                                                  
                      default:             if(data.length() >= 10)                                                
                                           {  if((data.at(9) == ':') && isalnum(data.at(0)))      
-                                                                                                                 
+
                                              {  
                                                 idx = data.find(":");
                                                 stsmDest = data.substr(0,idx);  //Old format                       
-                                                aprsType = APRSMSG; 
+                                                aprsType = APRSMSG;
                                                 EchoMask |= src3RDPARTY;
                                                 idx = stsmDest.find_first_of(RXwhite);
                                                 if(idx != npos)
@@ -388,42 +381,42 @@ try{
                                                 { aprsType = APRSOBJECT;
                                                 }
                                                                                                            
-                                          }  
+                                          }
                                           break;
-                                                                                                                 
+
                      }; /* end switch */                                                                         
                                                                                                                  
                                                                                                                  
                                                                                                                  
                                                                                                                  
-                                                                                                                
+
                                                                                                                  
                      if(path.find("TCPXX") != npos) tcpxx = TRUE; else tcpxx = FALSE;                                
             }
-    
-    return;  
+
+    return;
 
 } //end try
 
 catch(exception& rEx)
 {
-   char *errormsg;
-   errormsg = new char[501];
-   ostrstream msg(errormsg,500);
+    char *errormsg;
+    errormsg = new char[501];
 
-   msg << "Caught exception in aprsString: " 
+    ostrstream msg(errormsg,500);
+
+    msg << "Caught exception in aprsString: "
          << rEx.what()
          << endl
          << " [" << peer << "] " << raw.c_str()
          << endl
          << ends ;
 
-   WriteLog(errormsg,ERRORLOG);
-   cerr << errormsg;
-   delete errormsg;
-   aprsType = APRSERROR;
-   return;
-         
+    WriteLog(errormsg, ERRORLOG);
+    cerr << errormsg;
+    delete errormsg;
+    aprsType = APRSERROR;
+    return;
 }
 
 }
@@ -444,7 +437,7 @@ void aprsString::AEAtoTAPR(string& s, string& rs)
    
    rs = rs + ':' + dataPart;
   
-   
+
 
 }
 
@@ -477,10 +470,10 @@ void aprsString::print(ostream& os)
                }
 
          }
-   
+
 }
 
-/*returns the string as a char* 
+/*returns the string as a char*
 */
 
 const char* aprsString::getChar(void)
@@ -523,7 +516,7 @@ BOOL aprsString::queryLocal(void)
       && (path.find("GATE*") == npos )
       && (freq(path,'*') < 3))
          localSource = TRUE;                                                        
-     
+
   return localSource;                                                          
 }
 
@@ -550,29 +543,28 @@ BOOL aprsString::queryPath(char* cp)   //Search ax25path for match with *cp
 
 
 
-void aprsString::stsmReformat(char *mycall)
-{ char *co;
-  char out[BUFSIZE];
-  ostrstream os(out,BUFSIZE);
+void aprsString::stsmReformat(char *mycall) {
+    //char *co;
+    string(co);
+    char out[BUFSIZE];
+    ostrstream os(out,BUFSIZE);
 
-  
+    co = ":";
 
-  co = ":";
+    if ((aprsType == APRSMSG) && (data.at(0) != ':'))
+        co = "::";                      // convert to new msg format if old
 
-   if((aprsType == APRSMSG) && (data.at(0) != ':')) co = "::"; //convert to new msg format if old
 
-      
-   os <<  "}" << ax25Source                   
-      <<  ">" << ax25Dest                     
-      << ",TCPIP*," <<  mycall                   
-      << "*" << co << data << ends;
+    os <<  "}" << ax25Source
+        <<  ">" << ax25Dest
+        << ",TCPIP*," <<  mycall
+        << "*" << co << data << ends;
 
-   data = out;
-   reformatted = TRUE;
-      
+    data = out;
+    reformatted = TRUE;
 }
 
- 
+
 
 
 //--------------------------------------------------------

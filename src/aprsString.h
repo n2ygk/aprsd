@@ -1,7 +1,7 @@
 /* aprsString.h */
 
-#ifndef APRSSTRING
-#define APRSSTRING
+#ifndef __APRSSTRING_H
+#define __APRSSTRING_H
 
 #define MAXPATH 12
 #define MAXPKT 256
@@ -13,7 +13,7 @@ using namespace std;
 
  static const int APRSMSGACK = 31;  //These three are for the msgType variable
  static const int APRSMSGTEXT = 32; // and indicate what kind of message it is.
- static const int APRSMSGQUERY = 33; 
+ static const int APRSMSGQUERY = 33;
 
  static const int APRSMIC_E = 20;
  static const int APRSOBJECT = 9;
@@ -60,12 +60,12 @@ public:
    int EchoMask;              //Set a bit to indicate where this object came from
    int dest;                  //Where it's going, destTNC or destINET
    size_type dataIdx;         //index of data part of this packet
-   
-  
+
+
    int allowdup;              //TRUE or FALSE, object is a duplicate (for redundent ACKs)
    int msgType;               //Indicates if message is an ACK or just text
-                
-   
+
+
 
    string ax25Source;         //ax25 source
    string ax25Dest ;          //ax25 destination
@@ -85,11 +85,7 @@ public:
    string raw;                //copy of complete raw packet preserved here
    string srcHeader;          //Source IP and user call header. format example: #192.168.1.1:N0CALL#
    BOOL AEA;
-   
 
-   
-  
-   
    aprsString(const char *cp, int s,int e);
    aprsString(const char *cp, int s,int e, const char* szPeer, const char *userCall);
    aprsString(const char *cp);
@@ -107,7 +103,7 @@ public:
    BOOL changePath(const char* newPath, const char* oldPath); //Change one path element
    BOOL queryLocal(void);        //returns true if source call is local
    void stsmReformat(char *call);
-   void aprsString::mic_e_Reformat(aprsString** posit, aprsString** telemetry);
+   void mic_e_Reformat(aprsString** posit, aprsString** telemetry);
    void printN(void);
    void addInstance(void);
    void removeInstance(void);

@@ -63,7 +63,7 @@ Glen Burnie, MD 21060
 FUNCTIONS PERFORMED:
 
 This program gets data from a TNC connected to a serial port
-and sends it to all clients who have connected via tcpip to 
+and sends it to all clients who have connected via tcpip to
 ports defined in the /home/aprsd2/aprsd.conf file.
 
 Clients can use telnet to watch raw TNC data or
@@ -74,7 +74,7 @@ A history of TNC data going back 30 minutes is kept in
 memory and delivered to each user when he connects.  This
 history data is filtered to remove duplicates and certain
 other unwanted information.  The data is saved to history.txt
-every 10 minutes and on exit with ctrl-C or "q" .  
+every 10 minutes and on exit with ctrl-C or "q" .
 
 
 
@@ -101,328 +101,9 @@ See the aprsddoc.html file for more instructions.
 
 
 
--------------------------------------------------------------
-REVISIONS
-
-2.1.4
-
-
-1)  Fixed DeleteSession() so it can't delete if port number is -1
-    and made ConnectedClients a signed integer. Hopefully this will
-    prevent errors in the user count.
-    
-2) The dup detector now ignores trailing spaces
-
-3) Put Location info on the html status page
-
-4) Deal with mic-e timestamps as per this email from Bob on Aug 3 2000.
-
-   "We should not have included the timestamp when the conversion was done by
-   an IGate just for the reasons that we dropped the time stamp in all other
-   stations back in 1996. 
-
-   It was a mistake and we should fix it by simply replacing the "@DDHHMMz"
-   portion of the conversion with a "!" for TAPR Mic-E's  and to a "="
-   format for Message capable Mic-E's (Kenwoods).  This would eliminate this
-   nuisance immediately. "
-   
-
-5) Fixed bug in HUB connection logic that caused it to advance by two instead of one
-   after attempting to connect to a hub that was down.  If only 2 hubs were defined
-   it would always retry the same dead hub over and over.
-   
-6) Added command "LogAllRF" to aprsd.conf.  When set to "yes" all packets heard from the TNC
-   will be written to /aprsd2/rf.log instead of only packets with our call sign as was the case.
-   
-   
-7) Added keyword "ConvertMicE yes | no" to aprsd.conf file.  If this is set to "yes"
-   Mic-E packets will be converted to classic APRS packets, otherwise they will pass
-   through unchanged.   Default is "no" .
-   
-8) Cleaned up some code in history.cpp: createHistoryArray(aprsString* hp) so it now
-   aborts a history dump if memory allocation fails.  The original code ignored a malloc failure.
-   
-   
-
-
-2.1.3 July 6 2000
-
-1)  Fixed bug in user counter that incremented each time
-    a hub connection was restablished and outgoing data was enabled, eg: a user and pass code provided.
-    This bug caused the user limit to be exceeded even though there were not really that many users.
-
-2.1.2 June 2000
-
-0)  Fixed lots of problems in the Mic-e conversion routine.  
-     It now conforms to the APRS PROTOCOL REFERENCE 1.0 
-     Conversion errors should be gone now!
- 
-1)  Changed packet buffers size from 1024 bytes to 255 bytes                                    
-2)  Added a filter in SendToAllClients() to remove 3rd party reformatted packets from Internet data stream 
-3)  Raised the igate limit from 20 to 100
-4)  Fixed error in serverConfig() that allowed more igates to be defined than buffer size permitted                                                       
-5)  Added "MSTAMP OFF" to TNC.INIT file 
-6)  "# Tickle" is removed.
-7)  Added http server to provide status information in HTML format on port 14501 (or user defined)
-8)  Added keyword for aprsd.conf file to support http server configuration: httpport <port number>
-      To change the port number add to your aprsd.conf file: httpport nnnnn  where "nnnnn" is the port number.
-      To DISABLE this feature add this to your aprsd.conf file: httpport 0
-
-9)  Fixed bug in SendToAllClients() which failed to close the socket when user disappeared.
-10) Filter out comment packets, eg: # Tickle, at the igate and user inputs so they aren't repeated.
-
-11) Added keyword for aprsd.conf to support a data port suppling the source IP address prepended
-    to each aprs packet.  eg: If user w4xyz at IP address 192.168.1.2 sends "Hi There." the
-    packet will be sent out as: "!192.168.1.2:w4xyz!Hi There." This can help locate the source of bogus packets.
-    To change the port number add to your aprsd.conf file: ipwatchport nnnnn  where "nnnnn" is the port number.
-    To DISABLE this feature add this to your aprsd.conf file: ipwatchport 0
-
-   
-    
-12) Fixed end-of-line logic so it accepts CR or LF or CR-LF or LF-CR on
-    all incoming internet packets. Now we can use netcat (nc) in addition
-    to telnet to logon and watch the raw data.
-                                                        
-13) Fixed error in code that reads the history.txt file.  Now history items that
-    have expired are ignored and don't go into the history list. Time-to-live (ttl)
-    variables adjusted for current time.
-    
-14) Completely redesigned and recoded the duplicate packet detection logic.
-    This effort broke lots of things and several days of debugging were required!
-    This version should eliminate 100% of duplicates occuring within 15 seconds.
-    See dupCheck.cpp, crc32.c  and  aprsString::gethash().
-    
-15) Program doesn't Segfault on exit anymore.
-
-16) The MYCALL parameter in the INIT.TNC file is read into the MyCall variable
-      in aprsd and overides the MyCall parameter in the aprsd.conf file.  If
-      the TNC serial port is not defined the MyCall parameter in aprsd.conf is used.
-      Previous versions required you to enter identical MYCALL strings in 
-      BOTH aprsd.conf and INIT.TNC.  Now you only need one in INIT.TNC.
-      
-17) In INIT.TNC the first parameter to UNPROTO, the ax25 destination address, is
-    replaced by the string "APDxxx" where xxx is the verison number of aprsd.
-    This is done as the file is read into the TNC with "APDxxx" replacing the
-    users string.  eg: UNPROTO APRS VIA WIDE would become UNPROTO APD212 VIA WIDE.
-    APDxxx is also inserted into the ax25 destination field of all packets created of converted by aprsd.
-    
-18) History list data is NOT saved to disk every 15 minutes. This is now done only at shutdown.
-
-19) Cleaned up code so it now compiles without warnings with the -Wall option.
-    Added "#define _PTHREADS" and "#define _GNU_SOURCE" to all sources. 
-    This should make the STL container library thread safe.
-
-20) Changed instances of gethostbyname2() to the thread safe version, gethostbyname2_r().
-    Also found and changed some other non thread safe fuctions to the safe versions.
-    
-21)  I fixed a bug in the igate connection thread which resulted in sockets not being
-      closed after a failed attempt to connect.  This caused aprsd to eventually run out of sockets
-      if one or more igates were unreachable.  When this happened no more connections could be made.
-      This bug has been in all previous versions and I believe it has caused most of the "lockup" problems. 
-      
-22) Added "hub" keyword to aprsd.conf. This is used the same way as "igate" to define remote
-    systems to connect to.  The difference is that although many hubs can be defined only
-    one connection will be active at any time. If the connection fails the next hub will be
-    tried in rotation until one accepts a connection.  Use "hub" to connect to the "master"
-    aprs servers on port 10152 or 23.
-    
-------------------------
-
-2.1.1   4-11-2000
-
-1) Put the formerly secret validation module "validate.cpp"
-   into the open source directory.
-   
-2) Wrote aprspass.cpp to generate passcodes from callsigns.
-
-3) Fixed error in aprsString.cpp method AEAtoTAPR. 
-    It doesn't reverse the path now.
-   
-4) Changed default APRServe in aprsd.conf to second.aprs.net.
-
-5) Updated documentation file aprsddoc.html.
-
-6) Fixed bug in ?IGATE? query response so full host name is now displayed.
-
-7) Install scripts modified to compile source code before installing.
-
-8)Added keyword "aprsPass <yes|no>" to aprsd.conf.
-  Set to "no" if you don't want to allow logons from users
-  with the insecure aprs passcodes.
-  Set to "yes" if you want the system to work with all users.     
-   
-   
---------------------------
-
-2.1.0  6-22-1999
-
-1) Fixed the code so it runs properly as a daemon.   
-   See added function "daemonInit()" in code.
-   Also modified aprsd.init .
-   To run as a daemon enter: ./aprsd -d 
-   To run as a program enter: ./aprsd
-   
-
-2) Added logic to handle MD5 password encryption in the validate module.
-   Now it works with RedHat 6.0 shadowed MD5 passwords.
-   
-3) Added "#include <errno.h>" statements in history.cpp and aprsd.cpp.
-   Now it now compiles under RedHat 6.0.
-   
-4) Changed logic so messages sent on RF also are sent to other Internet users.
-   Needed to do this so messages to wild card groups such as "SCOUTS"
-   go both to RF and the remainder of the users and igates.
-   
-5) Fixed 2 bugs in mic_e and raw user port code.  Now mic_e packets
-   come out in raw format on port 14580 .
-   
-6) Fixed bug that caused the history list dump to abort and disconnect user
-   after about 700 items had been sent.
-   
-7) New Feature: The server now responds to the "?IGATE?" query.
-
-8) New Feature: You can put system abusers in the "user.deny" file and
-   deny access to  RF or prevent them from logging on.
-   
-9) New Feature: You can configure the server to ignore  packets which were
-   transmitted from your own TNC.  The previous versions always igated
-   your own TNCs packets. Use the command line "igateMyCall no" in aprsd.conf file
-   to turn off igateing of your own TNCs packets.
-    
-   
-10) Changed the servers status messages to the new format.
-    eg: "aprsdATL>APRS,TCPIP*::USERLIST :Verified user W4HAM has logged on."
-    Note the extra colon after TCPIP* and the lack of a message number on the end
-    to indicate we don't expect an ack.
-    
-11) Fixed speed related problem in SendToAllClients() function that caused
-    overflows of the Internet send queue.  The server can now handle many
-    more users at higher data rates.
-    
-12) Added command "TncPktSpacing" to the aprsd.conf file. This command takes
-    one parameter which is the number of milliseconds between packets sent to the
-    TNC.  Queued packets to be transmitted will be spaced out at least by
-    this number of milliseconds.  The default is 1500 (1.5 seconds).
-
-
-
-
-
-
--------------------------------------------------------------
-
-2.0.9  05-23-1999
-
-Compiled the "validate" program as an library object file
-and put it in subdirectory lib/validate.o  .
-Added lib/validate.o to linker list in the makefile.
-Changed the code so it just calls validate instead of
-running the external program. This is much safer than the
-external program and still hides the source as Steve Dimse requires.
-
-Changed the docs to reflect this change.
-
--------------------------------------------------------------
-
-2.0.8 05-12-1999
-
-1) Fixed a security problem with logons. It was possible
-   in earlier versions to "be creative" with user and password
-   strings to pass commands to a Linux shell.
-   Replaced "system()" call with execl() and added filtering of 
-   shell characters such as ; <> ~ $ | etc.
-
-2) Cleaned up some serial interface code which may 
-   have been causing trouble with raw packets on some systems.
-   
-3) Added msgdest2rf keyword in aprsd.conf file.
-
---------------------------------------------------------------
-2.0.7a  04-05-1999
-Replaced the Mic-E decoder/converter (mic_e.cpp) with the latest version
-from Alan Crosswell.  
--------------------------------------------------
-
-2.0.7  02-11-1999
-Fixed bug in the mic-e conversion code which produced incorrect
-lat/lon under some conditions (1 degree off).   See mic_e.cpp
-
-Fixed the user validation code so it now works with shadowed passwords.
-
-Added code to send redundent acks to the TNC at the suggestion
-of Bob Bruninga.  
-New keywords for aprsd.conf: "ackrepeats" and "ackrepeattime".
- 
-
----------------------------------------------------
-
-2.0.6a fixes a bug in 2.0.6 which causes packets which were
-written to rf.log to have their CR-LF removed before being
-sent on the internet.  This only showed up on packets entering
-from the UDP port.
-
-
-** Major functional upgrade 2.0.x  (July-Aug-Sep-Oct 1998) **
-
-2.0.6 added tcpip port for raw tnc data to  maintain compatibiltiy
-with older 1.x versions.
-
-Added duplicate packet filter.  Duplicate packets (same "ax25 source call" and data)
-are discarded if they are heard less than 30 seconds
-after the original.  Duplicates are also removed from the history file.
-Each station can can have only one posit, one weather, and one "other" packet
-in the history buffer.  Only the latest packets are kept, older ones are deleted.
-
-Added configuration file /home/aprsd2/aprsd.conf
-to allow easy setting of tcpip ports, the serial port
-and other custom parameters.
-
-Added two-way Igating of messages and corresponding posits.
-
-Added means for stations in a list to be gated to RF full time
-or just their posits every 15 minutes.
-
-Added user log-on and validation for Mac/WinAPRS.  Also
-accepts Linux user/passwords.
-
-Added UDP port for sending data directly to the TNC or tcpip users
-  I use it to inject my weather data into the aprs stream.
-  
-Improved Remote TNC sysop mode.  TNC now goes off line to
-give the system operator a private connection to issue
-TNC commands via telnet.
-  
-Fixed shutdown bug.  Now /home/aprsd2/history.txt is properly saved
-and it doesn't dump core on shutdown.
-
-Fixed segmentation fault bug.  Now it only runs on RedHat 5.1 or later
-because it needs libstdc++ .
-
-
 
 --------------------------------------------------------
-
-Modification 1.0.5 (July 1998):  
-
-Stopped echo of Internet user data back to originator.
-This will prevent infinite echo loops when two servers are linked.
-
-
-
---------------------------------------------------------
-Modification 1.0.4 (MAR 1998) : Added code for an additional server port
-14580 which does NOT echo any user data from the internet.
-This allows Steves AprsServ to use the local VHF APRS data
-but not get any Internet user data.
-
---------------------------------------------------------
-bug fix 1.0.3 (Nov 1997):  No longer crashes when logged on users data
-line length exceeds 1024 bytes.  All chars past 1021 are truncated.
-
----------------------------------------------------------
- 
---------------------------------------------------------
-   Here's some off the air data for reference 
+   Here's some off the air data for reference
 //
 //$GPRMC,013426,A,3405.3127,N,08422.4680,W,1.7,322.5,280796,003.5,W*73
 
@@ -432,7 +113,7 @@ N4NEQ-9>APRS,RELAY*,WIDE:/211121z3354.00N/08418.04W/GGA/NUL/APRS/good GGA FIX/A=
 N4NEQ-9>APRS,RELAY,WIDE*:/211121z3354.00N/08418.04W/GGA/NUL/APRS/good GGA FIX/A=
 000708
 KE4FNU>APRS,KD4DLT-7,N4NEQ-2*,N4KMJ-7,WIDE:@311659/South Atlanta via v7.5a@Stock
-bridge@DavesWorld
+bridge@DavesWorld
 KC4ELV-2>APRS,KD4DLT-7,N4NEQ-2*,WIDE:@262026/APRS 7.4 on line.
 KC4ELV-2>APRS,KD4DLT-7,N4NEQ-2,WIDE*:@262026/APRS 7.4 on line.
 N4QEA>APRS,SEV,WIDE,WIDE*:@251654/John in Knoxville, TN.  U-2000
@@ -456,14 +137,9 @@ N6OAA>APRS,GATE,WIDE*:@280144z4425.56N/08513.11W/ "Mitch", Lake City, MI
 
 */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
-
-
-#define _PTHREADS  
-#define _REENTRANT  
-
 
 #include <termios.h>
 #include <unistd.h>
@@ -993,125 +669,113 @@ void SendToAllClients( aprsString* p)
 void BroadcastString(char *cp)
 {
 
-	
+
 	aprsString *msgbuf = new aprsString(cp,SRC_INTERNAL,srcSYSTEM);
 	sendQueue.write(msgbuf); //DeQueue() deletes the *msgbuf
 	return ;
 }
 
 //---------------------------------------------------------------------
-//This is a thread.  It removes items from the send queue and transmits
-//them to all the clients.  Also handles checking for items in the TNC queue
-//and calling the tnc dequeue routine.
-void *DeQueue(void* vp)
-{
- 	
-   BOOL noHist,dup;
-	int		cmd;
-	
-   aprsString* abuff;
-	int MaxAge,MaxCount;
-   struct timeval tv;
-   struct timezone tz;
-   long usLastTime, usNow;
-   long t0;
-
-   char* dcp;
-      
-
- 
- usLastTime = usNow = 0;
-
- pidlist.InetQueue = getpid();
- 
- nice(-10);   //Increase priority of this thread by 10 (only works if run as root)
-
- while(!ShutDownServer)
-  {
-    
-   gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
-   usNow = tv.tv_usec + (tv.tv_sec * 1000000);
-   if(usNow < usLastTime) usLastTime = usNow;
-   t0 = usNow;
-     if((usNow - usLastTime) >= tncPktSpacing) {  //Once every 1.5 second or user defined
-          usLastTime = usNow;
-          if(tncQueue.ready()) dequeueTNC(); //Check the TNC queue
-     }
-
-   
+// This is a thread.  It removes items from the send queue and transmits
+// them to all the clients.  Also handles checking for items in the TNC queue
+// and calling the tnc dequeue routine.
+void *DeQueue(void *vp) {
+    BOOL noHist,dup;
+    int cmd;
+    aprsString* abuff;
+    int MaxAge,MaxCount;
+    struct timeval tv;
+    struct timezone tz;
+    long usLastTime, usNow;
+    long t0;
+    const char *dcp;
+    //string(dcp);
 
 
- 	while(!sendQueue.ready())     //Loop here till somethings in the send queue
-	   {	gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
-         usNow = tv.tv_usec + (tv.tv_sec * 1000000);
-         if(usNow < usLastTime) usLastTime = usNow;
-         t0 = usNow;
-         if((usNow - usLastTime) >= tncPktSpacing) {  //Once every 1.5 second or user defined
+    usLastTime = usNow = 0;
+
+    pidlist.InetQueue = getpid();
+
+    nice(-10);   //Increase priority of this thread by 10 (only works if run as root)
+
+    while (!ShutDownServer) {
+        gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
+        usNow = tv.tv_usec + (tv.tv_sec * 1000000);
+        if (usNow < usLastTime)
             usLastTime = usNow;
-            if(tncQueue.ready()) dequeueTNC(); //Check the TNC queue
-         }
 
-         usleep(1000);    //1ms
-			if(ShutDownServer) pthread_exit(0);
-		}
+        t0 = usNow;
 
-	abuff = (aprsString*)sendQueue.read(&cmd);      //Read an aprsString pointer from the queue to abuff
-   
+        if ((usNow - usLastTime) >= tncPktSpacing) {  //Once every 1.5 second or user defined
+            usLastTime = usNow;
+            if (tncQueue.ready())
+                dequeueTNC(); //Check the TNC queue
+        }
 
-   lastPacket = abuff;  //debug thing
-   dcp = " ";           // another one
-	  
-   if (abuff != NULL)
-	  {
-	     
-         abuff->dest = destINET;
+        while (!sendQueue.ready()) {    //Loop here till somethings in the send queue
+            gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
+            usNow = tv.tv_usec + (tv.tv_sec * 1000000);
+            if (usNow < usLastTime)
+                usLastTime = usNow;
 
-         dup = FALSE;
-         if(!((abuff->EchoMask) & (srcSTATS | srcSYSTEM))){
-            dup  = dupFilter.check(abuff,15);  //Check for duplicates within 15 second window
-            
-           
-         }
-                 
-         if(((abuff->EchoMask & src3RDPARTY)&&((abuff->aprsType == APRSPOS)) /* No Posits fetched from history list */
+            t0 = usNow;
+            if ((usNow - usLastTime) >= tncPktSpacing) {  //Once every 1.5 second or user defined
+                usLastTime = usNow;
+                if (tncQueue.ready())
+                    dequeueTNC(); //Check the TNC queue
+            }
+            usleep(1000);    //1ms
+            if (ShutDownServer)
+                pthread_exit(0);
+        }
+
+        abuff = (aprsString*)sendQueue.read(&cmd);      //Read an aprsString pointer from the queue to abuff
+
+        lastPacket = abuff;  //debug thing
+        dcp = " ";           // another one
+
+        if (abuff != NULL) {
+            abuff->dest = destINET;
+
+            dup = FALSE;
+            if (!((abuff->EchoMask) & (srcSTATS | srcSYSTEM))) {
+                dup  = dupFilter.check(abuff,15);  //Check for duplicates within 15 second window
+            }
+
+            if (((abuff->EchoMask & src3RDPARTY)&&((abuff->aprsType == APRSPOS)) /* No Posits fetched from history list */
                || (abuff->aprsType == COMMENT)               /* No comment packets in the history buffer*/
                || (abuff->aprsType == APRSERROR)             /* No packets that crashed the parser */
                || (abuff->aprsType == APRSUNKNOWN)           /* No Unknown packets */
-               || (abuff->aprsType == APRSID)                /* No ID packets */ 
+               || (abuff->aprsType == APRSID)                /* No ID packets */
                || (abuff->EchoMask & (srcSTATS | srcSYSTEM)) /* No internally generated packets */
                || (dup)                                      /* No duplicates */
                || (abuff->reformatted))){                    /* No 3rd party reformatted pkts */
-               
-                   
-               noHist = TRUE;    //None of the above allowed in history list
-          }else
-            {
-	            GetMaxAgeAndCount(&MaxAge,&MaxCount);	//Set max ttl and count values
-               abuff->ttl = MaxAge;
-               AddHistoryItem(abuff);   	//Put item in history list.
-               
-               noHist = FALSE;      
 
+                noHist = TRUE;    //None of the above allowed in history list
+            } else {
+                GetMaxAgeAndCount(&MaxAge,&MaxCount);	//Set max ttl and count values
+                abuff->ttl = MaxAge;
+                AddHistoryItem(abuff);   	//Put item in history list.
+
+                noHist = FALSE;
             }
-          
-		  	//if(abuff->EchoMask & sendDUPS) printf("EchoMask sendDUPS bit is set\n");
 
-         if (dup) abuff->EchoMask |= sendDUPS; //If it's a duplicate mark it.
-         
-         SendToAllClients(abuff);	// Send item out on internet      
-         
-         if(noHist) 
-            { delete abuff;   //delete it now if it didn't go to the history list.
-              abuff = NULL;
+            //if(abuff->EchoMask & sendDUPS) printf("EchoMask sendDUPS bit is set\n");
+
+            if (dup)
+                abuff->EchoMask |= sendDUPS; //If it's a duplicate mark it.
+
+            SendToAllClients(abuff);	// Send item out on internet
+
+            if (noHist) {
+                delete abuff;   //delete it now if it didn't go to the history list.
+                abuff = NULL;
             }
-	  }else
-		  cerr << "Error in DeQueue: abuff is NULL" << endl << flush;
+        } else
+            cerr << "Error in DeQueue: abuff is NULL" << endl << flush;
+    }
 
-  }
-
- 
- return NULL;       //Should never return
-
+    return NULL;       //Should never return
 }
 //----------------------------------------------------------------------
 /* This thread is started by code in  dequeueTNC when an ACK packet
@@ -3967,7 +3631,7 @@ int main(int argc, char *argv[])
 
   
    /*   //DEBUG & TEST CODE
-   //aprsString mic_e("K4HG-9>RU4U9T,WIDE,WIDE,WIDE:`l'q#R>/\r\n");
+   //aprsString mic_e("K4HG-9>RU4U9T,WIDE,WIDE,WIDE:`l'q#R>/\r\n");
    aprsString mic_e("K4HG-9>RU4W5S,WIDE,WIDE,WIDE:`l(XnUU>/Steve's RX-7/Mic-E\r\n");
    aprsString* posit = NULL;
    aprsString* telemetry = NULL;

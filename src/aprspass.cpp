@@ -12,14 +12,12 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <iostream.h>
 #include <strstream.h>
 #include <iomanip.h>
 
 #include "validate.h"
-
-
-
 
 int main(int argc, char *argv[])
 {

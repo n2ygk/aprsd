@@ -19,12 +19,10 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA
 */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 
-#define _REENTRANT 1
-#define _PTHREADS
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <unistd.h>
 #include <pthread.h>
