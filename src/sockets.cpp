@@ -262,18 +262,18 @@ void fmt(const unsigned char *buf, int len, unsigned char **outbuf)
             if (buf[ALEN] & HDLCAEB)
                 nextrept = 0;
 
-        pax25 (tmp, buf);
+            pax25 (tmp, buf);
 
-        if (*tmp) {
-            sprintf (&digis[l], ",%s%s", tmp, (buf[ALEN] & REPEATED && !nextrept) ? "*" : "");
-            ++hadlast;
-            l += strlen (&digis[l]);
+            if (*tmp) {
+                sprintf (&digis[l], ",%s%s", tmp, (buf[ALEN] & REPEATED && !nextrept) ? "*" : "");
+                ++hadlast;
+                l += strlen (&digis[l]);
+            }
+
+            if (buf[ALEN] & HDLCAEB)
+                break;
         }
-
-        if (buf[ALEN] & HDLCAEB)
-            break;
     }
-    //}
     buf += AXLEN;
     len -= AXLEN;
     if (len <= 0)
