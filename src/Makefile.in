@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p4 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -83,9 +83,11 @@ USE_RTTI = @USE_RTTI@
 USE_THREADS = @USE_THREADS@
 VERSION = @VERSION@
 
-bin_PROGRAMS = aprsd
+bin_PROGRAMS = aprsd aprspass
 aprsd_SOURCES = aprsString.cpp aprsString.h aprsd.cpp constant.h 	cpqueue.cpp cpqueue.h crc.h crc32.c dupCheck.cpp dupCheck.h 	except.hpp history.cpp history.h mic_e.cpp mic_e.h queryResp.cpp queryResp.h    	rf.cpp rf.h serial.cpp serial.h sniptype.h sockets.cpp sockets.h 	utils.cpp utils.h validate.cpp validate.h
 
+
+aprspass_SOURCES = validate.cpp aprspass.cpp
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
@@ -102,6 +104,10 @@ validate.o
 aprsd_LDADD = $(LDADD)
 aprsd_DEPENDENCIES = 
 aprsd_LDFLAGS = 
+aprspass_OBJECTS =  validate.o aprspass.o
+aprspass_LDADD = $(LDADD)
+aprspass_DEPENDENCIES = 
+aprspass_LDFLAGS = 
 CXXFLAGS = @CXXFLAGS@
 CXXCOMPILE = $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
@@ -115,14 +121,14 @@ DIST_COMMON =  Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
-DEP_FILES =  .deps/aprsString.P .deps/aprsd.P .deps/cpqueue.P \
-.deps/crc32.P .deps/dupCheck.P .deps/history.P .deps/mic_e.P \
-.deps/queryResp.P .deps/rf.P .deps/serial.P .deps/sockets.P \
-.deps/utils.P .deps/validate.P
-SOURCES = $(aprsd_SOURCES)
-OBJECTS = $(aprsd_OBJECTS)
+DEP_FILES =  .deps/aprsString.P .deps/aprsd.P .deps/aprspass.P \
+.deps/cpqueue.P .deps/crc32.P .deps/dupCheck.P .deps/history.P \
+.deps/mic_e.P .deps/queryResp.P .deps/rf.P .deps/serial.P \
+.deps/sockets.P .deps/utils.P .deps/validate.P
+SOURCES = $(aprsd_SOURCES) $(aprspass_SOURCES)
+OBJECTS = $(aprsd_OBJECTS) $(aprspass_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -179,6 +185,10 @@ maintainer-clean-compile:
 aprsd: $(aprsd_OBJECTS) $(aprsd_DEPENDENCIES)
 	@rm -f aprsd
 	$(CXXLINK) $(aprsd_LDFLAGS) $(aprsd_OBJECTS) $(aprsd_LDADD) $(LIBS)
+
+aprspass: $(aprspass_OBJECTS) $(aprspass_DEPENDENCIES)
+	@rm -f aprspass
+	$(CXXLINK) $(aprspass_LDFLAGS) $(aprspass_OBJECTS) $(aprspass_LDADD) $(LIBS)
 .cpp.o:
 	$(CXXCOMPILE) -c $<
 
@@ -224,7 +234,7 @@ distdir: $(DISTFILES)
 	@for file in $(DISTFILES); do \
 	  d=$(srcdir); \
 	  if test -d $$d/$$file; then \
-	    cp -pr $$/$$file $(distdir)/$$file; \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
 	  else \
 	    test -f $(distdir)/$$file \
 	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
