@@ -48,239 +48,296 @@
 using namespace std;
 
 
-int ttlDefault = 30;	  			//Default time to live of a history item (30 minutes)
-int CountDefault = 7;		   //Max of 7 instances of one call sign in history list
+int ttlDefault = 30;                    // Default time to live of a history item (30 minutes)
+int CountDefault = 7;                   // Max of 7 instances of one call sign in history list
 extern cpQueue conQueue;
 extern bool ConvertMicE;
 
 
 //----------------------------------------------------------------------
 int WriteLog(const char *pch, const char *LogFile)
-{	FILE *f;
-	time_t ltime;
-	char szTime[40];
-	char *p;
-	int rc;
-   static pthread_mutex_t*   pmtxLog; //Mutual exclusion semi for WriteLog function
-   static bool logInit = FALSE;
+{
+    FILE *f;
+    time_t ltime;
+    char szTime[40];
+    char *p;
+    int rc;
+    static pthread_mutex_t* pmtxLog;    // Mutual exclusion semi for WriteLog function
+    static bool logInit = FALSE;
 
-   char *cp = strdup(pch);   //Make local copy of input string.
+    char *cp = strdup(pch);             // Make local copy of input string.
 
-   if(!logInit)
-      {  
+    if (!logInit) {
+        pmtxLog = new pthread_mutex_t;
+        pthread_mutex_init(pmtxLog,NULL);
+        logInit = TRUE;
+        cout << "logger initialized\n";
+    }
+    pthread_mutex_lock(pmtxLog);
 
-         pmtxLog = new pthread_mutex_t; 
-         pthread_mutex_init(pmtxLog,NULL);
-         logInit = TRUE;
-         cout << "logger initialized\n";
+    char *pLogFile = new char[strlen(LOGPATH) + strlen(LogFile) +1];
+    strcpy(pLogFile,LOGPATH);
+    strcat(pLogFile,LogFile);
 
-      }
-	pthread_mutex_lock(pmtxLog);
+    f = fopen(pLogFile,"a");
 
-   
-   char *pLogFile = new char[strlen(LOGPATH) + strlen(LogFile) +1];
-	strcpy(pLogFile,LOGPATH);
-	strcat(pLogFile,LogFile);
+    if (f == NULL)
+        f = fopen(pLogFile,"w");
 
+    if (f == NULL) {
+        cerr << "failed to open " << pLogFile << endl;
+        rc = -1;
+    } else {
+        char *eol = strpbrk(cp,"\n\r");
 
-	f = fopen(pLogFile,"a");
+        if (eol)
+            *eol = '\0';                // remove crlf
 
-	if (f == NULL)
-		{	f = fopen(pLogFile,"w");
-		}
-	
-	if (f == NULL)
-		{	cerr << "failed to open " << pLogFile << endl;
-         rc = -1;
-		}else
+        time(&ltime) ;                  // Time Stamp
+        ctime_r(&ltime,szTime);         // Thread safe ctime()
 
-			{ 	char *eol = strpbrk(cp,"\n\r");
-            if(eol) *eol = '\0';              //remove crlf
-            time(&ltime) ;                    //Time Stamp
-            ctime_r(&ltime,szTime);          //Thread safe ctime()
-				
-				p = strchr(szTime,(int)'\n');
-				if (p) *p = ' ';			         //convert new line to a space
-				fprintf(f,"%s %s\n",szTime,cp);	 //Write log entry with time stamp
-            fflush(f);
-				fclose(f);
-				rc = 0;
-			}
-   delete cp;
-   delete pLogFile;
-	pthread_mutex_unlock(pmtxLog);
+        p = strchr(szTime,(int)'\n');
 
-  	return rc;
+        if (p)
+            *p = ' ';                   // convert new line to a space
+
+        fprintf(f,"%s %s\n",szTime,cp); // Write log entry with time stamp
+        fflush(f);
+        fclose(f);
+        rc = 0;
+    }
+    delete cp;
+    delete pLogFile;
+    pthread_mutex_unlock(pmtxLog);
+
+    return(rc);
 }
 
 
 //------------------------------------------------------------------------
 //Convert all lower case characters in a string to upper case.
 // Assumes ASCII chars.
+//
+char * strupr(char *cp)
+{
+    int i;
+    int l = strlen(cp);
 
-char* strupr(char *cp)
-{  int i;
-   int l = strlen(cp);
-   for(i=0;i<l;i++)
-      {
-         if ((cp[i] >= 'a') && (cp[i] <= 'z')) cp[i] = cp[i] - 32;
-      }
-   return cp;
+    for (i=0;i<l;i++) {
+        if ((cp[i] >= 'a') && (cp[i] <= 'z'))
+            cp[i] = cp[i] - 32;
+    }
+    return(cp);
 }
 
 //-----------------------------------------------------------------------
 void printhex(char *cp, int n)
 {
-   
-	for (int i=0;i<n;i++) printf("%02X ",cp[i]);
-	printf("\n");
+    for (int i=0;i<n;i++)
+        printf("%02X ",cp[i]);
 
+    printf("\n");
 }
 
 //---------------------------------------------------------------------
 //return TRUE if destination of packet matches "ref"
 //This is for filtering out unwanted packets
 bool CmpDest(const char *line, const char *ref)
-{	bool rv = FALSE;
-	char *cp = new char[strlen(ref)+3];
-	strcpy(cp,">");
-	strcat(cp,ref);
-	strcat(cp,",");
-	if (strstr(line,cp) !=	NULL) rv = TRUE;
-	delete cp;
-	return rv;
+{
+    bool rv = FALSE;
+    char *cp = new char[strlen(ref)+3];
+    strcpy(cp,">");
+    strcat(cp,ref);
+    strcat(cp,",");
+
+    if (strstr(line,cp) !=	NULL)
+        rv = TRUE;
+
+    delete cp;
+    return(rv);
 }
 //----------------------------------------------------------------------
-
 //Return TRUE if any string in the digi path matches "ref".
-
+//
 bool CmpPath(const char *line, const char *ref)
-{	bool rv = FALSE;
-   char *cp = new char[strlen(line)+1];
-	strcpy(cp,line);
-   char *path_end = strchr(cp,':');          //find colon
-   if (path_end != NULL)
-      {
-         *path_end = '\0';             //replace colon with a null
-         if (strstr(cp,ref) != NULL) rv = TRUE;
-	   }
+{
+    bool rv = FALSE;
+    char *cp = new char[strlen(line)+1];
+    strcpy(cp,line);
+    char *path_end = strchr(cp,':');    // find colon
 
-   delete cp;
-   return rv;
+    if (path_end != NULL) {
+        *path_end = '\0';               // replace colon with a null
+        if (strstr(cp,ref) != NULL)
+            rv = TRUE;
+    }
+
+    delete cp;
+    return(rv);
 }
 
 //---------------------------------------------------------------------
 //Returns true if "call" matches first string in "s"
 //"call" must be less than 15 chars long.
+//
 bool callsign(char *s, const char *call)
 {
-	char cp[17];
-	if (strlen(call) > 14) return FALSE;
-	strncpy(cp,call,16);
-	strncat(cp,">",16);
-	char *ss = strstr(s,cp);
-	if (ss != NULL) return TRUE ;else return FALSE;
+    char cp[17];
 
+    if (strlen(call) > 14)
+        return FALSE;
+
+    strncpy(cp,call,16);
+    strncat(cp,">",16);
+    char *ss = strstr(s,cp);
+
+    if (ss != NULL)
+        return TRUE;
+    else
+        return FALSE;
 }
+
+
 //---------------------------------------------------------------------
 //Compares two packets and returns TRUE if the source call signs are equal
+//
 bool CompareSourceCalls(char *s1, char *s2)
 {
-	char call[12];
-	strncpy(call,s2,10);
-	char *eos = strchr(call,'>');
-	if (eos != NULL) eos[0] = '\0'; else return FALSE;
-	return callsign(s1,call);
+    char call[12];
+    strncpy(call,s2,10);
+    char *eos = strchr(call,'>');
+
+    if (eos != NULL)
+        eos[0] = '\0';
+    else
+        return FALSE;
+
+    return(callsign(s1,call));
 }
 
 //---------------------------------------------------------------------
 // This sets the time-to-live and max count values for each packet received.
-
+//
 void GetMaxAgeAndCount( int *MaxAge, int *MaxCount)
 {
-
-	*MaxAge = ttlDefault;
-	*MaxCount = CountDefault;
-
-  				
+    *MaxAge = ttlDefault;
+    *MaxCount = CountDefault;
 }
+
+
 //------------------------------------------------------------------------
-/* Checks for a valid user/password combination from the 
+/* Checks for a valid user/password combination from the
    Linux etc/passwd file .  Returns ZERO if user/pass is valid.
    This doesn't work with shadow passwords.
-   
+
    THIS IS NOT USED ANYMORE AND MAY NOT BE THREAD SAFE
 */
 int  checkpass(const char *szUser, const char *szGroup, const char *szPass)
 {
-	passwd *ppw;
-	group *pgrp;
-	char *member ;
-	int i;
-	char salt[3];
-	int usrfound = 0 ;
-	int rc = BADGROUP;
+    passwd *ppw;
+    group *pgrp;
+    char *member ;
+    int i;
+    char salt[3];
+    int usrfound = 0 ;
+    int rc = BADGROUP;
 
-   //cout << szUser << " " << szPass << " " << szGroup << endl;  //debug
+    //cout << szUser << " " << szPass << " " << szGroup << endl;  //debug
 
-	pgrp = getgrnam(szGroup);		  /* Does group name szGroup exist? */
-	if (pgrp == NULL) return rc;	  /* return BADGROUP if not */
+    pgrp = getgrnam(szGroup);		  /* Does group name szGroup exist? */
 
-   ppw = getpwnam(szUser);			  /* get the users password information */
-	if (ppw == NULL) return BADUSER ; /* return BADUSER if no such user */
-   
-	i = 0;
-		
-	/* find out if user is a member of szGroup */
-	while(((member = pgrp->gr_mem[i++]) != NULL) && (usrfound == 0 ))
-		{	//cerr << member << endl;	 //debug code
-			if(strcmp(member,szUser) == 0)  usrfound = 1	;
-		}
-	
-	if(usrfound == 0) return BADGROUP;	 /* return BADGROUP if user not in group */
+    if (pgrp == NULL)
+        return rc;	  /* return BADGROUP if not */
 
-   /* check the password */
-	  
-	strncpy(salt,ppw->pw_passwd,2);
-	salt[2] = '\0';
-   if (strcmp(crypt(szPass,salt), ppw->pw_passwd) == 0 ) 
-		rc = 0; 
-		else 
-			rc = BADPASSWD;
-	
+    ppw = getpwnam(szUser);			  /* get the users password information */
 
-	return rc;
+    if (ppw == NULL)
+        return BADUSER ; /* return BADUSER if no such user */
 
+    i = 0;
 
+    /* find out if user is a member of szGroup */
+    while(((member = pgrp->gr_mem[i++]) != NULL) && (usrfound == 0 )) {
+        //cerr << member << endl;	 //debug code
+        if (strcmp(member,szUser) == 0)
+            usrfound = 1;
+    }
 
+    if (usrfound == 0)
+        return BADGROUP;    /* return BADGROUP if user not in group */
+
+    /* check the password */
+
+    strncpy(salt,ppw->pw_passwd,2);
+    salt[2] = '\0';
+
+    if (strcmp(crypt(szPass,salt), ppw->pw_passwd) == 0 )
+        rc = 0;
+    else
+        rc = BADPASSWD;
+
+    return rc;
 }
+
+
 //--------------------------------------------------------------------
 //Removes all control codes ( < 1Ch ) from a string and set the 8th bit to zero
+//
 void RemoveCtlCodes(char *cp)
 {
-   int i,j;
-   int len = strlen(cp);
-   unsigned char *ucp = (unsigned char*)cp;
-   unsigned char *temp = new unsigned char[len+1];
-   
-   for(i=0, j=0; i<len; i++)
-      {
-         ucp[i] &= 0x7f;      //Clear 8th bit
-         if (ucp[i]  >= 0x1C) //Check for printable plus the Mic-E codes
-            {
-               temp[j++] = ucp[i] ;   //copy to temp if printable
-            }
-         
-      }
-   
-   temp[j] = ucp[i];  //copy terminating NULL
-   strcpy(cp,(char*)temp);  //copy result back to original
-   delete temp;
-   
+    int i,j;
+    int len = strlen(cp);
+    unsigned char *ucp = (unsigned char*)cp;
+    unsigned char *temp = new unsigned char[len+1];
+
+    for (i=0, j=0; i<len; i++) {
+        ucp[i] &= 0x7f;                 // Clear 8th bit
+        if (ucp[i]  >= 0x1C)            // Check for printable plus the Mic-E codes
+            temp[j++] = ucp[i];         // copy to temp if printable
+
+    }
+
+    temp[j] = ucp[i];                   // copy terminating NULL
+    strcpy(cp,(char*)temp);             // copy result back to original
+    delete temp;
 }
 
+
+void makePrintable(char *cp) {
+    int i,j;
+    int len = (int)strlen(cp);
+    unsigned char *ucp = (unsigned char *)cp;
+    unsigned char *temp = new unsigned char[len+1];
+
+    for (i=0, j=0; i<=len; i++) {
+        ucp[i] &= 0x7f;                 // Clear 8th bit
+        if ( ((ucp[i] >= (unsigned char)0x20) && (ucp[i] <= (unsigned char)0x7e))
+              || ((char)ucp[i] == '\0') )     // Check for printable or terminating 0
+            ucp[j++] = ucp[i] ;        // Copy to (possibly) new location if printable
+    }
+
+    ucp[i++] = 0x0d;                    // Put a CR-LF on the end of the buffer
+    ucp[i++] = 0x0a;
+    ucp[i++] = 0;
+
+    temp[j] = ucp[i];                   // copy terminating NULL
+    strcpy(cp,(char*)temp);             // copy result back to original
+    delete temp;
+}
+
+void removeHTML(string& sp) {
+    string search("/<>");
+
+    unsigned int p = sp.find_first_of(search);
+    while (p < sp.length()) {
+        sp.replace(p, 1, "*");
+        p = sp.find_first_of(search, p + 1);
+    }
+}
+
+
 //---------------------------------------------------------------------
-/*  
+/*
 char* StripPath(char* cp)
 {
    char *p = strchr(cp,':');       //Find the colon and strip off path info
@@ -293,178 +350,192 @@ char* StripPath(char* cp)
 }
 */
 //---------------------------------------------------------------------
- 
+
 /*returns the number if instances of char "c" in string "s". */
 int freq( string& s, char c)
 {
-   int count=0;
-   int len = s.length();
-   for(int i=0;i<len;i++) if(s[i] == c) count++;
-   
-   return count;
+    int count=0;
+    int len = s.length();
+
+    for (int i=0;i<len;i++)
+        if(s[i] == c)
+            count++;
+
+    return count;
 }
 
+
 //----------------------------------------------------------------------------
-
-
+//
 int split( string& s, string sa[],  int saSize,  const char* delim)
-{  
-   int wordcount;
-   unsigned start,end;
-   
-   start = s.find_first_not_of(delim);  //find first token
-   end = 0;
-   wordcount = 0;
-   while((start != string::npos) && (wordcount < saSize))
-      {  end = s.find_first_of(delim,start+1);
-         if(end == string::npos) end = s.length();
+{
+    int wordcount;
+    unsigned start,end;
 
-         sa[wordcount++] = s.substr(start,end-start);
+    start = s.find_first_not_of(delim);     // find first token
+    end = 0;
+    wordcount = 0;
 
-         start = s.find_first_not_of(delim,end+1);
-      }
+    while ((start != string::npos) && (wordcount < saSize)) {
+        end = s.find_first_of(delim,start+1);
 
-   
-   return wordcount;
+        if (end == string::npos)
+            end = s.length();
+
+        sa[wordcount++] = s.substr(start,end-start);
+
+        start = s.find_first_not_of(delim,end+1);
+    }
+    return(wordcount);
 }
 
 //----------------------------------------------------------------------------
-
+//
 void upcase(string& s)
 {
-  for(unsigned i=0; i< s.length(); i++)
-     s[i] = toupper(s[i]);
+    for (unsigned i=0; i< s.length(); i++)
+        s[i] = toupper(s[i]);
 }
 
 
-  
+
 //---------------------------------------------------------------------
-void reformatAndSendMicE(aprsString* inetpacket, cpQueue& sendQueue)
+//
+void reformatAndSendMicE(TAprsString* inetpacket, cpQueue& sendQueue)
 {
-   //WriteLog(inetpacket->getChar(),"mic_e.log");
+    //WriteLog(inetpacket->getChar(),"mic_e.log");
 
- if(ConvertMicE){
-   aprsString* posit = NULL;                                                                              
-   aprsString* telemetry = NULL;                                                                          
-   inetpacket->mic_e_Reformat(&posit,&telemetry);                                                       
-   if(posit) sendQueue.write(posit);          //Send reformatted packets                                
-   if(telemetry) sendQueue.write(telemetry);                                                            
-   delete inetpacket; //Note: Malformed Mic_E packets that failed to convert are discarded
- }
- else
-  sendQueue.write(inetpacket);  //Send raw Mic-E packet
+    if (ConvertMicE) {
+        TAprsString* posit = NULL;
+        TAprsString* telemetry = NULL;
+        inetpacket->mic_e_Reformat(&posit,&telemetry);
 
+        if (posit)
+            sendQueue.write(posit);          //Send reformatted packets
 
+        if (telemetry)
+            sendQueue.write(telemetry);
+
+        delete inetpacket; //Note: Malformed Mic_E packets that failed to convert are discarded
+    } else
+        sendQueue.write(inetpacket);  //Send raw Mic-E packet
 }
 
 //--------------------------------------------------------------------
-/* Return TRUE if string s is in the list cl. */
+//  Return TRUE if string s is in the list cl.
+//
 bool find_rfcall(const string& s, string **cl)
 {
-   bool rc = FALSE;
-   int i = 0, pos;
+    bool rc = FALSE;
+    int i = 0, pos;
 
-   while((cl[i] != NULL) && (rc == FALSE))
-      {  pos = (cl[i])->find('*');
+    while ((cl[i] != NULL) && (rc == FALSE)) {
+        pos = (cl[i])->find('*');
+        if ((pos != 0) && (s.substr(0, pos).compare(cl[i]->substr(0, pos)) == 0))
+            rc = TRUE;
 
-         if ((pos != 0) && 
-             (s.substr(0, pos).compare(cl[i]->substr(0, pos)) == 0))
-             rc = TRUE;
-         i++;
-      }
-   return rc;
-
+        i++;
+    }
+    return(rc);
 }
 
 //------------------------------------------------------------------
-
-//Case insensitive c char string compare function
+//
+//  Case insensitive c char string compare function
+//
 int stricmp(const char* szX, const char* szY)
 {
-   int i;
-   int len = strlen(szX);                        
-   char* a = new char[len+1];                                                          
-   for(i = 0;i<len;i++) a[i] = tolower(szX[i]);                               
-   a[i]='\0';                                                                          
-   len = strlen(szY);                                                      
-   char* b = new char[len+1];                                                          
-   for(i = 0;i<len;i++) b[i] = tolower(szY[i]);                     
-   b[i]='\0';                                                                          
-                                                         
-   int rc = strcmp(a,b);                                                               
-   delete a;                                                                           
-   delete b;                                     
-   return rc;                                    
+    int i;
+    int len = strlen(szX);
+    char* a = new char[len+1];
+
+    for (i = 0;i<len;i++)
+        a[i] = tolower(szX[i]);
+
+    a[i]='\0';
+    len = strlen(szY);
+    char* b = new char[len+1];
+
+    for (i = 0;i<len;i++)
+        b[i] = tolower(szY[i]);
+
+    b[i]='\0';
+
+    int rc = strcmp(a,b);
+    delete a;
+    delete b;
+    return(rc);
 }
-                                            
+
 //--------------------------------------------------------------------
-/* Returns the deny code if user found or "+" if user not in list 
+/* Returns the deny code if user found or "+" if user not in list
    Deny codes:  L = no login   R = No RF access
-   Note: ssid suffix on call sign is ignored */ 
- 
+   Note: ssid suffix on call sign is ignored */
 
 char checkUserDeny(string& user)
-{ const int maxl = 80;
-  const int maxToken=32;
-  int nTokens ;
-  
-  char Line[maxl];
-  string baduser;
-  char rc = '+';
-  
+{
+    const int maxl = 80;
+    const int maxToken=32;
+    int nTokens ;
 
-  ifstream file(USER_DENY);
-  if (!file) return rc;
+    char Line[maxl];
+    string baduser;
+    char rc = '+';
 
-  string User = string(user);
-  unsigned i = user.find("-");
-  if(i != string::npos) User = user.substr(0,i);  //remove ssid
+    ifstream file(USER_DENY);
 
-     
-  do
-     {  file.getline(Line,maxl);	  //Read each line in file 
-        if (!file.good()) break;
-        
-        if (strlen(Line) > 0){
-            if(Line[0] != '#'){  //Ignore comments
-               string sLine(Line);
-               string token[maxToken];
-               nTokens = split(sLine, token, maxToken, RXwhite);  //Parse into tokens
-               upcase(token[0]);
-               baduser = token[0];
-               if((stricmp(baduser.c_str(),User.c_str()) == 0) && (nTokens >= 2)){
-                   rc = token[1][0];
-                   break;
-               }
-              
+    if (!file)
+        return rc;
+
+    string User = string(user);
+    unsigned i = user.find("-");
+
+    if (i != string::npos)
+        User = user.substr(0,i);  //remove ssid
+
+    do {
+        file.getline(Line,maxl);        // Read each line in file
+
+        if (!file.good())
+            break;
+
+        if (strlen(Line) > 0) {
+            if (Line[0] != '#') {       // Ignore comments
+                string sLine(Line);
+                string token[maxToken];
+                nTokens = split(sLine, token, maxToken, RXwhite);  //Parse into tokens
+                upcase(token[0]);
+                baduser = token[0];
+
+                if ((stricmp(baduser.c_str(),User.c_str()) == 0) && (nTokens >= 2)){
+                    rc = token[1][0];
+                    break;
+                }
             }
         }
+    } while(file.good());
 
-  }while(file.good());
-
-  file.close();
-  return rc;
-
+    file.close();
+    return(rc);
 }
+
 //------------------------------------------------------------------------
 /* return ascii H:M:S string with elapsed time ( NOW - starttime) */
-
+//
 void strElapsedTime(time_t starttime,  char* timeStr)
 {
-   if(starttime == -1){
-      sprintf(timeStr,"N/A");
-      return;
-   }
-   time_t endtime = time(NULL);                                                 
-   double  dConnecttime = difftime(endtime , starttime);           
-   int iMinute = (int)(dConnecttime / 60);                                     
-   iMinute = iMinute % 60;                                                     
-   int iHour = (int)dConnecttime / 3600;                                       
-   int iSecond = (int)dConnecttime % 60;                                       
-                                                             
-   sprintf(timeStr,"%3d:%02d:%02d",iHour,iMinute,iSecond);            
-   
+    if (starttime == -1) {
+        sprintf(timeStr,"N/A");
+        return;
+    }
+    time_t endtime = time(NULL);
+    double  dConnecttime = difftime(endtime , starttime);
+    int iMinute = (int)(dConnecttime / 60);
+    iMinute = iMinute % 60;
+    int iHour = (int)dConnecttime / 3600;
+    int iSecond = (int)dConnecttime % 60;
+
+    sprintf(timeStr,"%3d:%02d:%02d",iHour,iMinute,iSecond);
 }
-   
 
-
+// eof: utils.cpp

@@ -45,6 +45,8 @@ bool CompareSourceCalls(char *s1, char *s2);
 void GetMaxAgeAndCount( int *MaxAge, int *MaxCount);
 int  checkpass(const char *szUser, const char *szGroup, const char *szPass);
 void RemoveCtlCodes(char *cp);
+void makePrintable(char *cp);
+void removeHTML(string& sp);
 char* StripPath(char* cp);
 bool getMsgDestCall(char *data, char* cp, int n);
 bool getMsgSourceCall(char* data, char* cp, int n);
@@ -56,7 +58,7 @@ int stricmp(const char* szX, const char* szY);
 int split(  string& s, string sa[],   int saSize,  const char* delim);
 int freq(string& s, char c);
 void upcase(string& s);
-void reformatAndSendMicE(aprsString* inetpacket, cpQueue& sendQueue);
+void reformatAndSendMicE(TAprsString* inetpacket, cpQueue& sendQueue);
 bool find_rfcall(const string& s, string* rfcall[]);
 bool find_rfcall(const string& s, vector<string*>& rfcall);
 
