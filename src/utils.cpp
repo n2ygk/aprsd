@@ -305,7 +305,7 @@ int split( string& s, string sa[],  int saSize,  const char* delim)
         start = s.find_first_not_of(delim);  //find first token
         end = 0;
         wordcount = 0;
-        while ((start != string::npos) && (wordcount < saSize)) {  
+        while ((start != (string::npos & 0xffffffff)) && (wordcount < saSize)) {  
             end = s.find_first_of(delim,start+1);
             if (end == string::npos) 
                 end = s.length();

@@ -26,6 +26,7 @@
 #define AX25SOCKETS_H
 
 #include "constant.h"
+
 using namespace aprsd;
 
 // TCP Wrappers

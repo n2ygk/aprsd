@@ -27,34 +27,35 @@
    in serial.h), but uses Linux network sockets.
 */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #ifdef HAVE_LIBAX25                     // if no AX25, do nothing
 
-#include "osdep.h"
-#include "ax25socket.h"
-#include "constant.h"
-#include "rf.h"
 
+
+#include <cstdio>
 #include <cstdlib>
 #include <sys/poll.h>                   // poll, et el
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
-//#include <cstdio>                      // perror
-//#include <string>
 #include <sys/types.h>                      // isprint
 #include <netax25/axlib.h>
 #include <netax25/axconfig.h>
 
+#include <string>
 #include <iostream>
+
+#include "osdep.h"
+#include "ax25socket.h"
+#include "constant.h"
+#include "rf.h"
 
 using std::cerr;
 using std::endl;
 using std::cout;
+
 //---------------------------------------------------------------------
 // AX.25 constants
 

@@ -35,5 +35,5 @@ int AsyncOpen(const std::string& szPort, const std::string& baudrate);
 int AsyncClose(void);
 int SendFiletoTNC(const std::string& szName);
 
-#endif
+#endif      // SERIAL_H
 

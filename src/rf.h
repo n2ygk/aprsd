@@ -22,8 +22,8 @@
  * Look at the README for more information on the program.
  */
 
-#ifndef __RF_H
-#define __RF_H
+#ifndef RF_H
+#define RF_H
 
 #include <string>
 #include "constant.h"
@@ -43,5 +43,5 @@ int rfWrite(const char* cp);
 void rfSetPath(const char *path);
 void rfSetBaud(const char *baud);
 
-#endif
+#endif  // RF_H
 
