@@ -1,4 +1,4 @@
-/* config.h.in.  Generated automatically from configure.in by autoheader.  */
+/* config.h.in.  Generated automatically from configure.in by autoheader 2.13.  */
 
 /* The number of bytes in a char *.  */
 #undef SIZEOF_CHAR_P
@@ -42,6 +42,9 @@
 
 /* Define if you have AX25 */
 #undef WITH_OLD_AX25
+
+/* Define to use FHS-compliant file locations */
+#undef USE_FHS
 
 
 #undef APRSDTOCALL

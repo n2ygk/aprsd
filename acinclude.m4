@@ -957,9 +957,9 @@ dnl
 AC_DEFUN(CHECK_AX25,
 [
   AC_ARG_WITH(ax25,
-  [ --with-ax25=DIR directory path of ax25 installation [checks
-      /usr/include and /usr/local/include]
-  --without-ax25 to disable ax25 support completely],
+  [  --with-ax25=DIR         directory path of ax25 installation [checks
+                          /usr/include and /usr/local/include]
+  --without-ax25          disable ax25 support completely],
   [if test "$withval" != no ; then
     AC_MSG_CHECKING([for AX25])
   else
@@ -995,3 +995,22 @@ AC_DEFUN(CHECK_AX25,
   LIBS="$LIBS $LIBS_AX25"
   ])
 ])
+
+dnl ----------------------------------------------------------------------
+dnl
+AC_DEFUN(CHECK_FHS,
+[
+  AC_ARG_ENABLE(fhs, 
+    [  --enable-fhs            use FHS-compliant paths for data files
+  --disable-fhs           use standard APRSD paths],
+    [
+      AC_DEFINE_UNQUOTED(USE_FHS, 1, [Define to use FHS-compliant file locations])
+      AC_MSG_RESULT(["Using FHS-compliant file locations"])
+    ],
+    [
+      AC_MSG_RESULT(["Using standard APRSD file locations"])
+    ])
+])
+
+])
+
