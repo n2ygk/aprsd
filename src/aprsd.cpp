@@ -848,7 +848,7 @@ void dequeueTNC(void)
             strncpy(rfbuf,abuff->data.c_str(),256); // copy only data portion to rf buffer
                                                     // and truncate to 256 bytes
             RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
-            rfbuf[300] = '\0';          // Make sure there's a null on the end
+            rfbuf[256] = '\0';          // Make sure there's a null on the end
             strcat(rfbuf,"\r");         // append a CR to the end
             char* cp = new char[300];   // Will be deleted by conQueue reader.
             ostrstream msg(cp,300);
