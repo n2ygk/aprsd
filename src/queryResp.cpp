@@ -104,7 +104,7 @@ void queryResp(int session, const TAprsString* pkt)
                                 &h,
                                 &h_err);
 
-        // pthread_mutex_unlock(pmtxDNS);
+        pthread_mutex_unlock(pmtxDNS);
         if (h != NULL) {
             strncpy(hostname,h->h_name,80);             // Full host name
             strncpy((char*)hip,h->h_addr_list[0],4);    // Host IP
