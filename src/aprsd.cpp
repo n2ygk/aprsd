@@ -230,6 +230,10 @@ int msgsn;
 char *szComPort;
 extern int queryCounter;
 
+bool respondToIgateQueries;
+bool respondToAprsdQueries;
+
+
 //----------------------------
 
 struct ConnectParams {
@@ -1477,11 +1481,19 @@ void *TCPSessionThread(void *p)
 
                 if ((atemp.aprsType == APRSMSG) && (atemp.msgType == APRSMSGQUERY)) {
                     // is this a directed query message?
-                    if ((stricmp(szServerCall.c_str(), atemp.stsmDest.c_str()) == 0)
-                            || (stricmp("aprsd",atemp.stsmDest.c_str()) == 0)
-                            || (stricmp("igate",atemp.stsmDest.c_str()) == 0)) {    // Is query for us?
-
-                        queryResp(session,&atemp);  // Yes, respond.
+                    //if ((stricmp(szServerCall.c_str(), atemp.stsmDest.c_str()) == 0)
+                    //        || (stricmp("aprsd",atemp.stsmDest.c_str()) == 0)
+                    //        || (stricmp("igate",atemp.stsmDest.c_str()) == 0)) {    // Is query for us?
+                    //
+                    //    queryResp(session,&atemp);  // Yes, respond.
+                    //}
+                    if ((respondToIgateQueries) && (stricmp(szServerCall.c_str(), atemp.stsmDest.c_str()) == 0)
+                            && (stricmp("igate", atemp.stsmDest.c_str()) == 0))  {
+                        queryResp(session, &atemp);  // Yes, respond.
+                    }
+                    if ((respondToAprsdQueries) && (stricmp(szServerCall.c_str(), atemp.stsmDest.c_str()) == 0)
+                            && (stricmp("aprsd", atemp.stsmDest.c_str()) == 0))  {
+                        queryResp(session, &atemp);  // Yes, respond.
                     }
                 }
 
@@ -3226,6 +3238,28 @@ int serverConfig(const string& cf)
                     n = 1;
                 }
 
+                if (cmd.compare("RESPONDTOIGATEQUERIES") == 0) {
+                    upcase(token[1]);
+
+                    if (token[1].compare("YES") == 0)
+                        respondToIgateQueries = true;
+                    else
+                        respondToIgateQueries = false;
+
+                    n = 1;
+                }
+
+                if (cmd.compare("RESPONDTOAPRSDQUERIES") == 0) {
+                    upcase(token[1]);
+
+                    if (token[1].compare("YES") == 0)
+                        respondToAprsdQueries = true;
+                    else
+                        respondToAprsdQueries = false;
+
+                    n = 1;
+                }
+
                 if (n == 0)
                     cout << "Unknown command: " << Line << endl << flush;
             }
@@ -3763,6 +3797,8 @@ int main(int argc, char *argv[])
     ConvertMicE = false;
     tncMute = false;
     MaxClients = MAXCLIENTS;            // Set default aprsd.conf file will override this
+    respondToIgateQueries = true;
+    respondToAprsdQueries = true;
 
     ackRepeats = 2;                     // Default extra acks to TNC
     ackRepeatTime = 5;                  // Default time between extra acks to TNC in seconds.
