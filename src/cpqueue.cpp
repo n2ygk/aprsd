@@ -130,6 +130,43 @@ int cpQueue::write(unsigned char *cp, int n)
     return(write((char*)cp, n));
 }
 
+/*
+int cpQueue::write(string& cs, int n)
+{
+    int rc = 0;
+
+    if (lock)
+        return -2;
+
+    inWrite = 1;
+    pthread_mutex_lock(Q_mutex);
+    int idx = write_p;
+    if (base_p[idx].rdy == false) {     // Be sure not to overwrite old stuff
+        base_p[idx].qcp = (char *)cs;	// put String on queue
+        base_p[idx].qcmd = n;           // put int (cmd) on queue
+        base_p[idx].rdy = TRUE;         // Set the ready flag
+        itemsQueued++;
+        idx++;
+
+        if (idx >= size)
+            idx = 0;
+
+        write_p = idx;
+    } else {
+        overrun++ ;
+
+        if (dyn)
+            cs = NULL;                  // Delete the object that couldn't be put in the queue
+
+        rc = -1;
+    }
+
+    pthread_mutex_unlock(Q_mutex);
+    inWrite = 0;
+    return(rc);
+}
+
+*/
 
 int cpQueue::write(TAprsString* cs, int n)
 {

@@ -271,7 +271,9 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 AEA = true;
             }
 
-            if ((sourceSock != SRC_INTERNAL) && (path.find(">") == npos)) {   // If there isn't a ">" in the packet
+            if ((sourceSock != SRC_INTERNAL) && (path.find(">") == npos)) {
+                // If there isn't a ">" in the packet
+                // and it didn't come from me...
                 aprsType = APRSERROR;         // then it's bogus
                 return;
             }

@@ -76,8 +76,8 @@ typedef int INT32;
 //#define LINK_SERVER_PORT 1313
 
 #define CMD_END_THREAD -1L
-#define SRC_TNC	-2L
-#define SRC_USER	-3L
+#define SRC_TNC -2L
+#define SRC_USER -3L
 #define SRC_INTERNAL -4L
 #define SRC_UDP -5L
 #define SRC_IGATE -6L

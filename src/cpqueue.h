@@ -50,6 +50,7 @@ public:
     int write(TAprsString* cs);
     int write(char* cs, int cmd);
     int write(unsigned char* cs, int cmd);
+    //int write(string& cs, int cmd);
 
     void* read(int *cmd);
     int ready(void);                    // return non-zero when queue data is available

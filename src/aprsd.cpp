@@ -235,14 +235,10 @@ extern int queryCounter;
 struct ConnectParams {
     int RemoteSocket;
     char *RemoteName;
-    //string RemoteName;
     int EchoMask;
     char *user;
-    //string user;
     char *pass;
-    //string pass;
     char *remoteIgateInfo;
-    //string remoteIgateInfo;
     long bytesIn;
     long bytesOut;
     time_t starttime;
@@ -404,16 +400,17 @@ SessionParams* AddSession(int s, int echo)
 {
     SessionParams *rv = NULL;
     int i;
+
     try {
         pthread_mutex_lock(pmtxAddDelSess);
         pthread_mutex_lock(pmtxSend);       // Don't add during send, walks on session queue
-        for (i=0; i<MaxClients; i++)
+        for (i = 0; i < MaxClients; i++)
             if (sessions[i].Socket == -1)
                 break;                      // Find available unused session
 
         if (i < MaxClients) {
             rv = &sessions[i];
-            initSessionParams(rv,s,echo);
+            initSessionParams(rv, s, echo);
             pthread_mutex_lock(pmtxCount);
             ConnectedClients++;
             pthread_mutex_unlock(pmtxCount);
@@ -426,6 +423,7 @@ SessionParams* AddSession(int s, int echo)
     }
     catch (TAprsdException except) {
         cout << except.what() << endl;
+        WriteLog(except.what(), ERRORLOG);
         return(rv);
     }
 }
@@ -463,6 +461,7 @@ bool DeleteSession(int s)
     }
     catch (TAprsdException except) {
         cout << except.what() << endl;
+        WriteLog(except.what(), ERRORLOG);
         return(false);
     }
 }
@@ -473,21 +472,28 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
     int i = 0;
     bool rv = false;
 
-    pthread_mutex_lock(pmtxAddDelSess);
+    try {
+        pthread_mutex_lock(pmtxAddDelSess);
 
-    for (i=0; i<MaxClients; i++) {
-        if (sessions[i].Socket == s ) {
-            strncpy(sessions[i].szPeer,szPeer,SZPEERSIZE-1);
-            strncpy(sessions[i].userCall,userCall,USERCALLSIZE-1);
-            sessions[i].ServerPort = port;
-            strncpy(sessions[i].pgmVers,pgmVers,PGMVERSSIZE-1);
-            sessions[i].pid = getpid();
-            rv = true;
+        for (i = 0; i<MaxClients; i++) {
+            if (sessions[i].Socket == s ) {
+                strncpy(sessions[i].szPeer, szPeer, SZPEERSIZE-1);
+                strncpy(sessions[i].userCall, userCall, USERCALLSIZE-1);
+                sessions[i].ServerPort = port;
+                strncpy(sessions[i].pgmVers, pgmVers, PGMVERSSIZE-1);
+                sessions[i].pid = getpid();
+                rv = true;
+            }
         }
-    }
 
-    pthread_mutex_unlock(pmtxAddDelSess);
-    return(rv);
+        pthread_mutex_unlock(pmtxAddDelSess);
+        return(rv);
+    }
+    catch (TAprsdException except) {
+        cout << except.what() << endl;
+        WriteLog(except.what(), ERRORLOG);
+        return(false);
+    }
 }
 
 //---------------------------------------------------------------------
@@ -535,7 +541,7 @@ void SendToAllClients(TAprsString* p)
 
                 WriteLog(fubarmsg, FUBARLOG);
                 //cerr << fubarmsg;
-                delete fubarmsg;
+                delete[] fubarmsg;
             }
         }
 #endif
@@ -644,6 +650,7 @@ void SendToAllClients(TAprsString* p)
 
     catch (TAprsdException except) {
         cout << except.what() << endl;
+        WriteLog(except.what(), ERRORLOG);
         return;
     }
 }
@@ -709,7 +716,7 @@ void *DeQueue(void *)
                 if (tncQueue.ready())
                     dequeueTNC();       // Check the TNC queue
             }
-            reliable_usleep(1000);               // 1ms
+            reliable_usleep(1000);      // 1ms
 
             if (ShutDownServer)
                 pthread_exit(0);
@@ -718,7 +725,7 @@ void *DeQueue(void *)
         abuff = (TAprsString*)sendQueue.read(&cmd);  // Read an TAprsString pointer from the queue to abuff
 
         lastPacket = abuff;             // debug thing
-        //dcp = " ";                      // another one
+        //dcp = " ";                    // another one
 
         if (abuff != NULL) {
             abuff->dest = destINET;
@@ -736,11 +743,6 @@ void *DeQueue(void *)
                     || (dup)                                      // No duplicates
                     || (abuff->reformatted))) {                   // No 3rd party reformatted pkts
                 noHist = true;    //None of the above allowed in history list
-                //if (abuff->aprsType == APRSUNKNOWN)
-                    //pthread_mutex_lock(pmtxCount);
-                    //error_cnt++;
-                    //pthread_mutex_unlock(pmtxCount);
-
             } else {
                 GetMaxAgeAndCount(&MaxAge,&MaxCount);   // Set max ttl and count values
                 abuff->ttl = MaxAge;
@@ -883,7 +885,7 @@ void dequeueTNC(void)
     }                                   // ...Perhaps the ack repeater should delete this?
 
     if (rfbuf)
-        delete rfbuf;
+        delete[] rfbuf;
 
     return ;
 }
@@ -1074,13 +1076,13 @@ void *TCPSessionThread(void *p)
     rc = SendSessionStr(session,SIGNON);
 
     if (rc < 0)
-        endSession(session,szPeer,userCall,starttime);
+        endSession(session, szPeer, userCall, starttime);
 
     if (!NetBeacon.empty())
-        rc = SendSessionStr(session,NetBeacon.c_str());
+        rc = SendSessionStr(session, NetBeacon.c_str());
 
     if (rc < 0)
-        endSession(session,szPeer,userCall,starttime);
+        endSession(session, szPeer, userCall, starttime);
 
     if (EchoMask & sendHISTORY) {
         n = SendHistory(session,(EchoMask & ~(srcSYSTEM | srcSTATS)));  // Send out the previous N minutes of APRS activity
@@ -1117,12 +1119,12 @@ void *TCPSessionThread(void *p)
             << ends;
 
         WriteLog(szLog, MAINLOG);
-        delete pWelcome;
+        delete[] pWelcome;
         endSession(session, szPeer, userCall, starttime);
     }
 
     if (pWelcome != NULL)
-        delete pWelcome;
+        delete[] pWelcome;
 
     SessionParams* sp =  AddSession(session, EchoMask);
 
@@ -1782,9 +1784,9 @@ void *TCPServerThread(void *p)
 
     sp->ServerSocket = s;
 
-    optval = 1;                         // Allow address reuse
-    setsockopt(s,SOL_SOCKET,SO_REUSEADDR,(char*)&optval,sizeof(int));
-    setsockopt(s,SOL_SOCKET,SO_KEEPALIVE,(char*)&optval,sizeof(int));
+    optval = 1;                                 // Allow address reuse
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*)&optval, sizeof(int));
+    setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, sizeof(int));
 
     if (s == 0) {
         perror("TCPServerThread socket error");
@@ -1792,14 +1794,14 @@ void *TCPServerThread(void *p)
         return NULL;
     }
 
-    memset(&server,0,sizeof(server));
-    memset(&client,0,sizeof(client));
+    memset(&server, NULLCHR, sizeof(server));
+    memset(&client, NULLCHR, sizeof(client));
 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(sp->ServerPort);
 
-    if (bind(s,(struct sockaddr *)&server, sizeof(server)) <  0) {
+    if (bind(s, (struct sockaddr *)&server, sizeof(server)) <  0) {
         perror("TCPServerThread bind error");
         ShutDownServer = true;
         return NULL;
@@ -1808,14 +1810,14 @@ void *TCPServerThread(void *p)
     cout << "TCP Server listening on port " << sp->ServerPort << endl << flush;
 
     while (!configComplete)
-        reliable_usleep(100000);                 // Wait till everything else is running.
+        reliable_usleep(100000);                // Wait till everything else is running.
 
-    listen(s,2);
+    listen(s, 2);
 
     for(;;) {
         i = sizeof(client);
         session = new SessionParams;
-        session->Socket = accept(s,(struct sockaddr *)&client,&i);
+        session->Socket = accept(s, (struct sockaddr *)&client, &i);
         session->EchoMask = sp->EchoMask;
         session->ServerPort = sp->ServerPort;
 
@@ -1828,7 +1830,7 @@ void *TCPServerThread(void *p)
             delete session;
 
             if (ShutDownServer)
-                raise(SIGTERM);         // Terminate this process
+                raise(SIGTERM);                 // Terminate this process
         }
 
         if (session->Socket < 0) {
@@ -1836,9 +1838,9 @@ void *TCPServerThread(void *p)
             delete session;
         } else {
             if (session->EchoMask & wantHTML) {
-                rc = pthread_create(&SessionThread,NULL,HTTPServerThread,session);  //Added in 2.1.2
+                rc = pthread_create(&SessionThread, NULL, HTTPServerThread, session);  //Added in 2.1.2
             } else {
-                rc = pthread_create(&SessionThread,NULL,TCPSessionThread,session);
+                rc = pthread_create(&SessionThread, NULL, TCPSessionThread, session);
             }
         }
         if (rc != 0) {
@@ -1849,10 +1851,10 @@ void *TCPServerThread(void *p)
 
             if (rc < 0)
                 perror("Session Thread close()");
-        } else                          // session will be deleted in TCPSession Thread
-            pthread_detach(SessionThread);  // run session thread DETACHED!
+        } else                                  // session will be deleted in TCPSession Thread
+            pthread_detach(SessionThread);      // run session thread DETACHED!
 
-        memset(&client,0,sizeof(client));
+        memset(&client, NULLCHR, sizeof(client));
     }
     return(0);
 }
@@ -2139,15 +2141,15 @@ void *TCPConnectThread(void *p)
 
         if (!hostinfo) {
             char* cp = new char[256];
-            ostrstream msg(cp,256);
+            ostrstream msg(cp, 256);
             msg << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends;
-            WriteLog(cp,MAINLOG);
-            conQueue.write(cp,0);
+            WriteLog(cp, MAINLOG);
+            conQueue.write(cp,0);       // cp deleted by conQueue
         } else
             state = 1;
 
         if (state == 1) {
-            clientSocket = socket(AF_INET,SOCK_STREAM, 0);
+            clientSocket = socket(AF_INET, SOCK_STREAM, 0);
             host.sin_family = AF_INET;
             host.sin_port = htons(pcp->RemoteSocket);
             host.sin_addr = *(struct in_addr *)*hostinfo->h_addr_list;
@@ -2161,13 +2163,13 @@ void *TCPConnectThread(void *p)
                 os << "Connection attempt failed " << pcp->RemoteName
                     << " " << pcp->RemoteSocket << ends;
 
-                WriteLog(szLog,MAINLOG);
+                WriteLog(szLog, MAINLOG);
 
                 {
                     char* cp = new char[256];
                     ostrstream msg(cp,256);
                     msg <<  szLog << endl << ends;
-                    conQueue.write(cp,0);
+                    conQueue.write(cp, 0);      // cp deleted by conQueue
                 }
 
                 gotID = false;
@@ -2179,25 +2181,25 @@ void *TCPConnectThread(void *p)
                 pcp->bytesIn = 0;
                 pcp->bytesOut = 0;
 
-                ostrstream os(szLog,MAX);
+                ostrstream os(szLog, MAX);
                 os << "Connected to " << pcp->RemoteName
                     << " " << pcp->RemoteSocket << ends;
 
-                WriteLog(szLog,MAINLOG);
+                WriteLog(szLog, MAINLOG);
 
                 char* cp = new char[256];
                 ostrstream msg(cp,256);
                 msg <<  szLog << endl << ends;
-                conQueue.write(cp,0);               // cp deleted in queue reader
+                conQueue.write(cp, 0);               // cp deleted in queue reader
             }
         }
 
         if (state == 2) {
             data = 1;                   // Set socket for non-blocking
-            ioctl(clientSocket,FIONBIO,(char*)&data,sizeof(int));
+            ioctl(clientSocket, FIONBIO, (char*)&data, sizeof(int));
 
             int optval = 1;             // Enable keepalive option
-            setsockopt(clientSocket,SOL_SOCKET,SO_KEEPALIVE,(char*)&optval,sizeof(int));
+            setsockopt(clientSocket, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, sizeof(int));
 
             /*
                 If user and password are supplied we will send our Internet user and TNC
@@ -2215,7 +2217,7 @@ void *TCPConnectThread(void *p)
                     << endl
                     << flush;
 
-                ostrstream logon(logonBuf,254);     // Build logon string
+                ostrstream logon(logonBuf, 254);     // Build logon string
                 logon << "user "
                     << pcp->user
                     << " pass "
@@ -2225,20 +2227,20 @@ void *TCPConnectThread(void *p)
                     << "\r\n"
                     << ends;
 
-                rc = send(clientSocket,logonBuf,strlen(logonBuf),0); // Send logon string to IGATE or Hub
+                rc = send(clientSocket, logonBuf, strlen(logonBuf), 0); // Send logon string to IGATE or Hub
 
                 if (pcp->EchoMask) {    // If any bits are set in EchoMask then this add to sessions list.
                     if (sp == NULL) {   // Grab an output session now. Note: This takes away 1 avalable user connection
-                        sp = AddSession(clientSocket,pcp->EchoMask);    // Add this to list of sockets to send on
+                        sp = AddSession(clientSocket, pcp->EchoMask);    // Add this to list of sockets to send on
                     } else {            // else already had an output session
-                        initSessionParams(sp,clientSocket,pcp->EchoMask);   // Restore output session for sending
+                        initSessionParams(sp, clientSocket, pcp->EchoMask);   // Restore output session for sending
                     }
 
                     if (sp == NULL) {
                         cerr << "Can't add IGATE to session list .";
-                        WriteLog("Failed to add IGATE to session list",MAINLOG);
+                        WriteLog("Failed to add IGATE to session list", MAINLOG);
                     } else {
-                        AddSessionInfo(clientSocket,"*","To IGATE",-1,"*");
+                        AddSessionInfo(clientSocket, "*", "To IGATE", -1, "*");
                     }
                 }
             }
@@ -2249,7 +2251,7 @@ void *TCPConnectThread(void *p)
                 if (connectTime > 30)
                     retryTimer = 60;        // Retry connection in 60 seconds if it breaks
 
-                rc = recvline(clientSocket,buf,BUFSIZE,&err, 900);  // 900 sec (15 min) timeout value
+                rc = recvline(clientSocket, buf, BUFSIZE, &err, 900);  // 900 sec (15 min) timeout value
 
                 if (sp) {
                     if (sp->dead)
@@ -2261,7 +2263,7 @@ void *TCPConnectThread(void *p)
                 if (rc > 0) { // rc: = chars recvd,   0 = timeout,  -2 = socket error
                     if (!gotID) {
                         if (buf[0] == '#') {    // First line starting with '#' should be the program name and version
-                            strncpy(remoteIgateInfo,buf,255);   // This gets used in the html status web page function
+                            strncpy(remoteIgateInfo, buf, 255);   // This gets used in the html status web page function
                             gotID = true;
                             pcp->remoteIgateInfo = remoteIgateInfo;
                         }
@@ -2272,10 +2274,10 @@ void *TCPConnectThread(void *p)
                     pcp->lastActive = time(NULL);   // record time of this input
 
                     bool sentOnRF = false;
-                    TAprsString atemp(buf,clientSocket,srcIGATE,pcp->RemoteName,"IGATE");
+                    TAprsString atemp(buf, clientSocket, srcIGATE, pcp->RemoteName, "IGATE");
 
                     if (atemp.aprsType == APRSQUERY) {  // non-directed query ?
-                        queryResp(SRC_IGATE,&atemp);    // yes, send our response
+                        queryResp(SRC_IGATE, &atemp);    // yes, send our response
                     }
 
                     //cout << atemp << endl;
@@ -2288,12 +2290,12 @@ void *TCPConnectThread(void *p)
                                 || (stricmp("aprsd",atemp.stsmDest.c_str()) == 0)
                                 || (stricmp("igate",atemp.stsmDest.c_str()) == 0)) { // Is query for us?
 
-                            queryResp(SRC_IGATE,&atemp);   //Yes, respond.
+                            queryResp(SRC_IGATE, &atemp);   //Yes, respond.
                         }
                     }
 
                     // One of the stations in the gate2rf list?
-                    bool RFalways = find_rfcall(atemp.ax25Source,rfcall);
+                    bool RFalways = find_rfcall(atemp.ax25Source, rfcall);
 
                     pthread_mutex_lock(pmtxCount);
                     TotalIgateChars += rc;
@@ -2311,17 +2313,17 @@ void *TCPConnectThread(void *p)
                             && configComplete
                             && (!RFalways)) {
 
-                        sentOnRF = sendOnRF(atemp,pcp->RemoteName,"IGATE",srcIGATE);   // Try to send on RF
+                        sentOnRF = sendOnRF(atemp,pcp->RemoteName, "IGATE", srcIGATE);   // Try to send on RF
 
                         if (sentOnRF) {     // Now find the posit for this guy in the history list
                                             // and send it too.
-                            TAprsString* posit = getPosit(atemp.ax25Source,srcIGATE | srcUSERVALID);
+                            TAprsString* posit = getPosit(atemp.ax25Source, srcIGATE | srcUSERVALID);
 
                             if (posit != NULL) {
                                 time_t Time = time(NULL);       // get current time
 
                                 if ((Time - posit->timeRF) >= 60*10) {  // posit every 10 minutes only
-                                    timestamp(posit->ID,Time);      // Time stamp the original in hist. list
+                                    timestamp(posit->ID, Time);      // Time stamp the original in hist. list
                                     posit->stsmReformat(MyCall);    // Reformat it for RF delivery
                                     tncQueue.write(posit);          // posit will be deleted elsewhere?
                                 } else
@@ -2339,18 +2341,18 @@ void *TCPConnectThread(void *p)
 
                     if ((configComplete) && (atemp.aprsType != COMMENT)) {
                         // Send everything except COMMENT pkts back out to tcpip users
-                        TAprsString* inetpacket = new TAprsString(buf,clientSocket,srcIGATE,pcp->RemoteName,"IGATE");
-                        inetpacket->changePath("TCPIP*","TCPIP");
+                        TAprsString* inetpacket = new TAprsString(buf, clientSocket, srcIGATE,pcp->RemoteName, "IGATE");
+                        inetpacket->changePath("TCPIP*", "TCPIP");
 
                         if (inetpacket->aprsType == APRSMIC_E) {    // Reformat Mic-E packets
-                            reformatAndSendMicE(inetpacket,sendQueue);
+                            reformatAndSendMicE(inetpacket, sendQueue);
                         } else
                             sendQueue.write(inetpacket,0);          // send data to users.
                                                                     //Note: inetpacket is deleted in DeQueue
                     }
 
                     if (configComplete && (atemp.aprsType == APRSMSG)) {    //find matching posit for 3rd party msg
-                        TAprsString* posit = getPosit(atemp.ax25Source,srcIGATE | srcUSERVALID | srcTNC);
+                        TAprsString* posit = getPosit(atemp.ax25Source, srcIGATE | srcUSERVALID | srcTNC);
                         if (posit != NULL) {
                             posit->EchoMask = src3RDPARTY;
                             sendQueue.write(posit);         // send matching posit only to msg port
@@ -2365,7 +2367,7 @@ void *TCPConnectThread(void *p)
                             && (atemp.tcpxx == false)) {
 
                         TAprsString* RFpacket = new TAprsString(buf,clientSocket,srcIGATE,pcp->RemoteName,"IGATE");
-                        RFpacket->changePath("TCPIP*","TCPIP");
+                        RFpacket->changePath("TCPIP*", "TCPIP");
 
                         if (RFpacket->aprsType == APRSMIC_E) {      // Reformat Mic-E packets
                             if (ConvertMicE) {
@@ -2416,7 +2418,7 @@ void *TCPConnectThread(void *p)
                 << " " << pcp->RemoteSocket
                 << ends;
 
-            WriteLog(szLog,MAINLOG);
+            WriteLog(szLog, MAINLOG);
 
             {
                 char* cp = new char[256];
@@ -2450,17 +2452,17 @@ void *TCPConnectThread(void *p)
 bool sendOnRF(TAprsString& atemp,  const char* szPeer, const char* userCall, const int src)
 {
     bool sentOnRF = false;
-    bool stsmRFalways =  find_rfcall(atemp.stsmDest,stsmDest_rfcall); //Always send on RF ?
+    bool stsmRFalways =  find_rfcall(atemp.stsmDest, stsmDest_rfcall); //Always send on RF ?
 
     if ((atemp.tcpxx == false) && (atemp.aprsType == APRSMSG)) {
         if (checkUserDeny(atemp.ax25Source) != '+')
             return false;               // Reject if no RF or login permitted
 
         //Destination station active on VHFand source not?
-        if (((StationLocal(atemp.stsmDest.c_str(),srcTNC) == true) || stsmRFalways)
-                && (StationLocal(atemp.ax25Source.c_str(),srcTNC) == true)) {
+        if (((StationLocal(atemp.stsmDest.c_str(), srcTNC) == true) || stsmRFalways)
+                && (StationLocal(atemp.ax25Source.c_str(), srcTNC) == true)) {
 
-            TAprsString* rfpacket = new TAprsString(atemp.getChar(),atemp.sourceSock,src,szPeer,userCall);
+            TAprsString* rfpacket = new TAprsString(atemp.getChar(), atemp.sourceSock, src, szPeer, userCall);
             //ofstream debug("rfdump.txt");
             //debug << rfpacket->getChar << endl ;  //Debug
             //debug.close();
@@ -2489,18 +2491,18 @@ int SendFiletoClient(int session, char *szName)
     }
 
     do {
-        file.getline(Line,256);         // Read each line in file and send to client session
+        file.getline(Line, 256);         // Read each line in file and send to client session
         if (!file.good())
             break;
 
         if (strlen(Line) > 0) {
-            strncat(Line,"\r\n",256);
+            strncat(Line, "\r\n", 256);
             n = strlen(Line);
             pthread_mutex_lock(pmtxSend);
             retrys = -0;
 
             do {
-                rc = send(session,Line,n,0);
+                rc = send(session, Line, n, 0);
                 throttle = n * 150;
                 reliable_usleep(throttle);       // Limit max rate to about 50kbaud
 
@@ -2548,8 +2550,7 @@ char* getStats()
 
     pthread_mutex_lock(pmtxCount);
 
-    aprsStreamRate =  (TotalTncChars + TotalIgateChars
-                         + TotalUserChars - last_chars) / (time_now - last_time);
+    aprsStreamRate =  (TotalTncChars + TotalIgateChars + TotalUserChars - last_chars) / (time_now - last_time);
 
     tncStreamRate = (TotalTncChars - last_tnc_chars) / (time_now - last_time);
 
@@ -2594,7 +2595,7 @@ char* getStats()
 //
 void resetCounters()
 {
-    //pthread_mutex_lock(pmtxCount);
+    pthread_mutex_lock(pmtxCount);
     dumpAborts = 0;
     sendQueue.overrun = 0 ;
     tncQueue.overrun = 0 ;
@@ -2604,7 +2605,7 @@ void resetCounters()
     msg_cnt = 0;
     TotalConnects = 0;
     MaxConnects = ConnectedClients;
-    //pthread_mutex_unlock(pmtxCount);
+    pthread_mutex_unlock(pmtxCount);
 }
 
 
@@ -2614,8 +2615,8 @@ void resetCounters()
 void serverQuit(termios* initial_settings)
 {
     cout << endl << "Beginning shutdown...\n";
-    WriteLog("Server Shutdown",MAINLOG);
-    tcsetattr(fileno(stdin),TCSANOW,initial_settings); //restore terminal mode
+    WriteLog("Server Shutdown", MAINLOG);
+    tcsetattr(fileno(stdin), TCSANOW, initial_settings); //restore terminal mode
 
     char *pSaveHistory = new char[strlen(VARPATH) + strlen(SAVE_HISTORY)+1];
     strcpy(pSaveHistory,VARPATH);
@@ -2628,7 +2629,7 @@ void serverQuit(termios* initial_settings)
         << pSaveHistory
         << endl << flush ;
 
-    delete pSaveHistory;
+    delete[] pSaveHistory;
 
     //char *ShutDown = new char[255];
     //strcpy(ShutDown,szServerCall);
@@ -2657,7 +2658,7 @@ void serverQuit(termios* initial_settings)
         strcat(pRestore,TNC_RESTORE);
 
         rfSendFiletoTNC(pRestore);
-        delete pRestore;
+        delete[] pRestore;
         rfClose() ;
     }
 
@@ -3012,7 +3013,7 @@ int serverConfig(const string& cf)
                         if (nTokens > 2) {
                             string s = token[2];
 
-                            for (int i = 3 ;i<nTokens;i++)
+                            for (int i = 3 ; i<nTokens; i++)
                                 s = s + " " + token[i] ;
 
                             NetBeacon = strdup(s.c_str());
@@ -3028,7 +3029,7 @@ int serverConfig(const string& cf)
                         if (nTokens > 2) {
                             string s = token[2];
 
-                            for (int i = 3 ;i<nTokens;i++)
+                            for (int i = 3 ; i<nTokens; i++)
                                 s = s + " " + token[i] ;
 
                             TncBeacon = strdup(s.c_str());
@@ -3442,7 +3443,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     close(sock);
 
     if (htmlbuf != NULL)
-        delete htmlbuf;
+        delete[] htmlbuf;
 
     pthread_exit(0);
 }
@@ -3682,36 +3683,21 @@ int main(int argc, char *argv[])
     //Now add a ax25 path to the Internet beacon text string
 
     if (!NetBeacon.empty()) {
-        //char* netbc = new char[256];
-        //ostrstream osnetbc(netbc,255);
-        //osnetbc << szServerCall
-        //    << szAPRSDPATH
-        //    << NetBeacon
-        //    << "\r\n"
-        //    << ends;
-
-        //delete NetBeacon;
         string netbc(szServerCall);
         netbc.reserve(256);
         netbc.append(szAPRSDPATH);
         netbc.append(NetBeacon);
         netbc.append("\r\n");
         NetBeacon = netbc;              // Internet beacon complete with ax25 path
+
     }
 
     if (!TncBeacon.empty()) {
-        //char* tncbc = new char[256];
-        //ostrstream ostncbc(tncbc,255);
-        //ostncbc << TncBeacon
-        //    << "\r\n"
-        //    << ends;
-        //
-        //delete TncBeacon;
         string tncbc = TncBeacon;
         tncbc.reserve(256);
         tncbc.append("\r\n");
-
         TncBeacon = tncbc;              // TNC beacon (no ax25 path)
+
     }
 
     // Make the semaphores
@@ -3761,12 +3747,13 @@ int main(int argc, char *argv[])
         return(-1);
     }
 
-    for (i=0;i<MaxClients;i++) {
+    for (i = 0; i < MaxClients; i++) {
         sessions[i].Socket = -1;
         sessions[i].EchoMask = 0;
         sessions[i].szPeer = new char[SZPEERSIZE];
         sessions[i].userCall = new char[USERCALLSIZE];
         sessions[i].pgmVers = new char[PGMVERSSIZE];
+
         memset((void*)sessions[i].szPeer, NULLCHR, SZPEERSIZE);
         memset((void*)sessions[i].userCall, NULLCHR, USERCALLSIZE);
         memset((void*)sessions[i].pgmVers, NULLCHR, PGMVERSSIZE);
@@ -3929,10 +3916,10 @@ int main(int argc, char *argv[])
     configComplete = true;
 
     if (!TncBeacon.empty())
-        cout << "TncBeacon every " << TncBeaconInterval << " minutes : " << TncBeacon << endl;
+        cout << "TncBeacon every " << TncBeaconInterval << " minutes: " << TncBeacon << endl;
 
     if (!NetBeacon.empty())
-        cout << "NetBeacon every " << NetBeaconInterval << " minutes : " << NetBeacon << endl;
+        cout << "NetBeacon every " << NetBeaconInterval << " minutes: " << NetBeacon << endl;
 
     cout << "MYCALL set to: " << MyCall << endl;
 
@@ -4035,7 +4022,7 @@ int main(int argc, char *argv[])
             char *stats = getStats();
             cout << stats << flush;
             //getProcStats();
-            TAprsString* monStats = new TAprsString(stats,SRC_INTERNAL,srcSTATS);
+            TAprsString* monStats = new TAprsString(stats, SRC_INTERNAL, srcSTATS);
             sendQueue.write(monStats);
             delete stats;
 
@@ -4066,7 +4053,7 @@ int main(int argc, char *argv[])
 
     */
 
-    } while (1==1);                     // ctrl-C to quit
+    } while (1 == 1);                     // ctrl-C to quit
 
     // Compiler burps on this (RH7.1)
     /*

@@ -108,9 +108,9 @@ public:
     string srcHeader;                   // Source IP and user call header. format example: #192.168.1.1:N0CALL#
     bool AEA;
 
-    TAprsString(const char *cp, int s,int e);
+    TAprsString(const char *cp, int s, int e);
     TAprsString(string& as, int s, int e);
-    TAprsString(const char *cp, int s,int e, const char* szPeer, const char *userCall);
+    TAprsString(const char *cp, int s, int e, const char* szPeer, const char *userCall);
     TAprsString(const char *cp);
     TAprsString(string& as);
     TAprsString(TAprsString& as);
