@@ -1,3 +1,4 @@
+:
 
 This is my modified version of aprsd 2.1.2 to support Linux AX.25
 sockets. See aprsd.conf for how to configure it. You need libax25
