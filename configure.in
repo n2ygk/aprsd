@@ -19,6 +19,7 @@ if test "$GCC" = "yes"; then
 	CXXFLAGS="$CXXFLAGS -Wall -pipe"
 fi
 APRSD_CHECK_NAMESPACES
+APRSD_CHECK_FHS
 
 dnl Checks for libraries.
 AC_CHECK_LIB(pthread, pthread_create)

@@ -33,3 +33,18 @@ AC_MSG_RESULT(no)
 ])
 AC_LANG_RESTORE
 ])
+
+AC_DEFUN(APRSD_CHECK_FHS,
+[
+  AC_ARG_ENABLE(fhs, 
+     [  --enable-fhs            use FHS-compliant paths for data files
+  --disable-fhs           use standard APRSD paths],
+     [
+       AC_DEFINE_UNQUOTED(USE_FHS, 1, [Define to use FHS-compliant file locations])
+       AC_MSG_RESULT(["Using FHS-compliant file locations"])
+     ],
+     [
+       AC_MSG_RESULT(["Using standard APRSD file locations"])
+   ])
+])
+
