@@ -1,4 +1,0 @@
-@BOTTOM@
-
-#undef APRSDTOCALL
-

@@ -1,12 +1,14 @@
 #!/bin/sh
 #
-# aprsd.init   starts or stops aprsd server.
+# aprsd.init for version 2.1.5.  starts or stops aprsd server.
+# This file should be placed in /etc/rc.d/init.d/
+# 
 #
 #
-# Author:      Dale Heatherington <daheath@ibm.net>
+# Author:      Dale Heatherington <aprsd1@wa4dsy.net>
 #
 # Source function library.
-. /etc/rc.d/init.d/functions
+#. /etc/rc.d/init.d/functions
 
 # See how we were called.
 case "$1" in
@@ -20,7 +22,7 @@ case "$1" in
 	;;
   stop)
    echo  "Stopping aprs server daemon. "
-	killproc aprsd
+	killall -INT aprsd
 	rm -f /var/lock/subsys/aprsd
 	;;
   *)

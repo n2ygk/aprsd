@@ -1,8 +1,3 @@
-# **PLEASE EDIT THIS TO SUIT YOUR LOCAL REQUIRMENTS. Start each comment line with a "#"   **
-# Welcome to the WA4DSY APRS Atlanta area server.
-# This server is running under Red Hat Linux 6.x .
-# Direct comments to nobody@NoWhere.net . Type ctrl-D to disconnect.
-
-aprsdATL>JAVA::javaTITLE:Live data from the Atlanta Linux APRS Server
-
+# Welcome to first.aprs.net (aprs core server).
+# Direct comments to cbyam at virginia.edu . Type ctrl-D to disconnect.
 

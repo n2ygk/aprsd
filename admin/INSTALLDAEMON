@@ -15,25 +15,20 @@ then
  echo "Creating $APRSDIR"
  mkdir $APRSDIR
 fi
-
-if [ ! -f "aprsd" ]
- then
- echo "Making aprsd from source"
- make
-fi
-
-if [ ! -f "aprspass" ]
- then
- echo "Making aprspass from source"
- make
-fi
-
+echo "Making aprsd from source"
+make
+echo "Making aprspass from source"
+make
 echo "Copying $PWD/aprsd to $APRSDIR"
 cp aprsd $APRSDIR
 echo "Copying $PWD/aprspass to $APRSDIR"
 cp aprspass $APRSDIR
 echo "Copying $PWD/aprsddoc.html to $APRSDIR"
 cp aprsddoc.html $APRSDIR
+cp ports.html $APRSDIR
+cp revisions.txt $APRSDIR
+cp q.htm $APRSDIR
+cp qalgorithm.htm $APRSDIR
 #
 cd $APRSDIR
 if [ ! -f "INIT.TNC" ]

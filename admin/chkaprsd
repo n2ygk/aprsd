@@ -1,5 +1,4 @@
 #! /bin/sh
-#
 # $Id$
 #
 # This is a script suitable for use in a crontab.  It checks to make sure
@@ -15,7 +14,7 @@
 # Note: Most implementations of crontab will accepts stepping; */5 * * * * for example
 # will step every 5 minutes
 
-cd /your/aprsd/bin/dir
+cd /home/crb6x/projects/aprsd225/admin
 
 if test -r /var/run/aprsd.pid
 then
@@ -34,3 +33,4 @@ then
    ./aprsd -d
    echo "restarted."
 fi
+
