@@ -560,9 +560,9 @@ void SendToAllClients(TAprsString* p)
                 || (p->find("Connected to") <= p->length()))) {
             if (p->aprsType == APRSERROR) {
                 //char *fubarmsg;
-                fubarmsg = new char[2049];
+                fubarmsg = new char[2048](0);
                 //memset(fubarmsg, NULLCHR, sizeof(&fubarmsg));
-                ostrstream msg(fubarmsg, 2048);
+                ostrstream msg(fubarmsg, 2047);
 
                 msg << "FUBARPKT " << p->srcHeader.c_str()
                     << " " << p->c_str()
@@ -911,7 +911,7 @@ void dequeueTNC(void)
         return;
     }
 
-    rfbuf = new char[301];
+    rfbuf = new char[256];
     //memset(rfbuf, NULLCHR, sizeof(rfbuf));
 
     if (rfbuf != NULL) {
@@ -931,11 +931,11 @@ void dequeueTNC(void)
             strncpy(rfbuf,abuff->data.c_str(),256); // copy only data portion to rf buffer
                                                     // and truncate to 256 bytes
             RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
-            rfbuf[256] = NULLCHR;          // Make sure there's a null on the end
+            rfbuf[255] = NULLCHR;          // Make sure there's a null on the end
             strcat(rfbuf,"\r");         // append a CR to the end
-            char* cp = new char[301];   // Will be deleted by conQueue reader.
+            char* cp = new char[300](0);   // Will be deleted by conQueue reader.
             //memset(cp, NULLCHR, sizeof(&cp));
-            ostrstream msg(cp, 300);
+            ostrstream msg(cp, 299);
 
             msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
             conQueue.write(cp, 0);
@@ -1027,9 +1027,9 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
         cerr << "Unable to unlock pmtxSend - endSession.\n" << flush;
 
     {
-        char* cp = new char[129];
+        char* cp = new char[128](0);
         //memset(cp, NULLCHR, sizeof(&cp));
-        ostrstream msg(cp, 128);
+        ostrstream msg(cp, 127);
         msg << szPeer << " " << userCall
             << " has disconnected\n"
             << ends;
@@ -1165,9 +1165,9 @@ void *TCPSessionThread(void *p)
     }
 
     {
-        char *cp = new char[257];
+        char *cp = new char[256](0);
         //memset(cp, NULLCHR, sizeof(&cp));
-        ostrstream msg(cp, 256);
+        ostrstream msg(cp, 255);
         msg << szPeer << " has connected to port " << serverport << endl << ends;
         conQueue.write(cp, 0);           // queue reader deletes cp
     }
@@ -1216,9 +1216,9 @@ void *TCPSessionThread(void *p)
         }
 
         {
-            char *cp = new char[257];
+            char *cp = new char[256](0);
             //memset(cp, NULLCHR, sizeof(&cp));
-            ostrstream msg(cp, 256);
+            ostrstream msg(cp, 255);
             msg << "Sent " << n << " history items to " << szPeer << endl << ends;
             conQueue.write(cp, 0);       // queue reader deletes cp
         }
@@ -1259,9 +1259,9 @@ void *TCPSessionThread(void *p)
         WriteLog("Error, too many users",MAINLOG);
         cerr << "Can't find free session.\n" << flush;		// debug stuff
         endSession(session,szPeer,userCall,starttime);
-        char *cp = new char[257];
+        char *cp = new char[256](0);
         //memset(cp, NULLCHR, sizeof(&cp));
-        ostrstream msg(cp, 256);
+        ostrstream msg(cp, 255);
         msg <<  "Can't add client to session list, too many users - closing connection.\n"
             << ends;
 
@@ -1531,9 +1531,9 @@ void *TCPSessionThread(void *p)
                             verified = true;
                     } else {
                         if (idxInvalid != string::npos) {
-                            char *cp = new char[257];
+                            char *cp = new char[256](0);
                             //memset(cp, NULLCHR, sizeof(&cp));
-                            ostrstream msg(cp, 256);
+                            ostrstream msg(cp, 255);
 
                             msg << szPeer
                                 << " Invalid character \""
@@ -1799,9 +1799,9 @@ void *TCPSessionThread(void *p)
                     valid = validate(szUser,szPass,TNCGROUP,APRS_PASS_ALLOW);   // Check user/password
                 } else {
                     if (idxInvalid != string::npos) {
-                        char *cp = new char[257];
+                        char *cp = new char[256](0);
                         //memset(cp, NULLCHR, sizeof(&cp));
-                        ostrstream msg(cp, 256);
+                        ostrstream msg(cp, 255);
 
                         msg << szPeer
                             << " Invalid character \""
@@ -2295,9 +2295,9 @@ void *TCPConnectThread(void *p)
             cerr << "Unable to unlock pmtxDNS - TCPConnectThread.\n" << flush;
 
         if (!hostinfo) {
-            char* cp = new char[257];
+            char* cp = new char[256](0);
             //memset(cp, NULLCHR, sizeof(&cp));
-            ostrstream msg(cp, 256);
+            ostrstream msg(cp, 255);
             msg << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends;
             WriteLog(cp, MAINLOG);
             conQueue.write(cp,0);       // cp deleted by conQueue
@@ -2322,9 +2322,9 @@ void *TCPConnectThread(void *p)
                 WriteLog(szLog, MAINLOG);
 
                 {
-                    char* cp = new char[257];
+                    char* cp = new char[256];
                     //memset(cp, NULLCHR, sizeof(&cp));
-                    ostrstream msg(cp, 256);
+                    ostrstream msg(cp, 255);
                     msg <<  szLog << endl << ends;
                     conQueue.write(cp, 0);      // cp deleted by conQueue
                 }
@@ -2345,9 +2345,9 @@ void *TCPConnectThread(void *p)
 
                 WriteLog(szLog, MAINLOG);
 
-                char* cp = new char[257];
+                char* cp = new char[256];
                 //memset(cp, NULLCHR, sizeof(&cp));
-                ostrstream msg(cp, 256);
+                ostrstream msg(cp, 255);
                 msg <<  szLog << endl << ends;
                 conQueue.write(cp, 0);               // cp deleted in queue reader
 
@@ -2603,9 +2603,9 @@ void *TCPConnectThread(void *p)
             WriteLog(szLog, MAINLOG);
 
             {
-                char* cp = new char[257];
+                char* cp = new char[256](0);
                 //memset(cp, NULLCHR, sizeof(&cp));
-                ostrstream msg(cp, 256);
+                ostrstream msg(cp, 255);
                 msg <<  szLog << endl << ends;
                 conQueue.write(cp, 0);
 
@@ -2745,7 +2745,7 @@ char* getStats()
     double serverRate = 0;
     double inetRate = 0;
     string inetRateX, serverRateX;
-    char *cbuf = new char[1025];
+    char *cbuf = new char[1024](0);
     //memset(cbuf, NULLCHR, sizeof(&cbuf));
 
     time(&time_now);
@@ -2888,7 +2888,7 @@ void serverQuit(termios* initial_settings)
 
     if (tncPresent) {
         char *pRestore = new char[strlen(CONFPATH) + strlen(TNC_RESTORE) + 1];
-        memset(pRestore, NULLCHR, sizeof(&pRestore));
+        //memset(pRestore, NULLCHR, sizeof(&pRestore));
         strcpy(pRestore, CONFPATH);
         strcat(pRestore, TNC_RESTORE);
 
@@ -3502,7 +3502,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     if(pthread_mutex_lock(pmtxCount) != 0)
         cerr << "Unable to lock pmtxCount - HTTPStats2.\n" << flush;
 
-    htmlbuf = new char[HTMLSIZE];
+    htmlbuf = new char[HTMLSIZE](0);
     //memset(htmlbuf, NULLCHR, sizeof(htmlbuf));
     ostrstream stats(htmlbuf, HTMLSIZE - 1);
 
@@ -3920,11 +3920,11 @@ int main(int argc, char *argv[])
 
     szServerCall = "aprsd";             // default server FROM CALL used in system generated pkts.
 
-    szAPRSDPATH = new char[65];
+    szAPRSDPATH = new char[64](0);
     //memset(szAPRSDPATH, NULLCHR, 64);
     strcpy(szAPRSDPATH,">");
-    strncat(szAPRSDPATH, PGVERS, 64);
-    strncat(szAPRSDPATH, ",TCPIP*:", 64); // ">APD215,TCPIP*:"
+    strncat(szAPRSDPATH, PGVERS, 63);
+    strncat(szAPRSDPATH, ",TCPIP*:", 63); // ">APD215,TCPIP*:"
 
     ShutDownServer = false;
 
