@@ -932,7 +932,7 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << ends;
     }
 
-    BroadcastString(infomsg);           // Say IP address of disconected client
+    //BroadcastString(infomsg);           // Say IP address of disconected client
 
     if (strlen(userCall) > 0) {
         ostrstream msg(infomsg,MAX-1);
@@ -942,7 +942,8 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << MyLocation
             << ": Disconnected from "
             << userCall
-            << "."
+            << ". "
+            << ConnectedClients << " users"
             << "\r\n"
             << ends;
 
@@ -1122,7 +1123,7 @@ void *TCPSessionThread(void *p)
             << " users online.\r\n"
             << ends;
 
-        BroadcastString(infomsg);
+        //BroadcastString(infomsg);
     }
 
     if (ConnectedClients > MaxConnects)
@@ -1396,12 +1397,13 @@ void *TCPSessionThread(void *p)
                             << szAPRSDPATH
                             << szUSERLISTMSG
                             << MyLocation << ": "
-                            << szUserStatus << "user "
+                            << szUserStatus << " " 
                             << atemp.user
-                            << " logged on using "
+                            << " using "
                             << atemp.pgmName << " "
                             << atemp.pgmVers
-                            << "."
+                            << ". "
+                            << ConnectedClients << " users"
                             << "\r\n"   // Don't want acks from this!
                             << ends;
 
@@ -3122,7 +3124,7 @@ void segvHandler(int signum)  //For debugging seg. faults
 
 
     if (aprsStreamRate > 1024) {
-        inetRate = (double)(aprsStreamRate / 1024);
+        inetRate = ((double)aprsStreamRate / 1024);
         inetRateX = "Kbps";
         if (inetRate > 1000) {
             inetRate = (inetRate / 1000);
@@ -3134,7 +3136,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     }
 
     if (serverLoad > 1024) {
-        serverRate = (double)(serverLoad / 1024);
+        serverRate = ((double)serverLoad / 1024);
         serverRateX = "Kbps";
         if (serverRate > 1000) {
             serverRate = (serverRate / 1000);
