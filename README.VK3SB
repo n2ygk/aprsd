@@ -28,6 +28,10 @@ Revision history
                              in to my revise serial/sockets system.
 
 2.1.4.vk3sb.1   25-Oct-00  * Upgraded to APRSD 2.1.4
+2.1.4.vk3sb.2   24-Jun-01  * Removed changing of corrupted callsigns
+                             to [invalid] when using a kernel AX.25 port
+                           * Implemented wildcard support in posit2rf command
+
 
 Hamish Moffatt VK3SB
 email: hamish@debian.org
