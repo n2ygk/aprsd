@@ -233,6 +233,7 @@ extern int queryCounter;
 bool respondToIgateQueries;
 bool respondToAprsdQueries;
 bool broadcastJavaInfo;
+bool logBadPackets;
 
 //----------------------------
 
@@ -3564,7 +3565,8 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>History items</TD><TD>" << ItemCount  << "</TD></TR>\n"
         << "<TR><TD>TAprsString Objects</TD><TD>" << TAprsString::getObjCount() << "</TD></TR>\n"
         << "<TR><TD>Frame Count</TD><TD>" << frame_cnt << "</TD></TR>\n"
-        << "<TR><TD><a href=\"http://first.aprs.net/aprsd/badpacket.log\">Frame Errors</a></TD><TD>" << error_cnt << "</TD></TR>\n"
+        << (logBadPackets ? "<TR><TD><a href=\"http://first.aprs.net/aprsd/badpacket.log\">Frame Errors</a></TD><TD>" :
+                "<TR><TD>Frame Errors</TD><TD>") << error_cnt << "</TD></TR>\n"
         << "<TR><TD>Items in InetQ</TD><TD>" << sendQueue.getItemsQueued() << "</TD></TR>\n"
         << "<TR><TD>InetQ overflows</TD><TD>" << sendQueue.overrun << "</TD></TR>\n"
         << "<TR><TD>TncQ overflows</TD><TD>" << tncQueue.overrun << "</TD></TR>\n"
