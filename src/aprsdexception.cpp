@@ -26,134 +26,149 @@
 
 namespace aprsd
 {
-    Exception::Exception(const string& arg_message) throw(exception) :
-        message(arg_message) { }
+    Exception::Exception(const string& arg_message) : m_message(arg_message) { }
 
     Exception::~Exception() throw() { }
 
-    string Exception::getMessage() const throw(exception)
+    string Exception::getMessage() const
     {
-        return message;
+        return m_message;
     }
 
-    string Exception::toString() const throw(exception)
+    string Exception::toString() const
     {
         if (getMessage().empty())
-        {
             return getName();
-        } else {
+        else
             return getName() + ": " + getMessage();
-        }
     }
 
-    string Exception::getName() const throw(exception)
+    const char *Exception::what( void ) const throw()
+    {
+        return m_message.c_str();
+    }
+
+    string Exception::getName() const
     {
         return "aprsd::Exception";
     }
 
-    AssertException::AssertException(const string& message) throw(exception) :
+    AssertException::AssertException(const string& message) :
         Exception(message) { }
 
-    string AssertException::getName() const throw(exception)
+    string AssertException::getName() const
     {
         return "aprsd::AssertException";
     }
 
-    UnexpectedException::UnexpectedException(const string& message) throw(exception) :
+    UnexpectedException::UnexpectedException(const string& message) :
         AssertException(message) { }
 
-    string UnexpectedException::getName() const throw(exception)
+    string UnexpectedException::getName() const
     {
         return "aprsd::UnexpectedException";
     }
 
-    IOException::IOException(const string& message) throw(exception) :
-        Exception(message) { }
+    IOException::IOException(const string& message) throw() :
+        Exception(message) { m_errno = 0; }
 
-    string IOException::getName() const throw(exception)
+    IOException::IOException( int ERRNUM ) throw() {
+        m_message = strerror_r(ERRNUM);
+        m_errno = ERRNUM;
+    }
+
+    string IOException::getName() const
     {
         return "aprsd::IOException";
     }
 
     UnknownHostException::UnknownHostException(const string& message)
-        throw(exception) : IOException(message) { }
+        : IOException(message) { }
 
-    string UnknownHostException::getName() const throw(exception)
+    string UnknownHostException::getName() const
     {
         return "aprsd::UnknownHostException";
     }
 
-    TimeoutException::TimeoutException(const string& message) throw(exception) :
+    TimeoutException::TimeoutException(const string& message) :
         IOException(message) { }
 
-    string TimeoutException::getName() const throw(exception)
+    string TimeoutException::getName() const
     {
         return "aprsd::TimeoutException";
     }
 
-    SocketException::SocketException(const string& message) throw(exception) :
+    SocketException::SocketException(const string& message) :
         IOException(message) { }
 
 
-    string SocketException::getName() const throw(exception)
+    string SocketException::getName() const
     {
         return "aprsd::SocketException";
     }
 
-    BindException::BindException(const string& message) throw(exception) :
+    BindException::BindException(const string& message) :
         SocketException(message) { }
 
-    string BindException::getName() const throw(exception)
+    string BindException::getName() const
     {
         return "aprsd::BindException";
     }
 
-    ConnectException::ConnectException(const string& message) throw(exception) :
+    ConnectException::ConnectException(const string& message) :
         SocketException(message) { }
 
-    string ConnectException::getName() const throw(exception)
+    string ConnectException::getName() const
     {
         return "aprsd::ConnectException";
     }
 
-    RegexException::RegexException(const string& message) throw(exception) :
+    RegexException::RegexException(const string& message) :
         Exception(message) { }
 
-    string RegexException::getName() const throw(exception)
+    string RegexException::getName() const
     {
         return "aprsd::RegexException";
     }
 
-    NoSuchElementException::NoSuchElementException(const string& message) throw(exception) :
+    NoSuchElementException::NoSuchElementException(const string& message) :
         Exception(message) { }
 
-    string NoSuchElementException::getName() const throw(exception)
+    string NoSuchElementException::getName() const
     {
         return "aprsd::NoSuchElementException";
     }
 
     UnsupportedOperationException::UnsupportedOperationException(const string& message)
-        throw(exception) : Exception(message) { }
+        : Exception(message) { }
 
-    string UnsupportedOperationException::getName() const throw(exception)
+    string UnsupportedOperationException::getName() const
     {
         return "aprsd::UnsupportedOperationException";
     }
 
-    ParseException::ParseException(const string& message) throw(exception) :
+    ParseException::ParseException(const string& message) :
         Exception(message) { }
 
-    string ParseException::getName() const throw(exception)
+    string ParseException::getName() const
     {
         return "aprsd::ParseException";
     }
 
-    ThreadControlException::ThreadControlException(const string& message) throw(exception) :
+    ThreadControlException::ThreadControlException( const string& message ) :
         Exception(message) { }
 
-    string ThreadControlException::getName() const throw(exception)
+    string ThreadControlException::getName() const
     {
         return "aprsd::ThreadControlException";
+    }
+
+    RefCountException::RefCountException( const string& message ) 
+        : Exception( message ) {}
+
+    string RefCountException::getName() const
+    {
+        return "aprsd::RefCountException";
     }
 }
 

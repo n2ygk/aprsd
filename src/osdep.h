@@ -29,6 +29,8 @@
 #include "config.h"
 #include <string>
 
+extern "C"
+{
 #include <netdb.h>
 
 #if TIME_WITH_SYS_TIME
@@ -51,7 +53,7 @@
 #ifndef __GLIBC__
     extern int h_errno;
 #endif // __GLIBC__
-
+}
 
 namespace aprsd
 {

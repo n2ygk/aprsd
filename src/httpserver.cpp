@@ -22,22 +22,17 @@
  * Look at the README for more information on the program.
  */
 
-
-#define _GLIBCPP_DEPRECATED
-#define _GLIBCPP_CONCEPT_CHECKS
- 
 #include <sys/ioctl.h> 
 #include <sys/types.h>          // send()
 #include <sys/socket.h>         // send()
 #include <unistd.h>             // close()
-#include <exception>
 #include <cassert>
  
 #include <string>
 #include <list>
 #include <iomanip>
 
-
+#include "osdep.h"
 #include "servers.h"
 #include "mutex.h"
 #include "dupCheck.h"
@@ -51,10 +46,9 @@
 #include "queryResp.h"
 #include "aprsdexception.h"
 
-using namespace std;
 using namespace aprsd;
 
-typedef list<string> StringList;
+typedef std::list<std::string> StringList;
 
 void buildPage(StringList& htmlpage);
 

@@ -26,8 +26,8 @@
 #ifndef ASSERT_H
 #define ASSERT_H
 
+#include "osdep.h"
 #include <string>
-#include <typeinfo>
 
 #ifndef DEBUG
 #ifdef NDEBUG
@@ -57,12 +57,11 @@
  */
 
 namespace aprsd {
-using namespace std;
 
-template<class E> inline void Assert(bool assertion, E e)
-{
-    if (!assertion) throw e;
-}
+    template<class E> inline void Assert(bool assertion, E e)
+    {
+        if (!assertion) throw e;
+    }
 
 }
 #endif // ASSERT_H

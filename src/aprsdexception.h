@@ -26,6 +26,7 @@
 #ifndef APRSD_EXCEPTION_H
 #define APRSD_EXCEPTION_H
 
+#include "osdep.h"
 #include <exception>
 #include <string>
 
@@ -36,7 +37,8 @@ namespace aprsd
     /**
     * A base class for exceptions.
     */
-    class Exception {
+    class Exception : public std::exception 
+    {
     public:
         /**
         * Constructs an Exception with an optional detail message.
@@ -44,7 +46,7 @@ namespace aprsd
         * param message a detail message indicating the reason for the
         * exception.
         */
-        explicit Exception(const string& message = "") throw(exception);
+        explicit Exception(const string& message = "");
 
         /**
         * Destructor.
@@ -54,22 +56,29 @@ namespace aprsd
         /**
         * return the exception's class name.
         */
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
 
         /**
         * @return a detail message indicating the reason for the
         * exception.
         */
-        virtual string getMessage() const throw(exception);
+        virtual string getMessage() const;
 
         /**
         * A concatenation of the exception's class name and its detail
         * message, if available.
         */
-        string toString() const throw(exception);
+        string toString(void) const;
+        
+        /**
+            Return only the message, but following the normal C++ notation !
 
-    private:
-        string message;
+            @return a ziro terminated const char string 
+        */
+        const char *what( void ) const throw();
+
+    protected:
+        string m_message;
     };
 
 
@@ -79,9 +88,9 @@ namespace aprsd
     class AssertException : public Exception
     {
     public:
-        explicit AssertException(const string& message = "") throw(exception);
+        explicit AssertException(const string& message = "");
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
 
@@ -93,9 +102,9 @@ namespace aprsd
     class UnexpectedException : public AssertException
     {
     public:
-        explicit UnexpectedException(const string& message = "") throw(exception);
+        explicit UnexpectedException(const string& message = "");
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
 
@@ -105,9 +114,15 @@ namespace aprsd
     class IOException : public Exception
     {
     public:
-        explicit IOException(const string& message = "") throw(exception);
+        explicit IOException( const string& message = "" ) throw();
+        explicit IOException( int ERRNUM ) throw();
+        ~IOException() throw(){}
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
+
+        int getErrno( void ) const { return m_errno;}
+    private:
+        int m_errno;
     };
 
 
@@ -117,9 +132,10 @@ namespace aprsd
     class UnknownHostException : public IOException
     {
     public:
-        explicit UnknownHostException(const string& message = "") throw(exception);
+        explicit UnknownHostException( const string& message = "" );
+        explicit UnknownHostException( int ERRNUM ) throw() : IOException( ERRNUM ) {}
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
 
@@ -129,9 +145,10 @@ namespace aprsd
     class TimeoutException : public IOException
     {
     public:
-        explicit TimeoutException(const string& message = "") throw(exception);
+        explicit TimeoutException( const string& message = "" );
+        explicit TimeoutException( int ERRNUM ) throw() : IOException( ERRNUM ) {}
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
 
@@ -142,9 +159,10 @@ namespace aprsd
     class SocketException : public IOException
     {
     public:
-        explicit SocketException(const string& message = "") throw(exception);
+        explicit SocketException( const string& message = "" );
+		explicit SocketException( int ERRNUM ) throw() : IOException( ERRNUM ) {}
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
 
@@ -155,9 +173,10 @@ namespace aprsd
     class BindException : public SocketException
     {
     public:
-        explicit BindException(const string& message = "") throw(exception);
+        explicit BindException( const string& message = "" );
+		explicit BindException( int ERRNUM ) throw() : SocketException( ERRNUM ) {}
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
 
@@ -168,9 +187,10 @@ namespace aprsd
     class ConnectException : public SocketException
     {
     public:
-        explicit ConnectException(const string& message = "") throw(exception);
+       explicit ConnectException(const string& message = "");
+		explicit ConnectException( int ERRNUM ) throw() : SocketException( ERRNUM ) {}
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
 
@@ -180,9 +200,9 @@ namespace aprsd
     class RegexException : public Exception
     {
     public:
-        explicit RegexException(const string& message = "") throw(exception);
+        explicit RegexException(const string& message = "");
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
     /**
@@ -191,9 +211,9 @@ namespace aprsd
     class NoSuchElementException : public Exception
     {
     public:
-        explicit NoSuchElementException(const string& message = "") throw(exception);
+        explicit NoSuchElementException(const string& message = "");
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
     /**
@@ -202,9 +222,9 @@ namespace aprsd
     class UnsupportedOperationException : public Exception
     {
     public:
-        explicit UnsupportedOperationException(const string& message = "") throw(exception);
+        explicit UnsupportedOperationException(const string& message = "");
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
 
@@ -214,9 +234,9 @@ namespace aprsd
     class ParseException : public Exception
     {
     public:
-        explicit ParseException(const string& message = "") throw(exception);
+        explicit ParseException(const string& message = "");
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
     };
 
 
@@ -227,9 +247,20 @@ namespace aprsd
     class ThreadControlException : public Exception
     {
     public:
-        explicit ThreadControlException(const string& message = "") throw(exception);
+        explicit ThreadControlException(const string& message = "");
 
-        virtual string getName() const throw(exception);
+        virtual string getName() const;
+    };
+    
+    /**
+        This indicate an error occurred while using refcounting.
+    */
+    class RefCountException : public Exception
+    {
+    public:
+        explicit RefCountException(const string& message = "");
+
+        virtual string getName() const;
     };
 }
 #endif // APRSD_EXCEPTION_H

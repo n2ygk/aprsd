@@ -28,7 +28,10 @@
 #ifndef MUTEX_H
 #define MUTEX_H
 
+extern "C"
+{
 #include <pthread.h>
+}
 
 #include "aprsdexception.h"
 #include "osdep.h"
@@ -67,13 +70,14 @@ namespace aprsd
     private:
         Mutex(const Mutex&);
         Mutex& operator=(const Mutex&);
+        
         void notify() throw(AssertException, exception);
         void notifyAll() throw(AssertException, exception);
 
-        pthread_mutex_t mutex;
-        pthread_mutexattr_t mutexAttr;
-        pthread_cond_t cond;
-        pthread_condattr_t condAttr;
+        pthread_mutex_t m_mutex;
+        pthread_mutexattr_t m_mutexAttr;
+        pthread_cond_t m_cond;
+        pthread_condattr_t m_condAttr;
 
         friend class Lock;
     };
@@ -114,8 +118,8 @@ namespace aprsd
         RecursiveMutex(const RecursiveMutex&);
         RecursiveMutex& operator=(const RecursiveMutex&);
 
-        unsigned int lockCount;
-        pthread_t owner;
+        unsigned int m_lockCount;
+        pthread_t m_owner;
     };
 
 
@@ -207,8 +211,8 @@ namespace aprsd
         Lock(const Lock&);
         Lock& operator=(Lock&);
 
-        Mutex& mutex;
-        bool locked;
+        Mutex& m_mutex;
+        bool m_locked;
     };
 }
 #endif // MUTEX_H
