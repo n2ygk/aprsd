@@ -30,6 +30,7 @@
 #include "config.h"
 #endif
 
+extern "C" {
 #include <unistd.h>
 #include <ctype.h>
 #include <pthread.h>
@@ -40,8 +41,11 @@
 #include <iomanip.h>
 #include <string.h>
 #include <time.h>
+}
+
 #include <string>
 #include <stdexcept>
+
 
 #include "constant.h"
 #include "aprsString.h"
@@ -49,6 +53,7 @@
 #include "mic_e.h"
 #include "crc.h"
 
+using namespace std;
 
 pthread_mutex_t* TAprsString::pmtxCounters = NULL;  // mutex semaphore pointer common to all instances of TAprsString
 
@@ -287,6 +292,9 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
 
             if (pathSize >= 1) {
                 ax25Source = ax25Path[0];           //AX25 Source
+
+                if (ax25Source.find("cmd:") == 0)
+                    ax25Source = ax25Source.substr(4, ax25Source.length());
 
                 if ((ax25Source.length() > 10) || (ax25Source.length() < 3)) {
                     // 10 v 9 to allow for src*

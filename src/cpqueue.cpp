@@ -27,6 +27,7 @@
 #include "config.h"
 #endif
 
+extern "C" {
 #include <unistd.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -34,12 +35,13 @@
 #include <iostream.h>
 #include <strstream.h>
 #include <iomanip.h>
+}
 
 #include "constant.h"
 #include "cpqueue.h"
 #include "aprsString.h"
 
-
+using namespace std;
 
 /*-------------------------------------------------------*/
 
@@ -170,7 +172,7 @@ int cpQueue::write(TAprsString* cs, int n)
 
 int cpQueue::write(TAprsString* cs)
 {
-    return(write(cs,cs->sourceSock));
+    return(write(cs, cs->sourceSock));
 }
 
 //Read a pointer and Integer from the Queue

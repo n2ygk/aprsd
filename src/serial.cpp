@@ -141,7 +141,7 @@ int AsyncClose (void)
 bool AsyncReadWrite (char* buf)
 {
     USHORT i;
-    unsigned char c;
+    unsigned char *c;
     size_t BytesRead;
     bool lineTimeout;
 
@@ -153,11 +153,11 @@ bool AsyncReadWrite (char* buf)
 
         if (txrdy) {          //Check for data to Transmit
             size_t len = strlen (tx_buffer);
-            write (ttySwrite, tx_buffer, len);       //Send TX data to TNC
+            write(ttySwrite, tx_buffer, len);       //Send TX data to TNC
             txrdy = 0;      //Indicate we sent it.
         }
 
-        BytesRead = read (ttySread, &c, 1); //Non-blocking read.  100ms timeout.
+        BytesRead = read(ttySread, &c, 1); //Non-blocking read.  100ms timeout.
 
         if (BytesRead == 0) {           // Serial input timeout
             if (i > 0)
@@ -168,19 +168,19 @@ bool AsyncReadWrite (char* buf)
 
         if (BytesRead > 0) {            // Actual serial data from TNC has arrived
             if (i < (BUFSIZE - 4))
-                buf[i++] = c;
+                buf[i++] = (char&)c;
             else
                 i = 0;
 
             if (TncSysopMode) {
                 i = 1;
-                charQueue.write ((char *)c, (int)c);  // single char mode...
+                charQueue.write(c, (int)c);  // single char mode...
             }
 
         } else
             c = 0;
 
-    } while ((c != 0x0a) && (c != 0x0d) && (lineTimeout == FALSE));
+    } while (((int)c != 0x0a) && ((int)c != 0x0d) && (lineTimeout == FALSE));
 
     buf[i] = '\0';
 

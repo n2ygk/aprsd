@@ -73,8 +73,8 @@ struct histRec {                        // This is for the History Array
 TAprsString *pHead, *pTail;
 
 int ItemCount;
-pthread_mutex_t*	pmtxHistory;
-pthread_mutex_t*  pmtxDupCheck;
+pthread_mutex_t* pmtxHistory;
+pthread_mutex_t* pmtxDupCheck;
 
 extern const int srcTNC;
 extern int ttlDefault;

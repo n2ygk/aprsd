@@ -160,6 +160,8 @@ N6OAA>APRS,GATE,WIDE*:@280144z4425.56N/08513.11W/ "Mitch", Lake City, MI
 #include "validate.h"
 #include "queryResp.h"
 
+using namespace std;
+
 //--------------------------------------------------
 #define BASE 0
 #define USER 1
@@ -894,9 +896,10 @@ void dequeueTNC(void)
 int SendSessionStr(int session, const char *s)
 {
     int rc, retrys;
+
     pthread_mutex_lock(pmtxSend);
     retrys = 0;
-    
+
     do {
         rc = send(session,s,strlen(s),0);
         if (rc < 0) {
@@ -931,7 +934,7 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << " has disconnected\n"
             << ends;
 
-        conQueue.write(cp,0);
+        conQueue.write(cp, 0);
     }
 
     strncpy(szLog,szPeer,MAX-1);
@@ -1012,7 +1015,7 @@ void *TCPSessionThread(void *p)
     int n, rc,data,verified=FALSE, loggedon=FALSE;
     ULONG State = BASE;
     char userCall[10];
-    char tc;
+    char* tc;
     char checkdeny = '+';               // Default to no restrictions
     const char *szRestriction;
     int dummy;
@@ -1181,7 +1184,7 @@ void *TCPSessionThread(void *p)
 
         do {
             if ((charQueue.ready()) && (State == REMOTE) ) {
-                tc = (char) charQueue.read(&dummy);
+                tc = (char*) charQueue.read(&dummy);
                 send(session,&tc,1,0);  // send a tnc character to sysop
                 //printhex(&tc,1);
             }
@@ -2587,7 +2590,7 @@ char* getStats()
 
     pthread_mutex_unlock(pmtxCount);
 
-    return(cbuf);
+    return(cbuf);  // cbuf deleted by calling function... or should be :)
 }
 
 
@@ -2669,19 +2672,19 @@ void serverQuit(termios* initial_settings)
 
 //---------------------------------------------------------------------
 //
-int serverConfig(char* cf)
+int serverConfig(const string& cf)
 {
     const int maxToken=32;
     int nTokens ;
     char Line[256];
     string cmd;
-    int n,m=0;
+    int n, m = 0;
 
     rfcall_idx = 0;
     posit_rfcall_idx = 0;
     stsmDest_rfcall_idx = 0;
 
-    for (int i=0; i < MAXRFCALL; i++) {
+    for (int i = 0; i < MAXRFCALL; i++) {
         rfcall[i] = NULL;               // clear the rfcall arrays
         posit_rfcall[i] = NULL;
         stsmDest_rfcall[i] = NULL;
@@ -2689,7 +2692,7 @@ int serverConfig(char* cf)
 
     cout << "Reading " << cf << endl << flush;
 
-    ifstream file(cf);
+    ifstream file(cf.c_str());
 
     if (!file) {
         cerr << "Can't open " << cf << endl << flush;
@@ -2708,7 +2711,7 @@ int serverConfig(char* cf)
                 string token[maxToken];
                 nTokens = split(sLine, token, maxToken, RXwhite);   // Parse into tokens
 
-                for (int i = 0 ;i<nTokens;i++)
+                for (int i = 0 ; i < nTokens; i++)
                     cout << token[i] << " " ;
                     cout << endl << flush;
                     upcase(token[0]);
@@ -2725,10 +2728,10 @@ int serverConfig(char* cf)
                     }
 
                     if ((cmd.compare("TRUST") == 0) && (nTokens >= 2) && (nTrusted < maxTRUSTED)) {
-                        int rc = inet_aton(token[1].c_str(),&Trusted[nTrusted].sin_addr);
+                        int rc = inet_aton(token[1].c_str(), &Trusted[nTrusted].sin_addr);
 
                         if(nTokens >= 3)
-                            inet_aton(token[2].c_str(),&Trusted[nTrusted].sin_mask);
+                            inet_aton(token[2].c_str(), &Trusted[nTrusted].sin_mask);
                         else
                             Trusted[nTrusted].sin_mask.s_addr = 0xffffffff;
 
@@ -2745,7 +2748,7 @@ int serverConfig(char* cf)
 
                     cpIGATE[m].EchoMask = 0;    // default is to not send any data to other igates
                     cpIGATE[m].user = strdup(MyCall.c_str());   // default user is MyCall
-                    cpIGATE[m].pass = "-1";     // default pass is -1
+                    cpIGATE[m].pass = (char*)"-1";     // default pass is -1
                     cpIGATE[m].RemoteSocket = 1313;     // Default remote port is 1313
                     cpIGATE[m].starttime = -1;
                     cpIGATE[m].lastActive = -1;
@@ -2950,8 +2953,10 @@ int serverConfig(char* cf)
                         string* s = new string(token[i]);
                         if (rfcall_idx < MAXRFCALL)
                             rfcall[rfcall_idx++] = s;   // add it to the list
+                        delete (string*)s;
                     }
                     n = 1;
+
                 }
 
                 if (cmd.compare("POSIT2RF") == 0) {     // Call sign posits gated to RF every 16 minutes
@@ -2959,8 +2964,10 @@ int serverConfig(char* cf)
                         string* s = new string(token[i]);
                         if (posit_rfcall_idx < MAXRFCALL)
                             posit_rfcall[posit_rfcall_idx++] = s;   // add it to the list
+                    delete (string*)s;
                     }
                     n = 1;
+
                 }
 
                 if (cmd.compare("MSGDEST2RF") == 0) {   // Destination call signs
@@ -2969,8 +2976,10 @@ int serverConfig(char* cf)
                         string* s = new string(token[i]);
                         if (stsmDest_rfcall_idx < MAXRFCALL)
                             stsmDest_rfcall[stsmDest_rfcall_idx++] = s;     // add it to the list
+                    delete (string*)s;
                     }
                     n = 1;
+
                 }
 
                 if (cmd.compare("ACKREPEATS") == 0) {   // How many extra ACKs to send to tnc
@@ -3285,7 +3294,7 @@ void segvHandler(int signum)  //For debugging seg. faults
                "<TR><TH>Domain Name</TH><TH>Port</TH><TH>Type</TH><TH>Status</TH><TH>Igate Pgm</TH>"
                "<TH>Last active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes<BR> Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>" ;
 
-    rc = send(sock,igateheader.c_str(),/*strlen(igateheader)*/igateheader.length(),0);
+    rc = send(sock,igateheader.c_str(), igateheader.length(), 0);
 
     pthread_mutex_lock(pmtxCount);
     for (i=0; i< nIGATES;i++) {
@@ -3544,7 +3553,8 @@ int daemonInit(void)
 int main(int argc, char *argv[])
 {
     int i,rc;
-    char *pSaveHistory, *szConfFile;
+    char *pSaveHistory /* ,*szConfFile*/;
+    string szConfFile;
     time_t lastSec,tNow,tLast,tLastDel, tPstats;
     time_t LastNetBeacon , LastTncBeacon;
     time_t Time = time(NULL);
@@ -3635,9 +3645,12 @@ int main(int argc, char *argv[])
 
     ShutDownServer = FALSE;
 
-    szConfFile = new char[strlen(CONFPATH) + strlen(CONFFILE) + 1];
-    strcpy(szConfFile,CONFPATH);
-    strcat(szConfFile,CONFFILE);        // default server configuration file
+    //szConfFile = new char[strlen(CONFPATH) + strlen(CONFFILE) + 1];
+    szConfFile = CONFPATH;
+    szConfFile += CONFFILE;
+
+    //strcpy(szConfFile,CONFPATH);
+    //strcat(szConfFile,CONFFILE);        // default server configuration file
 
     CreateHistoryList();                // Make the history linked list structure
 
@@ -3878,6 +3891,7 @@ int main(int argc, char *argv[])
 
         rfSendFiletoTNC(pInitTNC);      // Setup TNC from initialization file
         tncPresent = TRUE;
+        delete (char*)pInitTNC;
     } else
         cout << "TNC com port not defined.\n" << flush;
 
