@@ -242,7 +242,7 @@ int AsyncSendFiletoTNC (char *szName)
             int len = sLine.length();
 
             write (ttySwrite, Line, len);
-            usleep (500000);	//sleep for 500ms between lines
+            reliable_usleep(500000);	//sleep for 500ms between lines
         }
     }
     file.close ();

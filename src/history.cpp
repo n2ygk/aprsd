@@ -547,7 +547,7 @@ int SendHistory(int session, int em)
 
             do {
                 rc = send(session,(const void*)hr[i].data,dlen,0);  // Send history list item to client
-                usleep((int)throttle * dlen);       // pace ourself
+                reliable_usleep((int)throttle * dlen);       // pace ourself
 
                 if(rc < 0) {
                     sleep(1 );          // Pause output 1 second if resource unavailable

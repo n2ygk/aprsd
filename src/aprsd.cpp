@@ -702,7 +702,7 @@ void *DeQueue(void *)
                 if (tncQueue.ready())
                     dequeueTNC();       // Check the TNC queue
             }
-            usleep(1000);               // 1ms
+            reliable_usleep(1000);               // 1ms
             
             if (ShutDownServer)
                 pthread_exit(0);
@@ -868,7 +868,7 @@ void dequeueTNC(void)
 
     if (abuff) {
         while (abuff->ttl > 0)
-            usleep(10);                 // wait 'till it's safe to delete this...
+            reliable_usleep(10);                 // wait 'till it's safe to delete this...
 
         delete abuff;                   // ...ack repeater thread will set ttl to zero
     }                                   // ...Perhaps the ack repeater should delete this?
@@ -890,7 +890,7 @@ int SendSessionStr(int session, const char *s)
     do {
         rc = send(session,s,strlen(s),0);
         if (rc < 0) {
-            usleep(50000);              // try again 50ms later
+            reliable_usleep(50000);              // try again 50ms later
             retrys++;
         }
     } while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
@@ -1798,7 +1798,7 @@ void *TCPServerThread(void *p)
     cout << "TCP Server listening on port " << sp->ServerPort << endl << flush;
 
     while (!configComplete)
-        usleep(100000);                 // Wait till everything else is running.
+        reliable_usleep(100000);                 // Wait till everything else is running.
 
     listen(s,2);
 
@@ -2494,10 +2494,10 @@ int SendFiletoClient(int session, char *szName)
             do {
                 rc = send(session,Line,n,0);
                 throttle = n * 150;
-                usleep(throttle);       // Limit max rate to about 50kbaud
+                reliable_usleep(throttle);       // Limit max rate to about 50kbaud
 
                 if (rc < 0) {
-                    usleep(100000);     // 0.1 sec between retrys
+                    reliable_usleep(100000);     // 0.1 sec between retrys
                     retrys++;
                 }
             } while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
@@ -3936,7 +3936,7 @@ int main(int argc, char *argv[])
     tcsetattr(fileno(stdin),TCSANOW,&new_settings);
 
     do {
-        usleep(1000);
+        reliable_usleep(1000);
 
         if (msgsn > 9999)
             msgsn = 0;

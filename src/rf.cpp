@@ -156,7 +156,7 @@ int rfClose(void)
 {
     CloseAsync = TRUE;                  // Tell the read thread to quit
     while (threadAck == FALSE)
-        usleep (1000);                  // wait till it does
+        reliable_usleep (1000);                  // wait till it does
 
     pthread_mutex_destroy(pmtxWriteTNC);
     delete pmtxWriteTNC;
@@ -184,7 +184,7 @@ int rfWrite (char *cp)
 
     txrdy = 1;
     while (txrdy)
-        usleep(10000);                  // The rfReadCom thread will clear txrdy when it takes data
+        reliable_usleep(10000);                  // The rfReadCom thread will clear txrdy when it takes data
 
     rc = pthread_mutex_unlock(pmtxWriteTNC);
     return(rc);
