@@ -43,6 +43,7 @@ using namespace std;
 
 int ttySread;
 int ttySwrite;
+int PortIsFifo;
 
 termios newSettings, originalSettings;
 speed_t newSpeed, originalOSpeed, originalISpeed;
@@ -88,26 +89,60 @@ int AsyncSetupPort (int fIn, int fOut)
 int AsyncOpen (char *szPort)
 {
     APIRET rc;
+    struct stat buf;
 
-    ttySwrite = open (szPort, O_WRONLY | O_NOCTTY);
-    if (ttySwrite == -1) {
-        cerr << "Error: Could not open serial port in WRITE mode: "
-            << szPort << " [" << sys_errlist[errno] << "]" << endl;
+    // Check to see if the device is by any chance a pipe instead of a device;
+    // if so, act a bit differently. Then we can use pipes as dummy ports.
+
+    if (stat(szPort, &buf) == -1) {
+        cerr << "Error: could not find device " << szPort << endl;
         return -1;
     }
 
-    ttySread = open (szPort, O_RDONLY | O_NOCTTY);
+    PortIsFifo = S_ISFIFO(buf.st_mode);
 
-    if (ttySread == -1) {
-        cerr << "Error: Could not open serial port in READ mode: "
-            << szPort << " [" << sys_errlist[errno] << "]" << endl;
-        return -1;
+    if (S_ISFIFO(buf.st_mode)) {
+        cerr << "Note: detected that the serial device is a pipe" << endl;
+
+        ttySwrite = open (szPort, O_NONBLOCK | O_WRONLY);
+        if (ttySwrite == -1) {
+            perror(szPort);
+            cerr << "Error: could not open the pipe for non-blocking write" << endl;
+            return -1;
+        }
+
+        // Use /dev/null for the input device
+        ttySread = open ("/dev/null", O_RDONLY);
+        if (ttySread == -1) {
+            cerr << "Error: could not open /dev/null as input device" << endl;
+            return -1;
+        }
+
+    } else {
+
+        ttySwrite = open (szPort, O_WRONLY | O_NOCTTY);
+        if (ttySwrite == -1) {
+            cerr << "Error: Could not open serial port in WRITE mode: "
+                << szPort << " [" << sys_errlist[errno] << "]" << endl;
+            return -1;
+        }
+
+        ttySread = open (szPort, O_RDONLY | O_NOCTTY);
+
+        if (ttySread == -1) {
+            cerr << "Error: Could not open serial port in READ mode: "
+                << szPort << " [" << sys_errlist[errno] << "]" << endl;
+            return -1;
+        }
+
+
+        if ((rc = AsyncSetupPort (ttySread, ttySwrite)) != 0) {
+            cerr << "Error in setting up COM port rc=" << rc << endl << flush;
+            return -2;
+        }
+
     }
 
-    if ((rc = AsyncSetupPort (ttySread, ttySwrite)) != 0) {
-        cerr << "Error in setting up COM port rc=" << rc << endl << flush;
-        return -2;
-    }
     return 0;
 }
 
@@ -116,11 +151,15 @@ int AsyncOpen (char *szPort)
 
 int AsyncClose (void)
 {
-    if (tcsetattr (ttySread, TCSANOW, &originalSettings) != 0)
-        cerr << " Error: Could not reset input serial port attrbutes\n";
+    if (!PortIsFifo) {
 
-    if (tcsetattr (ttySwrite, TCSANOW, &originalSettings) != 0)
-        cerr << " Error: Could not reset input serial port attrbutes\n";
+        if (tcsetattr (ttySread, TCSANOW, &originalSettings) != 0)
+            cerr << " Error: Could not reset input serial port attrbutes\n";
+
+        if (tcsetattr (ttySwrite, TCSANOW, &originalSettings) != 0)
+            cerr << " Error: Could not reset input serial port attrbutes\n";
+
+    }
 
     close (ttySwrite);
     return(close(ttySread));            // close COM port
@@ -145,6 +184,8 @@ bool AsyncReadWrite (char* buf)
         if (txrdy) {          //Check for data to Transmit
             size_t len = strlen (tx_buffer);
             write(ttySwrite, tx_buffer, len);       //Send TX data to TNC
+            if (PortIsFifo)
+                write(ttySwrite, "\n", 1);
             txrdy = 0;      //Indicate we sent it.
         }
 
