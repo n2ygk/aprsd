@@ -470,8 +470,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             << rEx.what()
             << endl
             << " [" << peer << "] " << raw.c_str()
-            << ends
-            << endl ;
+            << endl << ends;
 
         WriteLog(errormsg, ERRORLOG);
         cerr << errormsg;

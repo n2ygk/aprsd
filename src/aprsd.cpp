@@ -565,8 +565,7 @@ void SendToAllClients(TAprsString* p)
 
                 msg << "FUBARPKT " << p->srcHeader.c_str()
                     << " " << p->c_str()
-                    << ends
-                    << endl;
+                    << endl << ends;
 
                 DBstring = "Write bad packet log";
 
@@ -638,7 +637,7 @@ void SendToAllClients(TAprsString* p)
                     if (rc == -1) {
                         if (errno == EAGAIN) {
                             sessions[i].overruns++;
-                            cerr << "Session overrun (" << sessions[i].userCall << ")" << ends << endl;
+                            cerr << "Session overrun (" << sessions[i].userCall << ")" << endl << ends;
                         }
                         if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
                             sessions[i].EchoMask = 0;   // No more data for you!
@@ -1163,7 +1162,7 @@ void *TCPSessionThread(void *p)
     {
         char *cp = new char[256];
         ostrstream msg(cp, 256);
-        msg << szPeer << " has connected to port " << serverport << ends << endl;
+        msg << szPeer << " has connected to port " << serverport << endl << ends;
         conQueue.write(cp, 0);           // queue reader deletes cp
     }
 
@@ -1213,7 +1212,7 @@ void *TCPSessionThread(void *p)
         {
             char *cp = new char[256];
             ostrstream msg(cp, 256);
-            msg << "Sent " << n << " history items to " << szPeer << ends << endl;
+            msg << "Sent " << n << " history items to " << szPeer << endl << ends;
             conQueue.write(cp, 0);       // queue reader deletes cp
         }
     }
@@ -1390,8 +1389,7 @@ void *TCPSessionThread(void *p)
                                         log << szPeer << " "
                                             << szUser << " "
                                             << " Exited TNC remote sysop mode."
-                                            << endl
-                                            << ends;
+                                            << endl << ends;
 
                                         WriteLog(szLog,MAINLOG);
                                     }
@@ -1494,14 +1492,14 @@ void *TCPSessionThread(void *p)
                             && (stricmp("igate", atemp.stsmDest.c_str()) == 0))  {
                         queryResp(session, &atemp);  // Yes, respond.
                     } else {
-                        cerr << "Ignored IGATE query from " << atemp.ax25Source << ends << endl;
+                        cerr << "Ignored IGATE query from " << atemp.ax25Source << endl << ends;
                     }
 
                     if ((respondToAprsdQueries) && (stricmp(szServerCall.c_str(), atemp.stsmDest.c_str()) == 0)
                             && (stricmp("aprsd", atemp.stsmDest.c_str()) == 0))  {
                         queryResp(session, &atemp);  // Yes, respond.
                     } else {
-                        cerr << "Ignored APRSD query from " << atemp.ax25Source << ends << endl;
+                        cerr << "Ignored APRSD query from " << atemp.ax25Source << endl << ends;
                     }
                 }
 
@@ -1531,8 +1529,7 @@ void *TCPSessionThread(void *p)
                                 << " Invalid character \""
                                 << vd[idxInvalid]
                                 << "\" in APRS logon"
-                                << ends
-                                << endl ;
+                                << endl << ends;
 
                             conQueue.write(cp, 0);       // cp deleted by queue reader
                             WriteLog(cp, MAINLOG);
@@ -1798,8 +1795,7 @@ void *TCPSessionThread(void *p)
                             << " Invalid character \""
                             << vd[idxInvalid]
                             << "\" in TNC logon"
-                            << ends
-                            << endl ;
+                            << endl << ends;
 
                         conQueue.write(cp, 0);       // cp deleted by queue reader
                         WriteLog(cp, MAINLOG);
@@ -2288,7 +2284,7 @@ void *TCPConnectThread(void *p)
         if (!hostinfo) {
             char* cp = new char[256];
             ostrstream msg(cp, 256);
-            msg << "Can't resolve igate host name: "  << pcp->RemoteName << ends << endl;
+            msg << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends;
             WriteLog(cp, MAINLOG);
             conQueue.write(cp,0);       // cp deleted by conQueue
         } else
@@ -2314,7 +2310,7 @@ void *TCPConnectThread(void *p)
                 {
                     char* cp = new char[256];
                     ostrstream msg(cp, 256);
-                    msg <<  szLog << ends << endl;
+                    msg <<  szLog << endl << ends;
                     conQueue.write(cp, 0);      // cp deleted by conQueue
                 }
 
@@ -2336,7 +2332,7 @@ void *TCPConnectThread(void *p)
 
                 char* cp = new char[256];
                 ostrstream msg(cp, 256);
-                msg <<  szLog << ends << endl;
+                msg <<  szLog << endl << ends;
                 conQueue.write(cp, 0);               // cp deleted in queue reader
 
             }
@@ -2593,7 +2589,7 @@ void *TCPConnectThread(void *p)
             {
                 char* cp = new char[256];
                 ostrstream msg(cp, 256);
-                msg <<  szLog << ends << endl;
+                msg <<  szLog << endl << ends;
                 conQueue.write(cp, 0);
 
             if(pthread_mutex_unlock(pmtxSend) != 0)
