@@ -534,8 +534,9 @@ void strElapsedTime(time_t starttime,  char* timeStr)
     iMinute = iMinute % 60;
     int iHour = (int)dConnecttime / 3600;
     int iSecond = (int)dConnecttime % 60;
+    sprintf(timeStr, "%3d:%02d:%02d", iHour, iMinute, iSecond);
 
-    sprintf(timeStr,"%3d:%02d:%02d",iHour,iMinute,iSecond);
 }
+
 
 // eof: utils.cpp

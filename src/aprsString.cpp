@@ -288,22 +288,24 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     return;
                 }
 
+                if (ax25Source.find("$") <= ax25Source.length()) {
+                    aprsType = APRSERROR;
+                    return;
+                }
+
                 if (ax25Source.find("Tickle") <= ax25Source.length()) {
                     aprsType = APRSERROR;
                     //print(cout);
                     return;
                 }
-                if (ax25Source.find("cmd:") <= ax25Source.length()) {
+
+                if ((ax25Source.find("cmd:") || (ax25Source.find("CMD:")) <= ax25Source.length()) {
                     aprsType = APRSERROR;
                     //print(cout);
                     return;
                 }
-                if (ax25Source.find("EH?") <= ax25Source.length()) {
-                    aprsType = APRSERROR;
-                    //print(cout);
-                    return;
-                }
-                if (ax25Source.find("?EH") <= ax25Source.length()) {
+
+                if ((ax25Source.find("EH?") || (ax25Source.find("?EH")) <= ax25Source.length()) {
                     aprsType = APRSERROR;
                     //print(cout);
                     return;

@@ -3088,6 +3088,9 @@ void segvHandler(int signum)  //For debugging seg. faults
     time_t localtime;
     char szTime[64];
     struct tm *gmt = NULL;
+    double serverRate = 0;
+    double inetRate = 0;
+    string inetRateX, serverRateX;
 
     if (sock < 0)
         pthread_exit(0);
@@ -3095,6 +3098,32 @@ void segvHandler(int signum)  //For debugging seg. faults
     pthread_mutex_lock(pmtxCount);
     webCounter++ ;
     pthread_mutex_unlock(pmtxCount);
+
+
+    if (aprsStreamRate > 1024) {
+        inetRate = (double)(aprsStreamRate / 1024);
+        inetRateX = "Kbps";
+        if (inetRate > 1000) {
+            inetRate = (inetRate / 1000);
+            inetRateX = "Mbps";
+        }
+    } else {
+        inetRate = (double)aprsStreamRate;
+        inetRateX = "Bps";
+    }
+
+    if (serverLoad > 1024) {
+        serverRate = (double)(serverLoad / 1024);
+        serverRateX = "Kbps";
+        if (serverRate > 1000) {
+            serverRate = (serverRate / 1000);
+            serverRateX = "Mbps";
+        }
+    } else {
+        serverRate = (double)serverLoad;
+        serverRateX = "Bps";
+    }
+
 
     gmt = new tm;
     time(&localtime);
@@ -3109,7 +3138,6 @@ void segvHandler(int signum)  //For debugging seg. faults
 
     if (rc<=0) {
         close(sock);
-
         pthread_exit(0);
     }
 
@@ -3167,8 +3195,8 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "<TR><TD>TNC Packets</TD><TD>" << TotalLines << "</TD></TR>\n"
         << "<TR><TD>TNC Stream Rate</TD><TD>" << tncStreamRate << " bytes/sec</TD></TR>\n"
         << "<TR><TD>Msgs gated to RF</TD><TD>" << msg_cnt << "</TD></TR>\n"
-        << "<TR><TD>APRS stream rate</TD><TD>" << aprsStreamRate << " bytes/sec</TD></TR>\n"
-        << "<TR><TD>Server Load</TD><TD>" << serverLoad << " bytes/sec</TD></TR>\n"
+        << "<TR><TD>APRS stream rate</TD><TD>" << inetRate << " " << inetRateX << "</TD></TR>\n"
+        << "<TR><TD>Server Load</TD><TD>" << serverRate << " " << serverRateX << "</TD></TR>\n"
         << "<TR><TD>History Time Limit</TD><TD>" << ttlDefault << " min.</TD></TR>\n"
         << "<TR><TD>History items</TD><TD>" << ItemCount  << "</TD></TR>\n"
         << "<TR><TD>TAprsString Objects</TD><TD>" << TAprsString::getObjCount() << "</TD></TR>\n"
@@ -3190,8 +3218,10 @@ void segvHandler(int signum)  //For debugging seg. faults
 
     // Now send the Igate connection report.
 
+
     //char *igateheader =
     string igateheader =
+
                "</TABLE><P><TABLE BORDER=2 BGCOLOR=\"#C0C0C0\"><TR BGCOLOR=\"#FFD700\">"
                "<TH COLSPAN=10>Igate Connections</TH></TR>"
                "<TR><TH>Domain Name</TH><TH>Port</TH><TH>Type</TH><TH>Status</TH><TH>Igate Pgm</TH>"
