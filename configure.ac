@@ -2,6 +2,7 @@
 
 AC_PREREQ(2.57)
 AC_INIT(aprsd, 2.2.5-4, cbyam@virginia.edu)
+AC_CONFIG_AUX_DIR(support)
 AC_CONFIG_SRCDIR([src/aprsd.cpp])
 AM_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
