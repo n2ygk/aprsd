@@ -72,8 +72,10 @@ void queryResp(int session, const TAprsString* pkt)
     unsigned char hip[5];
     char* cp = new char[256];
     char* cpAck = new char[256];
-    ostrstream reply(cp,256);
-    ostrstream ack(cpAck,256);
+    memset(cp,0,256);
+    memset(cpAck,0,256);
+    ostrstream reply(cp, 255);
+    ostrstream ack(cpAck, 255);
     bool wantAck = false;
 
     for (int i=0;i<4;i++)
