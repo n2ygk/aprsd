@@ -1,0 +1,4390 @@
+/* aprsd.cpp  2.1.4 Aug 19  2000
+
+
+
+Freeware Linux APRS tcpip server.  
+Originally ported from OS/2 on Aug. 25 1997
+ 
+The source was edited with Visual SlickEdit for Linux with tabs every 3 chars.
+
+Copyright 1997-2000 by Dale A. Heatherington, WA4DSY
+email: dale@wa4dsy.net
+http://www.wa4dsy.net
+See the aprsddoc.html and ports.html files for detailed instructions.
+(Use your web browser)
+
+
+---------------------------------------------------
+
+This program is free software; you can redistribute it and/or modify  
+it under the terms of the GNU General Public License as published by      
+the Free Software Foundation; either version 2 of the License, or         
+(at your option) any later version.                                       
+                                                                          
+This program is distributed in the hope that it will be useful,       
+but WITHOUT ANY WARRANTY; without even the implied warranty of            
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             
+GNU General Public License for more details.                              
+                                                                          
+You should have received a copy of the GNU General Public License     
+along with this program; if not, write to the Free Software               
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA                  
+                                                                          
+---------------------------------------------------
+
+---BOB BRUNINGAS APRS PROTOCOL LICENSE REQUIRMENTS---
+
+APRS is a registered trademark, and APRS protocols are copyrighted
+by  Bob Bruninga, WB4APR.  The owner reserves all rights and
+privileges to their use.
+
+HAMS may apply the APRS formats in the TRANSMISSION of position, 
+weather, and status packets.  However, the author reserves the 
+ownership of these protocols for exclusive commercial application and for 
+all reception and plotting applications. Other persons desiring to include 
+APRS RECEPTION in their software  for sale within or outside of the 
+amateur community will require a license from the author.  Also 
+TRANSMISSION of APRS protocols in any NON-AMATEUR commercial application 
+or software will require a license from the author. 
+
+Bob Bruninga, WB4APR
+115 Old Farm CT
+Glen Burnie, MD 21060
+  
+  
+  
+-------------------------------------------------------
+
+ 
+*/
+
+/*
+
+FUNCTIONS PERFORMED:
+
+This program gets data from a TNC connected to a serial port
+and sends it to all clients who have connected via tcpip to 
+ports defined in the /home/aprsd2/aprsd.conf file.
+
+Clients can use telnet to watch raw TNC data or
+other APRS specfic clients such as JavAPRS, Mac/WinAPRS
+or Xastir to view the data plotted on a map.
+
+A history of TNC data going back 30 minutes is kept in
+memory and delivered to each user when he connects.  This
+history data is filtered to remove duplicates and certain
+other unwanted information.  The data is saved to history.txt
+every 10 minutes and on exit with ctrl-C or "q" .  
+
+
+
+REMOTE CONTROL of the TNC
+The server system operator can access the TNC remotely via
+telnet.  Simply telnet to the server and, after the server
+finishes sending the history file, hit the <Esc> key .
+The user will be prompted for a user name and password.  If these
+are valid and the user is a member of the "tnc" group the user
+will be able to type commands to the TNC.	Type <Esc> to quit
+remote mode or ctrl-d to disconnect.  Be sure to give the
+TNC a "K" command to put it back on line before you exit.
+
+To logon in remote TNC control mode you must have a
+tnc group defined in /etc/group and your Linux login
+name must appear in the entry.  Here is an example.
+
+tnc::102:root,wa4dsy,bozo
+
+Note: Once you have entered remote control mode the TNC
+is off-line and no TNC data will go out to users.
+
+See the aprsddoc.html file for more instructions.
+
+
+
+-------------------------------------------------------------
+REVISIONS
+
+2.1.4
+
+
+1)  Fixed DeleteSession() so it can't delete if port number is -1
+    and made ConnectedClients a signed integer. Hopefully this will
+    prevent errors in the user count.
+    
+2) The dup detector now ignores trailing spaces
+
+3) Put Location info on the html status page
+
+4) Deal with mic-e timestamps as per this email from Bob on Aug 3 2000.
+
+   "We should not have included the timestamp when the conversion was done by
+   an IGate just for the reasons that we dropped the time stamp in all other
+   stations back in 1996. 
+
+   It was a mistake and we should fix it by simply replacing the "@DDHHMMz"
+   portion of the conversion with a "!" for TAPR Mic-E's  and to a "="
+   format for Message capable Mic-E's (Kenwoods).  This would eliminate this
+   nuisance immediately. "
+   
+
+5) Fixed bug in HUB connection logic that caused it to advance by two instead of one
+   after attempting to connect to a hub that was down.  If only 2 hubs were defined
+   it would always retry the same dead hub over and over.
+   
+6) Added command "LogAllRF" to aprsd.conf.  When set to "yes" all packets heard from the TNC
+   will be written to /aprsd2/rf.log instead of only packets with our call sign as was the case.
+   
+   
+7) Added keyword "ConvertMicE yes | no" to aprsd.conf file.  If this is set to "yes"
+   Mic-E packets will be converted to classic APRS packets, otherwise they will pass
+   through unchanged.   Default is "no" .
+   
+8) Cleaned up some code in history.cpp: createHistoryArray(aprsString* hp) so it now
+   aborts a history dump if memory allocation fails.  The original code ignored a malloc failure.
+   
+   
+
+
+2.1.3 July 6 2000
+
+1)  Fixed bug in user counter that incremented each time
+    a hub connection was restablished and outgoing data was enabled, eg: a user and pass code provided.
+    This bug caused the user limit to be exceeded even though there were not really that many users.
+
+2.1.2 June 2000
+
+0)  Fixed lots of problems in the Mic-e conversion routine.  
+     It now conforms to the APRS PROTOCOL REFERENCE 1.0 
+     Conversion errors should be gone now!
+ 
+1)  Changed packet buffers size from 1024 bytes to 255 bytes                                    
+2)  Added a filter in SendToAllClients() to remove 3rd party reformatted packets from Internet data stream 
+3)  Raised the igate limit from 20 to 100
+4)  Fixed error in serverConfig() that allowed more igates to be defined than buffer size permitted                                                       
+5)  Added "MSTAMP OFF" to TNC.INIT file 
+6)  "# Tickle" is removed.
+7)  Added http server to provide status information in HTML format on port 14501 (or user defined)
+8)  Added keyword for aprsd.conf file to support http server configuration: httpport <port number>
+      To change the port number add to your aprsd.conf file: httpport nnnnn  where "nnnnn" is the port number.
+      To DISABLE this feature add this to your aprsd.conf file: httpport 0
+
+9)  Fixed bug in SendToAllClients() which failed to close the socket when user disappeared.
+10) Filter out comment packets, eg: # Tickle, at the igate and user inputs so they aren't repeated.
+
+11) Added keyword for aprsd.conf to support a data port suppling the source IP address prepended
+    to each aprs packet.  eg: If user w4xyz at IP address 192.168.1.2 sends "Hi There." the
+    packet will be sent out as: "!192.168.1.2:w4xyz!Hi There." This can help locate the source of bogus packets.
+    To change the port number add to your aprsd.conf file: ipwatchport nnnnn  where "nnnnn" is the port number.
+    To DISABLE this feature add this to your aprsd.conf file: ipwatchport 0
+
+   
+    
+12) Fixed end-of-line logic so it accepts CR or LF or CR-LF or LF-CR on
+    all incoming internet packets. Now we can use netcat (nc) in addition
+    to telnet to logon and watch the raw data.
+                                                        
+13) Fixed error in code that reads the history.txt file.  Now history items that
+    have expired are ignored and don't go into the history list. Time-to-live (ttl)
+    variables adjusted for current time.
+    
+14) Completely redesigned and recoded the duplicate packet detection logic.
+    This effort broke lots of things and several days of debugging were required!
+    This version should eliminate 100% of duplicates occuring within 15 seconds.
+    See dupCheck.cpp, crc32.c  and  aprsString::gethash().
+    
+15) Program doesn't Segfault on exit anymore.
+
+16) The MYCALL parameter in the INIT.TNC file is read into the MyCall variable
+      in aprsd and overides the MyCall parameter in the aprsd.conf file.  If
+      the TNC serial port is not defined the MyCall parameter in aprsd.conf is used.
+      Previous versions required you to enter identical MYCALL strings in 
+      BOTH aprsd.conf and INIT.TNC.  Now you only need one in INIT.TNC.
+      
+17) In INIT.TNC the first parameter to UNPROTO, the ax25 destination address, is
+    replaced by the string "APDxxx" where xxx is the verison number of aprsd.
+    This is done as the file is read into the TNC with "APDxxx" replacing the
+    users string.  eg: UNPROTO APRS VIA WIDE would become UNPROTO APD212 VIA WIDE.
+    APDxxx is also inserted into the ax25 destination field of all packets created of converted by aprsd.
+    
+18) History list data is NOT saved to disk every 15 minutes. This is now done only at shutdown.
+
+19) Cleaned up code so it now compiles without warnings with the -Wall option.
+    Added "#define _PTHREADS" and "#define _GNU_SOURCE" to all sources. 
+    This should make the STL container library thread safe.
+
+20) Changed instances of gethostbyname2() to the thread safe version, gethostbyname2_r().
+    Also found and changed some other non thread safe fuctions to the safe versions.
+    
+21)  I fixed a bug in the igate connection thread which resulted in sockets not being
+      closed after a failed attempt to connect.  This caused aprsd to eventually run out of sockets
+      if one or more igates were unreachable.  When this happened no more connections could be made.
+      This bug has been in all previous versions and I believe it has caused most of the "lockup" problems. 
+      
+22) Added "hub" keyword to aprsd.conf. This is used the same way as "igate" to define remote
+    systems to connect to.  The difference is that although many hubs can be defined only
+    one connection will be active at any time. If the connection fails the next hub will be
+    tried in rotation until one accepts a connection.  Use "hub" to connect to the "master"
+    aprs servers on port 10152 or 23.
+    
+------------------------
+
+2.1.1   4-11-2000
+
+1) Put the formerly secret validation module "validate.cpp"
+   into the open source directory.
+   
+2) Wrote aprspass.cpp to generate passcodes from callsigns.
+
+3) Fixed error in aprsString.cpp method AEAtoTAPR. 
+    It doesn't reverse the path now.
+   
+4) Changed default APRServe in aprsd.conf to second.aprs.net.
+
+5) Updated documentation file aprsddoc.html.
+
+6) Fixed bug in ?IGATE? query response so full host name is now displayed.
+
+7) Install scripts modified to compile source code before installing.
+
+8)Added keyword "aprsPass <yes|no>" to aprsd.conf.
+  Set to "no" if you don't want to allow logons from users
+  with the insecure aprs passcodes.
+  Set to "yes" if you want the system to work with all users.     
+   
+   
+--------------------------
+
+2.1.0  6-22-1999
+
+1) Fixed the code so it runs properly as a daemon.   
+   See added function "daemonInit()" in code.
+   Also modified aprsd.init .
+   To run as a daemon enter: ./aprsd -d 
+   To run as a program enter: ./aprsd
+   
+
+2) Added logic to handle MD5 password encryption in the validate module.
+   Now it works with RedHat 6.0 shadowed MD5 passwords.
+   
+3) Added "#include <errno.h>" statements in history.cpp and aprsd.cpp.
+   Now it now compiles under RedHat 6.0.
+   
+4) Changed logic so messages sent on RF also are sent to other Internet users.
+   Needed to do this so messages to wild card groups such as "SCOUTS"
+   go both to RF and the remainder of the users and igates.
+   
+5) Fixed 2 bugs in mic_e and raw user port code.  Now mic_e packets
+   come out in raw format on port 14580 .
+   
+6) Fixed bug that caused the history list dump to abort and disconnect user
+   after about 700 items had been sent.
+   
+7) New Feature: The server now responds to the "?IGATE?" query.
+
+8) New Feature: You can put system abusers in the "user.deny" file and
+   deny access to  RF or prevent them from logging on.
+   
+9) New Feature: You can configure the server to ignore  packets which were
+   transmitted from your own TNC.  The previous versions always igated
+   your own TNCs packets. Use the command line "igateMyCall no" in aprsd.conf file
+   to turn off igateing of your own TNCs packets.
+    
+   
+10) Changed the servers status messages to the new format.
+    eg: "aprsdATL>APRS,TCPIP*::USERLIST :Verified user W4HAM has logged on."
+    Note the extra colon after TCPIP* and the lack of a message number on the end
+    to indicate we don't expect an ack.
+    
+11) Fixed speed related problem in SendToAllClients() function that caused
+    overflows of the Internet send queue.  The server can now handle many
+    more users at higher data rates.
+    
+12) Added command "TncPktSpacing" to the aprsd.conf file. This command takes
+    one parameter which is the number of milliseconds between packets sent to the
+    TNC.  Queued packets to be transmitted will be spaced out at least by
+    this number of milliseconds.  The default is 1500 (1.5 seconds).
+
+
+
+
+
+
+-------------------------------------------------------------
+
+2.0.9  05-23-1999
+
+Compiled the "validate" program as an library object file
+and put it in subdirectory lib/validate.o  .
+Added lib/validate.o to linker list in the makefile.
+Changed the code so it just calls validate instead of
+running the external program. This is much safer than the
+external program and still hides the source as Steve Dimse requires.
+
+Changed the docs to reflect this change.
+
+-------------------------------------------------------------
+
+2.0.8 05-12-1999
+
+1) Fixed a security problem with logons. It was possible
+   in earlier versions to "be creative" with user and password
+   strings to pass commands to a Linux shell.
+   Replaced "system()" call with execl() and added filtering of 
+   shell characters such as ; <> ~ $ | etc.
+
+2) Cleaned up some serial interface code which may 
+   have been causing trouble with raw packets on some systems.
+   
+3) Added msgdest2rf keyword in aprsd.conf file.
+
+--------------------------------------------------------------
+2.0.7a  04-05-1999
+Replaced the Mic-E decoder/converter (mic_e.cpp) with the latest version
+from Alan Crosswell.  
+-------------------------------------------------
+
+2.0.7  02-11-1999
+Fixed bug in the mic-e conversion code which produced incorrect
+lat/lon under some conditions (1 degree off).   See mic_e.cpp
+
+Fixed the user validation code so it now works with shadowed passwords.
+
+Added code to send redundent acks to the TNC at the suggestion
+of Bob Bruninga.  
+New keywords for aprsd.conf: "ackrepeats" and "ackrepeattime".
+ 
+
+---------------------------------------------------
+
+2.0.6a fixes a bug in 2.0.6 which causes packets which were
+written to rf.log to have their CR-LF removed before being
+sent on the internet.  This only showed up on packets entering
+from the UDP port.
+
+
+** Major functional upgrade 2.0.x  (July-Aug-Sep-Oct 1998) **
+
+2.0.6 added tcpip port for raw tnc data to  maintain compatibiltiy
+with older 1.x versions.
+
+Added duplicate packet filter.  Duplicate packets (same "ax25 source call" and data)
+are discarded if they are heard less than 30 seconds
+after the original.  Duplicates are also removed from the history file.
+Each station can can have only one posit, one weather, and one "other" packet
+in the history buffer.  Only the latest packets are kept, older ones are deleted.
+
+Added configuration file /home/aprsd2/aprsd.conf
+to allow easy setting of tcpip ports, the serial port
+and other custom parameters.
+
+Added two-way Igating of messages and corresponding posits.
+
+Added means for stations in a list to be gated to RF full time
+or just their posits every 15 minutes.
+
+Added user log-on and validation for Mac/WinAPRS.  Also
+accepts Linux user/passwords.
+
+Added UDP port for sending data directly to the TNC or tcpip users
+  I use it to inject my weather data into the aprs stream.
+  
+Improved Remote TNC sysop mode.  TNC now goes off line to
+give the system operator a private connection to issue
+TNC commands via telnet.
+  
+Fixed shutdown bug.  Now /home/aprsd2/history.txt is properly saved
+and it doesn't dump core on shutdown.
+
+Fixed segmentation fault bug.  Now it only runs on RedHat 5.1 or later
+because it needs libstdc++ .
+
+
+
+--------------------------------------------------------
+
+Modification 1.0.5 (July 1998):  
+
+Stopped echo of Internet user data back to originator.
+This will prevent infinite echo loops when two servers are linked.
+
+
+
+--------------------------------------------------------
+Modification 1.0.4 (MAR 1998) : Added code for an additional server port
+14580 which does NOT echo any user data from the internet.
+This allows Steves AprsServ to use the local VHF APRS data
+but not get any Internet user data.
+
+--------------------------------------------------------
+bug fix 1.0.3 (Nov 1997):  No longer crashes when logged on users data
+line length exceeds 1024 bytes.  All chars past 1021 are truncated.
+
+---------------------------------------------------------
+ 
+--------------------------------------------------------
+   Here's some off the air data for reference 
+//
+//$GPRMC,013426,A,3405.3127,N,08422.4680,W,1.7,322.5,280796,003.5,W*73
+
+KD4GVX>APRS,WB4VNT-2,N4NEQ-2*,WIDE:@071425/Steve in Athens, Ga.
+N4NEQ-9>APRS,RELAY*,WIDE:/211121z3354.00N/08418.04W/GGA/NUL/APRS/good GGA FIX/A=
+000708
+N4NEQ-9>APRS,RELAY,WIDE*:/211121z3354.00N/08418.04W/GGA/NUL/APRS/good GGA FIX/A=
+000708
+KE4FNU>APRS,KD4DLT-7,N4NEQ-2*,N4KMJ-7,WIDE:@311659/South Atlanta via v7.5a@Stock
+bridge@DavesWorld
+KC4ELV-2>APRS,KD4DLT-7,N4NEQ-2*,WIDE:@262026/APRS 7.4 on line.
+KC4ELV-2>APRS,KD4DLT-7,N4NEQ-2,WIDE*:@262026/APRS 7.4 on line.
+N4QEA>APRS,SEV,WIDE,WIDE*:@251654/John in Knoxville, TN.  U-2000
+WD4JEM>APRS,N4NEQ-2,WIDE*:@170830/APRS 7.4 on line.
+KD4DLT>APRS,KD4DLT-7,N4NEQ-2*,WIDE:@201632/APRS 7.6f on line.
+N4NEQ-3>BEACON,WIDE,WIDE:!3515.46N/08347.70W#PHG4970/WIDE-RELAY Up High!!!
+N4NEQ-3>BEACON,WIDE*,WIDE:!3515.46N/08347.70W#PHG4970/WIDE-RELAY Up High!!!
+KD4DKW>APRS:@151615/APRS 7.6f on line.
+KE4KQB>APRS,KD4DLT-7,WIDE*:@111950/APRS 7.6 on line.
+WB4VNT>APRS,WB4VNT-2,N4NEQ-2*,WIDE:@272238/7.5a on line UGA rptr 147.000+
+N4YTR>APRS,AB4KN-2*,WIDE:@111443zEd - ARES DEC National Weather Service, GA
+N4YTR>APRS,AB4KN-2,WIDE*:@111443zEd - ARES DEC National Weather Service, GA
+W6PNC>APRS,N4NEQ-2,WIDE:@272145/3358.60N/08417.84WyJohn in Dunwoody, GA
+WA4DSY-9>APRS,WIDE:$GPRMC,014441,A,3405.3251,N,08422.5074,W,0.0,359.3,280796,003
+.5,W*77
+N6OAA>APRS,GATE,WIDE*:@280144z4425.56N/08513.11W/ "Mitch", Lake City, MI
+
+
+
+-------------------------------------------------------------------------------------
+
+*/
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+
+#define _PTHREADS  
+#define _REENTRANT  
+
+
+#include <termios.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <signal.h>
+
+
+#include <assert.h>
+#include <time.h>
+#include <sys/timeb.h>
+#include <sys/time.h>
+
+#include <stdio.h>
+#include <ctype.h>
+
+#include <sys/stat.h>
+#include <fcntl.h>
+
+
+#include <string.h>
+#include <string>
+
+#include <math.h>
+#include <stdlib.h>
+
+#include <fstream.h>
+#include <iostream.h>
+#include <strstream.h>
+#include <iomanip.h>
+
+#include <linux/kernel.h>
+#include <linux/sys.h>
+#include <sys/resource.h>
+
+//tcpip header files
+
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <sys/ioctl.h>
+#include <sys/wait.h>
+#include <errno.h>
+
+#include "dupCheck.h"
+#include "cpqueue.h"
+#include "utils.h"
+#include "constant.h"
+#include "history.h"
+#include "rf.h"
+#include "aprsString.h"
+#include "validate.h"
+#include "queryResp.h"
+
+
+
+
+//--------------------------------------------------
+
+
+
+#define BASE 0
+#define USER 1
+#define PASS 2
+#define REMOTE 3
+#define MAX 256
+#define UMSG_SIZE MAX+BUFSIZE+3
+
+
+//---------------------------------------------------
+extern int dumpAborts;              //Number of history dumps aborted
+extern int ItemCount;	           //number of items in History list
+cpQueue sendQueue(256,TRUE);		  //Internet transmit queue
+cpQueue tncQueue(64,TRUE);         //TNC RF transmit queue
+cpQueue charQueue(256,FALSE);      //A queue of single characters
+cpQueue conQueue(256,TRUE);         //data going to the console from various threads
+
+
+char *MyCall;
+char *MyLocation;
+char *MyEmail;
+char *NetBeacon;
+char *TncBeacon;
+int TncBeaconInterval, NetBeaconInterval;
+long tncPktSpacing;
+BOOL igateMyCall;       //Set TRUE if server will gate packets to inet with "MyCall" in the ax25 source field.
+BOOL logAllRF;
+BOOL ConvertMicE;       //Set true causes Mic-E pkts to be converted to classic APRS pkts.
+extern int ttlDefault;
+extern BOOL TncSysopMode;
+BOOL APRS_PASS_ALLOW;
+
+int ackRepeats,ackRepeatTime;    //Used by the ACK repeat thread
+
+
+
+
+BOOL sendOnRF(aprsString& atemp,  char* szPeer, char* userCall, const int src);
+int WriteLog(const char *cp, char *LogFile);
+void *HTTPServerThread(void* p);
+
+
+
+
+
+//-------------------------------------------------------------------
+int SendFiletoClient(int session, char *szName);
+void PrintStats(ostream &os) ;
+void dequeueTNC(void);
+
+void (*p_func)(void*);
+
+char*          szAprsPath;      //  APRS packet path
+char*          szServerCall;    //  This servers "AX25 Source Call" (user defined)
+char*          szAPRSDPATH;  //  Servers "ax25 dest address + path" eg: >APD213,TCPIP*:
+
+const char		szServerID[] = "Linux APRS Server: ";
+const char		szJAVAMSG[] = ">JAVA::javaMSG  :";
+
+const char     szUSERLISTMSG[] = ":USERLIST :";
+const char     szUNVERIFIED[] = "Unverified ";
+const char     szVERIFIED[]  = "Verified ";
+const char     szRM1[]        = "You are an unverified user, Internet access only.\r\n";
+const char     szRM2[]        = "Send Access Denied. Access is Read-Only.\r\n";
+const char     szRM3[]        = "RF access denied, Internet access only.\r\n";
+const char     szACCESSDENIED[] = "Access Denied ";
+
+
+pthread_mutex_t*				pmtxSendFile;
+pthread_mutex_t*				pmtxSend;		//protect socket send() 
+pthread_mutex_t*				pmtxAddDelSess;	//protects AddSession() and DeleteSession()
+pthread_mutex_t*           pmtxCount;     //Protect counters
+pthread_mutex_t*           pmtxDNS;       //Protect buggy gethostbyname2_r()
+
+
+
+
+BOOL ShutDownServer, configComplete;
+int ConnectedClients;
+int msg_cnt;
+int posit_cnt;
+ULONG WatchDog, tickcount, TotalConnects, TotalTncChars, TotalLines;
+int  MaxConnects;
+ULONG TotalIgateChars, TotalUserChars, bytesSent, webCounter;
+time_t serverStartTime;
+ULONG TotalTNCtxChars;
+int msgsn;
+char *szComPort;
+extern int queryCounter;
+
+
+
+
+//----------------------------
+
+struct ConnectParams{
+      int RemoteSocket;
+      char* RemoteName;
+      int EchoMask;
+      char* user;
+      char* pass;
+      char* remoteIgateInfo;
+      long  bytesIn;
+      long  bytesOut;
+      time_t starttime;
+      time_t lastActive;
+      BOOL  connected;
+      BOOL hub;
+      pthread_t tid;
+      pid_t pid;
+};
+
+struct ServerParams{
+      int ServerPort;
+      int ServerSocket;
+      int EchoMask;
+      pthread_t tid;
+      pid_t pid;
+      
+};
+
+#define SZPEERSIZE 16
+#define USERCALLSIZE 10
+#define PGMVERSSIZE 24
+struct SessionParams{
+      int   Socket;
+      int   EchoMask;
+      int   ServerPort;
+      int   overruns;
+      pid_t pid;
+      time_t starttime;
+      time_t lastActive;
+      long  bytesIn;
+      long  bytesOut;
+      BOOL  vrfy;
+      BOOL  dead;
+      char *szPeer;
+      char *userCall;
+      char *pgmVers;
+};
+
+struct UdpParams{
+      int   ServerPort;
+      pthread_t tid;
+      pid_t pid;
+};
+
+struct pidList{
+   pid_t main;
+   pid_t SerialInp;
+   pid_t TncQueue;
+   pid_t InetQueue;
+};
+
+
+//Constants for EchoMask.  Each aprsSting object has this variable.
+//These allow each Internet listen port to filter
+//data it needs to send.
+extern const int srcTNC = 1;            //data from TNC
+extern const int srcUSER = 2;           //data from any logged on internet user
+extern const int srcUSERVALID = 4;      //data from validated internet user
+extern const int srcIGATE = 8;          //data from another IGATE
+extern const int srcSYSTEM = 16;        //data from this server program
+extern const int srcUDP = 32;           //data from UDP port
+extern const int srcHISTORY = 64;       //data fetched from history list
+extern const int src3RDPARTY = 128;     //data is a 3rd party station to station message
+extern const int srcSTATS = 0x100;      //data is server statistics
+//
+extern const int wantSRCHEADER = 0x0800;//User wants Source info header prepended to data
+extern const int wantHTML = 0x1000;     //User wants html server statistics (added in version 2.1.2)
+extern const int wantRAW = 0x2000;      //User wants raw data only
+extern const int sendDUPS = 0x4000;     //if set then don't filter duplicates
+extern const int sendHISTORY = 0x8000;  //if set then history list is sent on connect
+
+//------------------------------
+
+SessionParams *sessions;    //points to array of active socket descriptors
+
+int MaxClients;            //defines how many can log on at once
+
+ULONG ulNScnt = 0;
+BOOL tncPresent;            //TRUE if TNC com port has been specified
+BOOL tncMute;                //TRUE stops messages from going to the TNC
+
+//int  nObjects = 0;   //number of aprsString objects that exist now.
+
+
+ServerParams spMainServer, spMainServer_NH, spLinkServer, spLocalServer, spMsgServer, spHTTPServer;
+ServerParams spRawTNCServer, spIPWatchServer;
+UdpParams upUdpServer;
+
+dupCheck dupFilter;    //Create a dupCheck class named dupFilter.  This identifies duplicate packets.
+
+
+extern const int maxIGATES = 100;         //Defines max number of IGATES you can connect to
+int nIGATES = 0;                          //Actual number of IGATES you have defined
+
+//------------------------------------------------------------------------------------------
+//Array to hold list of stations
+//allowed to full time gate from
+//Internet to RF
+#define MAXRFCALL 65                       //allow 64 of 'em including a NULL for last entry.
+string* rfcall[MAXRFCALL];                 //list of stations gated to RF full time (all packets)
+int rfcall_idx;
+
+string* posit_rfcall[MAXRFCALL];           //Stations whose posits are always gated to RF
+int posit_rfcall_idx;
+
+string* stsmDest_rfcall[MAXRFCALL];       //Station to station messages with these 
+                                          // DESTINATION call signs are always gated to RF
+
+int stsmDest_rfcall_idx;
+
+int aprsStreamRate, serverLoad,tncStreamRate;   //Server statistics
+double upTime;
+
+BOOL RF_ALLOW = FALSE;                    //TRUE to allow Internet to RF message passing.
+
+//--------------------------------------------------------------------------------------------
+ConnectParams cpIGATE[maxIGATES];
+
+
+
+//Stuff for trusted UDP source IPs
+struct sTrusted{  in_addr sin_addr;   //ip address
+                  in_addr sin_mask;   //subnet mask
+};
+                  
+const int maxTRUSTED = 20;        //Max number of trusted UDP users
+sTrusted Trusted[maxTRUSTED];     //Array to store their IP addresses        
+int nTrusted = 0;                 //Number of trusted UDP users defined
+
+//Debug stuff
+pidList pidlist;
+char* DBstring;      //for debugging
+aprsString* lastPacket; //for debugging
+FILE* fdump;
+
+//-------------------------------------------------------------------
+
+void initSessionParams(SessionParams* sp, int s, int echo)
+{
+   
+
+   
+    sp->Socket = s;
+    sp->EchoMask = echo;                                                     
+                                                          
+    sp->overruns = 0;                                                        
+    sp->bytesIn = 0;                                                         
+    sp->bytesOut = 0;                                                        
+    sp->vrfy = FALSE;                                                        
+    sp->dead = FALSE;                                                        
+    sp->starttime = time(NULL);                                              
+    sp->lastActive = sp->starttime;                                          
+    bzero((void*)sp->szPeer,SZPEERSIZE);    //Fill strings with nulls        
+    bzero((void*)sp->userCall, USERCALLSIZE);                                
+                                                           
+       
+   
+}
+
+
+//---------------------------------------------------------------------
+//Add a new user to the list of active sessions
+//Includes outbound Igate connections too!
+//Returns NULL if it can't find an available session
+SessionParams* AddSession(int s, int echo)
+{	SessionParams *rv = NULL;
+	int i;
+   
+	pthread_mutex_lock(pmtxAddDelSess);
+
+	for(i=0;i<MaxClients;i++) if (sessions[i].Socket == -1) break;  //Find available unused session
+
+   if(i < MaxClients){
+
+      rv = &sessions[i];
+	   initSessionParams(rv,s,echo);
+      ConnectedClients++;
+
+   }else
+      rv = NULL;
+
+   pthread_mutex_unlock(pmtxAddDelSess);
+
+	return rv;
+}
+
+
+//--------------------------------------------------------------------
+//Remove a user
+BOOL DeleteSession(int s)
+{
+	int i = 0;
+	BOOL rv = FALSE;
+
+   if(s == -1) return FALSE;  
+
+   pthread_mutex_lock(pmtxAddDelSess);
+   for(i=0; i<MaxClients; i++) 
+      {  if (sessions[i].Socket == s )
+	        {
+	    	      sessions[i].Socket = -1;
+               sessions[i].EchoMask = 0;
+               sessions[i].pid = 0;
+               sessions[i].dead = TRUE;
+			      ConnectedClients--;
+			      if ( ConnectedClients < 0) ConnectedClients = 0;
+			      rv = TRUE;
+           }
+		}
+   pthread_mutex_unlock(pmtxAddDelSess);
+	return rv;
+
+}
+//-------------------------------------------------
+BOOL AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, const char* pgmVers)
+{
+	int i = 0;
+	BOOL rv = FALSE;
+
+   pthread_mutex_lock(pmtxAddDelSess);
+   for(i=0; i<MaxClients; i++) 
+      {  if (sessions[i].Socket == s )
+	        {  
+               strncpy(sessions[i].szPeer,szPeer,SZPEERSIZE-1);
+			      strncpy(sessions[i].userCall,userCall,USERCALLSIZE-1);
+               sessions[i].ServerPort = port;
+               strncpy(sessions[i].pgmVers,pgmVers,PGMVERSSIZE-1);
+               sessions[i].pid = getpid();
+			      rv = TRUE;
+           }
+		}
+   pthread_mutex_unlock(pmtxAddDelSess);
+	return rv;
+
+}
+
+//---------------------------------------------------------------------
+void CloseAllSessions(void)
+{
+
+	for(int i=0;i<MaxClients;i++)
+		  if (sessions[i].Socket != -1 )
+			  {	shutdown(sessions[i].Socket,2);
+					close(sessions[i].Socket);
+					sessions[i].Socket = -1;
+               sessions[i].EchoMask = 0;
+					
+			  }
+}
+//---------------------------------------------------------------------
+//Send data at "p" to all logged on clients listed in the sessions array.
+
+
+void SendToAllClients( aprsString* p)
+{
+	
+	int ccount = 0;
+	int rc,n,nraw,nsh;
+   
+  
+   if (p == NULL) return;
+
+  
+   if((p->aprsType == APRSERROR) || (p->length() < 3)  ) return;  //Reject runts and error pkts
+
+   pthread_mutex_lock(pmtxSend);
+   pthread_mutex_lock(pmtxAddDelSess);
+   
+
+   n = p->length();
+   nraw = p->raw.length();
+   nsh = p->srcHeader.length();
+
+   
+	for(int i=0;i<MaxClients;i++)
+		if (sessions[i].Socket != -1)
+           {  
+              BOOL dup, wantdups, wantsrcheader;
+              dup = wantdups = wantsrcheader = FALSE ;
+              if(p->EchoMask & sendDUPS) dup = TRUE;               //This packet is a duplicate
+              if(sessions[i].EchoMask & sendDUPS) wantdups = TRUE; //User wants duplicates
+              if(sessions[i].EchoMask & wantSRCHEADER) wantsrcheader = TRUE;   //User wants IP source header
+              
+             
+              int Em = p->EchoMask & 0x1ff;   //Mask off non-source determining bits
+
+
+               if ((sessions[i].EchoMask & Em)   //Echo inet data if source mask bits match
+                      && (p->sourceSock != sessions[i].Socket) // no echo to original sender
+                      && (ShutDownServer == FALSE)
+                      && ((dup == FALSE) || (wantdups)))  //dups filtered (or not)
+                      
+                   {   rc = 0;
+                       if(sessions[i].EchoMask & wantRAW) {  //User wants raw data?
+                            rc = send(sessions[i].Socket,p->raw.c_str(),nraw,0); //Raw data to clients
+                            
+                       } else{
+                          if((p->reformatted == FALSE)  /* No 3rd party reformatted packets allowed */
+                             && (wantsrcheader == FALSE)/* This guy doesn't want the IP source header prepended */
+                             && (dup == FALSE)){        /* No duplicates */
+                              rc = send(sessions[i].Socket,p->c_str(),n,0); //Cooked data to clients (normal mode)
+                                                        
+                          }
+                          if(wantsrcheader){  //Append source header to aprs packets, duplicates ok. 
+                                              //Mostly for debugging the network
+                             rc = send(sessions[i].Socket,p->srcHeader.c_str(),nsh,0);
+                             if(rc != -1) rc = send(sessions[i].Socket,p->c_str(),n,0);
+                             
+                          }
+                         }
+
+                     /* Disconnect user if socket error or he failed
+                        to accept 10 consecutive packets due to
+                        resource temporarally unavailable errors */
+
+			            if (rc == -1)    
+						      { 
+                          if(errno == EAGAIN) sessions[i].overruns++;
+
+                          if((errno != EAGAIN) || (sessions[i].overruns >= 10)){
+                           
+                            sessions[i].EchoMask = 0;          //No more data for you!
+                            sessions[i].dead = TRUE;           //Mark connection as dead for later removal...
+                                                               //...by thread that owns it.
+                          }
+						                                   
+						      } else{
+                            sessions[i].overruns = 0;   //Clear users overrun counter if he accepted packet
+                            sessions[i].bytesOut += rc; //Add these bytes to his bytesOut total
+                          }
+                     ccount++;
+                   }
+				  					
+				  
+				}
+
+   pthread_mutex_unlock(pmtxAddDelSess);
+   
+   pthread_mutex_unlock(pmtxSend);
+
+      
+   if((ccount > 0) && ((p->EchoMask & srcSTATS) == 0))
+      {  char *cp = new char[256];
+         ostrstream msg(cp,256);
+         
+	      msg   << "Sent " << setw(4) << n << " bytes to " << setw(3) << ccount << " clients"
+               <<	endl
+			      <<	ends ;
+         conQueue.write(cp,0);    //cp deleted by queue reader
+      }
+         
+   bytesSent += (n * ccount);
+  /*
+   gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
+   t1 = tv.tv_usec + (tv.tv_sec * 1000000);
+   cout << "t= " << t1-t0 << endl;
+   */
+	return;
+}
+
+
+//---------------------------------------------------------------------
+// Pushes a character string into the server send queue.
+void BroadcastString(char *cp)
+{
+
+	
+	aprsString *msgbuf = new aprsString(cp,SRC_INTERNAL,srcSYSTEM);
+	sendQueue.write(msgbuf); //DeQueue() deletes the *msgbuf
+	return ;
+}
+
+//---------------------------------------------------------------------
+//This is a thread.  It removes items from the send queue and transmits
+//them to all the clients.  Also handles checking for items in the TNC queue
+//and calling the tnc dequeue routine.
+void *DeQueue(void* vp)
+{
+ 	
+   BOOL noHist,dup;
+	int		cmd;
+	
+   aprsString* abuff;
+	int MaxAge,MaxCount;
+   struct timeval tv;
+   struct timezone tz;
+   long usLastTime, usNow;
+   long t0;
+
+   char* dcp;
+      
+
+ 
+ usLastTime = usNow = 0;
+
+ pidlist.InetQueue = getpid();
+ 
+ nice(-10);   //Increase priority of this thread by 10 (only works if run as root)
+
+ while(!ShutDownServer)
+  {
+    
+   gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
+   usNow = tv.tv_usec + (tv.tv_sec * 1000000);
+   if(usNow < usLastTime) usLastTime = usNow;
+   t0 = usNow;
+     if((usNow - usLastTime) >= tncPktSpacing) {  //Once every 1.5 second or user defined
+          usLastTime = usNow;
+          if(tncQueue.ready()) dequeueTNC(); //Check the TNC queue
+     }
+
+   
+
+
+ 	while(!sendQueue.ready())     //Loop here till somethings in the send queue
+	   {	gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
+         usNow = tv.tv_usec + (tv.tv_sec * 1000000);
+         if(usNow < usLastTime) usLastTime = usNow;
+         t0 = usNow;
+         if((usNow - usLastTime) >= tncPktSpacing) {  //Once every 1.5 second or user defined
+            usLastTime = usNow;
+            if(tncQueue.ready()) dequeueTNC(); //Check the TNC queue
+         }
+
+         usleep(1000);    //1ms
+			if(ShutDownServer) pthread_exit(0);
+		}
+
+	abuff = (aprsString*)sendQueue.read(&cmd);      //Read an aprsString pointer from the queue to abuff
+   
+
+   lastPacket = abuff;  //debug thing
+   dcp = " ";           // another one
+	  
+   if (abuff != NULL)
+	  {
+	     
+         abuff->dest = destINET;
+
+         dup = FALSE;
+         if(!((abuff->EchoMask) & (srcSTATS | srcSYSTEM))){
+            dup  = dupFilter.check(abuff,15);  //Check for duplicates within 15 second window
+            
+           
+         }
+                 
+         if(((abuff->EchoMask & src3RDPARTY)&&((abuff->aprsType == APRSPOS)) /* No Posits fetched from history list */
+               || (abuff->aprsType == COMMENT)               /* No comment packets in the history buffer*/
+               || (abuff->aprsType == APRSERROR)             /* No packets that crashed the parser */
+               || (abuff->aprsType == APRSUNKNOWN)           /* No Unknown packets */
+               || (abuff->aprsType == APRSID)                /* No ID packets */ 
+               || (abuff->EchoMask & (srcSTATS | srcSYSTEM)) /* No internally generated packets */
+               || (dup)                                      /* No duplicates */
+               || (abuff->reformatted))){                    /* No 3rd party reformatted pkts */
+               
+                   
+               noHist = TRUE;    //None of the above allowed in history list
+          }else
+            {
+	            GetMaxAgeAndCount(&MaxAge,&MaxCount);	//Set max ttl and count values
+               abuff->ttl = MaxAge;
+               AddHistoryItem(abuff);   	//Put item in history list.
+               
+               noHist = FALSE;      
+
+            }
+          
+		  	//if(abuff->EchoMask & sendDUPS) printf("EchoMask sendDUPS bit is set\n");
+
+         if (dup) abuff->EchoMask |= sendDUPS; //If it's a duplicate mark it.
+         
+         SendToAllClients(abuff);	// Send item out on internet      
+         
+         if(noHist) 
+            { delete abuff;   //delete it now if it didn't go to the history list.
+              abuff = NULL;
+            }
+	  }else
+		  cerr << "Error in DeQueue: abuff is NULL" << endl << flush;
+
+  }
+
+ 
+ return NULL;       //Should never return
+
+}
+//----------------------------------------------------------------------
+/* This thread is started by code in  dequeueTNC when an ACK packet
+is detected being sent to the TNC.  A pointer to the ack packet is passed
+to this thread.  This thread puts additional identical ack packets into the
+TNC queue.  The allowdup attribute is set so the dup detector won't kill 'em.
+*/
+void *ACKrepeaterThread(void *p)
+{
+   
+   aprsString *paprs;
+   paprs = (aprsString*)p;
+   aprsString *abuff = new aprsString(*paprs);
+   abuff->allowdup = TRUE; //Bypass the dup filter!
+   paprs->ttl = 0;         //Flag tells caller we're done with it.
+
+   for(int i=0 ;i<ackRepeats;i++)
+   {
+   
+   sleep(ackRepeatTime);
+   aprsString *ack =  new aprsString(*abuff);
+   
+   tncQueue.write(ack);   //ack aprsString  will be deleted by TNC queue reader
+   
+   }
+
+   delete abuff;
+   pthread_exit(0);
+
+}
+
+//----------------------------------------------------------------------
+
+// Pulls aprsString object pointers off the tncQueue
+// and sends the data to the TNC.
+void dequeueTNC(void)
+{
+ BOOL dup;
+ char		*rfbuf = NULL;
+ aprsString* abuff = NULL;
+ char szUserMsg[UMSG_SIZE];
+ 
+ pthread_t tid;
+
+
+ 
+
+    
+ 
+ 
+ 
+   abuff = (aprsString*)tncQueue.read(NULL);  //Get pointer to a packet off the queue
+
+   if(abuff == NULL) return;
+
+   if ((RF_ALLOW == FALSE) //See if sysop allows Internet to RF traffic
+        && ((abuff->EchoMask & srcUDP) == FALSE)){  //UDP packets excepted
+          
+         delete abuff;  //No RF permitted, delete it and return.
+         return;
+   }
+
+   //abuff->print(cout); //debug
+   
+   
+   abuff->ttl = 0;
+   abuff->dest = destTNC;
+   dup = dupFilter.check(abuff,15);       //Check for duplicates during past 15 seconds
+   if(dup){ 
+      delete abuff; //kill the duplicate here
+      return;
+   }   
+    
+	rfbuf = new char[300] ;
+	 
+
+   if (rfbuf != NULL)
+	  {
+                
+                  
+         if(tncPresent ) 
+
+            {  
+
+               if ((abuff->allowdup == FALSE)          //Prevent infinite loop!
+                     && (abuff->msgType == APRSMSGACK) //Only ack packets
+                     && (ackRepeats > 0) ) {           //Only if repeats greater than zero
+                  abuff->ttl = 1;                      //Mark it as unprocessed (ttl serves double duty here)
+                  int rc = pthread_create(&tid, NULL,ACKrepeaterThread,abuff); //Create ack repeater thread
+	               if (rc != 0){                         //Make sure it starts
+		               cerr << "Error: ACKrepeaterThread failed to start\n";
+			            abuff->ttl = 0;
+                  }
+                     else pthread_detach(tid);  //Run detached to free resources.
+
+                  
+               }
+
+                strncpy(rfbuf,abuff->data.c_str(),256);  //copy only data portion to rf buffer
+                                                         //and truncate to 256 bytes
+                rfbuf[256] = '\0';                       //Make sure there's a null on the end
+
+                RemoveCtlCodes(rfbuf);     //remove control codes and set 8th bit to zero.
+                strcat(rfbuf,"\r");         //append a CR to the end
+
+                char* cp = new char[300];  //Will be deleted by conQueue reader.
+                ostrstream msg(cp,300);
+                msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
+                conQueue.write(cp,0);
+
+                            
+               TotalTNCtxChars += strlen(rfbuf);
+               
+               if(!tncMute){ if(abuff->reformatted)
+                                 {  msg_cnt++;
+                                    ostrstream umsg(szUserMsg,UMSG_SIZE-1);                                                                                
+                                    umsg  << abuff->peer << " " << abuff->user                                                                                
+                                    << ": "                                                                                                                          
+                                    << abuff->getChar()                                                                                             
+                                    << ends;
+                                    //Save the station-to-station message in the log
+                                    WriteLog(szUserMsg,STSMLOG);                                         
+                                 }
+
+                             rfWrite(rfbuf);	 // Send string out on RF via TNC
+                             
+                           }
+
+            }          
+         
+
+	  }    
+  
+ if(abuff){
+   while(abuff->ttl > 0) usleep(10);  //wait 'till it's safe to delete this...
+   delete abuff;                      // ...ack repeater thread will set ttl to zero
+ }                                      //...Perhaps the ack repeater should delete this?
+ if(rfbuf) delete rfbuf;
+ return ;
+
+}
+
+
+
+
+
+//-----------------------------------------------------------------------
+int SendSessionStr(int session, char *s)
+{  int rc, retrys;
+   pthread_mutex_lock(pmtxSend);
+   retrys = 0;
+   do{
+      rc = send(session,s,strlen(s),0);
+      if (rc < 0) { usleep(50000) ; retrys++;}   //try again 50ms later
+   }while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
+   pthread_mutex_unlock(pmtxSend);
+	return rc;
+}
+
+//-----------------------------------------------------------------------
+void endSession(int session, char* szPeer, char* userCall, time_t starttime)
+{
+   char szLog[MAX],infomsg[MAX];
+
+      if(ShutDownServer) pthread_exit(0);
+
+      pthread_mutex_lock(pmtxSend);  //Be sure not to close during a send() operation
+      DeleteSession(session);        //remove it  from list
+      shutdown(session,2);
+      close(session);                 //Close socket
+      pthread_mutex_unlock(pmtxSend);
+  
+      {
+      char* cp = new char[128];
+      ostrstream msg(cp,128);
+      msg << szPeer << " " << userCall
+          << " has disconnected\n"
+          <<	ends;
+      conQueue.write(cp,0);
+      }
+
+      strncpy(szLog,szPeer,MAX-1);
+      strcat(szLog," ");
+      strcat(szLog,userCall);
+      strcat(szLog," disconnected ");
+      time_t endtime = time(NULL);
+      double  dConnecttime = difftime(endtime , starttime);
+      int iMinute = (int)(dConnecttime / 60);
+      iMinute = iMinute % 60;
+      int iHour = (int)dConnecttime / 3600;
+      int iSecond = (int)dConnecttime % 60;
+      char timeStr[32];
+      sprintf(timeStr,"%3d:%02d:%02d",iHour,iMinute,iSecond);
+      strcat(szLog,timeStr)	;
+  
+      WriteLog(szLog,MAINLOG);
+      {
+      ostrstream msg(infomsg,MAX-1);
+  
+      
+     msg   << szServerCall
+           << szJAVAMSG
+           << MyLocation << " "
+           <<	szServerID
+           <<	szPeer
+           << " " << userCall
+           << " disconnected. "
+           << ConnectedClients
+           << " users online.\r\n"
+           << ends;
+      }
+  
+     BroadcastString(infomsg);			  //Say IP address of disconected client
+  
+     if(strlen(userCall) > 0)
+        { ostrstream msg(infomsg,MAX-1);
+  
+         msg  << szServerCall
+              << szAPRSDPATH
+              <<  szUSERLISTMSG
+              <<  MyLocation
+              <<  ": Disconnected from "                              
+              <<  userCall                              
+              <<  "."                                                  
+              <<    "\r\n"                                              
+              <<    ends;
+         BroadcastString(infomsg);		//Say call sign of disconnected client
+        }
+                                 
+  
+      
+       
+      pthread_exit(0);
+
+
+
+
+
+
+
+}
+//-----------------------------------------------------------------------
+
+//An instance of this thread is created for each user who connects.
+
+
+void *TCPSessionThread(void *p)
+{
+	char buf[BUFSIZE];
+   string pgm_vers;
+
+   SessionParams *psp = (SessionParams*)p;
+  	int session = psp->Socket;
+   int EchoMask = psp->EchoMask;
+   int serverport = psp->ServerPort;
+   
+   delete psp;
+
+	int BytesRead, i;
+	struct sockaddr_in peer_adr;
+	char szPeer[MAX], szError[MAX], szLog[MAX], infomsg[MAX], logmsg[MAX];
+	
+   const char *szUserStatus;
+	unsigned char c;
+	unsigned adr_size = sizeof(peer_adr);
+	int n, rc,data,verified=FALSE, loggedon=FALSE;
+	ULONG State = BASE;
+   char userCall[10];
+   char tc, checkdeny;
+   const char *szRestriction;
+   int dummy;
+   
+
+   //These deal with Telnet protocol option negotiation suppression
+   int iac,sbEsc;
+   const int IAC = 255, SB = 250, SE = 240;
+   
+	
+	char szUser[16], szPass[16];
+   //char* szServerPort[10];
+
+   
+   
+
+	if (session < 0) return NULL;
+
+
+   pthread_mutex_lock(pmtxCount);
+	TotalConnects++;
+   pthread_mutex_unlock(pmtxCount);
+
+	time_t  starttime = time(NULL);
+   
+
+	szPeer[0] = '\0';
+   userCall[0] = '\0';
+
+	if (getpeername(session, (struct sockaddr *)&peer_adr, &adr_size) == 0)
+		{
+			strncpy(szPeer,inet_ntoa(peer_adr.sin_addr),32);
+         
+		}
+
+
+   
+   
+   {ostrstream msg(szError,MAX-1); //Build an error message in szError
+
+		msg   << szServerCall
+            << szJAVAMSG
+            << "Limit of "
+            << MaxClients
+            << " users exceeded.  Try again later. Disconnecting...\r\n"
+				<<	ends;
+
+   }
+   
+   
+
+   { char* cp = new char[256];
+     ostrstream msg(cp,256);
+  	  msg << szPeer << " has connected to port " << serverport << endl << ends;
+     conQueue.write(cp,0);  //queue reader deletes cp
+   }
+
+   {ostrstream msg(szLog,MAX-1);
+      msg   << szPeer
+            << " connected on "
+            << serverport
+            << ends;
+      WriteLog(szLog,MAINLOG);
+   }
+
+
+	data = 1;  //Set socket for non-blocking
+	ioctl(session,FIONBIO,(char*)&data,sizeof(int));
+
+   rc = SendSessionStr(session,SIGNON);
+   if(rc < 0) endSession(session,szPeer,userCall,starttime); 
+   if(NetBeacon) rc = SendSessionStr(session,NetBeacon);
+   if(rc < 0) endSession(session,szPeer,userCall,starttime);
+
+   if (EchoMask & sendHISTORY)
+      {
+          n = SendHistory(session,(EchoMask & ~(srcSYSTEM | srcSTATS)));   //Send out the previous N minutes of APRS activity
+	                                                           //except messages generated by this system.
+          if (n < 0)
+		      {  ostrstream msg(szLog,MAX-1);
+                  msg   << szPeer
+                        << " aborted during history dump on "
+                        << serverport
+                        << ends;
+               WriteLog(szLog,MAINLOG);
+               endSession(session,szPeer,userCall,starttime);
+		      }
+
+           {   char* cp = new char[256];
+               ostrstream msg(cp,256);
+  	            msg << "Sent " << n << " history items to " << szPeer << endl << ends;
+               conQueue.write(cp,0);  //queue reader deletes cp
+            }
+
+       }
+
+   
+
+	char *pWelcome = new char[strlen(CONFPATH) + strlen(WELCOME) + 1];
+	strcpy(pWelcome,CONFPATH);
+	strcat(pWelcome,WELCOME);
+  	rc = SendFiletoClient(session,pWelcome);		 //Read Welcome message from file
+   if(rc < 0){
+            ostrstream msg(szLog,MAX-1);
+             msg   << szPeer
+                   << " aborted welcome msg on "
+                   << serverport
+                   << ends;
+            WriteLog(szLog,MAINLOG);
+            delete pWelcome;
+            endSession(session,szPeer,userCall,starttime);
+       }
+
+   delete pWelcome;
+
+   SessionParams* sp =  AddSession(session,EchoMask);
+	if (sp == NULL)
+		{ 
+		  rc = SendSessionStr(session,szError);
+		  if (rc == -1) perror("AddSession");
+		  WriteLog("Error, too many users",MAINLOG);
+		  endSession(session,szPeer,userCall,starttime);
+        char* cp = new char[256];
+        ostrstream msg(cp,256);
+        msg <<  "Can't add client to session list, too many users - closing connection.\n"
+            << ends;
+        conQueue.write(cp,0);
+		}
+
+   AddSessionInfo(session,"*",szPeer,serverport, "*");
+      
+   
+	{ostrstream msg(infomsg,MAX-1);
+
+		msg   << szServerCall
+            << szJAVAMSG
+            <<	MyLocation << " "
+				<<	szServerID
+				<<	szPeer
+				<< " connected "
+            << ConnectedClients
+				<< " users online.\r\n"
+				<<	ends;
+
+	
+	  	BroadcastString(infomsg);
+
+		
+	}
+
+	if (ConnectedClients > MaxConnects) MaxConnects = ConnectedClients;
+   iac = 0;
+   sbEsc = FALSE;
+	do
+		{											 /*The logic here is that 1 char is fetched
+														on each loop and tested for a CR or LF	before
+														the buffer is processed.  If "i" is -1 then
+														any socket error other that "would block" causes
+														BytesRead and i to be set to zero which causes
+														the socket to be closed and the thread terminated.
+														If "i" is greater than 0 the character in "c" is
+														put in the buffer.
+													 */
+											
+			
+		   BytesRead = 0;						 //initialize byte counter
+ 			
+			do
+			  {	if((charQueue.ready()) && (State == REMOTE) )
+                   { tc = (char) charQueue.read(&dummy);
+                     send(session,&tc,1,0);   //send a tnc character to sysop
+                     //printhex(&tc,1);
+                   }
+
+               do{
+               c = 0x7f;
+					i = recv(session,&c,1,0);		//get 1 byte into c
+               }while(c == 0x00);
+
+               if(ShutDownServer) raise(SIGTERM);  //Terminate this process
+
+
+
+               //if (State == REMOTE) printhex(&c,1); debug
+					if (i == -1)
+						{
+							
+						 	if (errno != EWOULDBLOCK)
+										{	BytesRead = 0;	  //exit on errors other than EWOULDBLOCK
+											i = 0;
+
+										}
+
+                     //cerr << "i=" << i << "  chTimer=" << chTimer << "   c=" << c << endl;
+							if(State != REMOTE) sleep(1);  // Don't hog cpu while in loop awaiting data
+							
+						}
+
+                if(sp->dead){      //force disconnect if connection is dead
+                   BytesRead = 0;
+                   i = 0;
+                }
+
+                
+											 
+					 
+					 if (i != -1)   //Got a real character from the net
+						 {	
+						   if(loggedon == FALSE){						   
+                        if ((c == IAC) && (sbEsc == FALSE)) iac = 3;  //This is a Telnet IAC byte.  Ignore the next 2 chars
+                        if ((c == SB) && (iac == 2)) sbEsc = TRUE;    //SB is suboption begin.
+                      }                                  //Ignore everything until SE, suboption end.
+                     
+
+                    // printhex(&c,1);  //debug
+
+						   //if ( !((lastch == 0x0d) && (c == 0x0a)) && (c != 0) && (iac == 0) )	  //reject LF after CR and NULL
+							 
+                      /* This logic discards CR or LF if it's the first character on the line. */
+                      BOOL cLFCR =  (( c == LF) || ( c == CR));
+                      BOOL rejectCH = (((BytesRead == 0) && cLFCR) || (c == 0)) ;  //also discard NULLs
+
+                      if((rejectCH == FALSE) && (iac == 0))
+                        {	
+									if (BytesRead < BUFSIZE-3) buf[BytesRead] = c;
+									BytesRead += i;
+                            
+							//Only enable control char interpreter if user is NOT logged on in client mode		
+                     if(loggedon == FALSE){  
+							   switch (c)
+								   {
+									case 0x04:	i = 0;   		//Control-D = disconnect
+													BytesRead = 0;
+													break;
+																		 
+									case 0x1b:	  if((State == BASE) && tncPresent)   //ESC = TNC control
+                                          {  
+                                             sp->EchoMask = 0;  //Stop echoing the aprs data stream.
+                                             rc = SendSessionStr(session,"\r\n220 Remote TNC control mode. <ESC> to quit.\r\n503 User:");
+													      if(rc < 0) endSession(session,szPeer,userCall,starttime);
+                                             State = USER;    //   Set for remote control of TNC
+                                             BytesRead = 0;
+													      break;
+                                          }
+													  
+																		  //<ESC> = exit TNC control
+									           	if ((State != BASE) && tncPresent)
+														{	
+															
+                                             
+                                             if (State == REMOTE){
+                                                ostrstream log(szLog,MAX);
+                                                log   << szPeer << " "
+                                                      << szUser << " "
+                                                      << " Exited TNC remote sysop mode."
+                                                      << endl
+                                                      << ends;
+                                                WriteLog(szLog,MAINLOG);
+                                             }
+
+                                             tncMute = FALSE;
+                                             TncSysopMode = FALSE;
+                                             State = BASE;  // <ESC>Turn off remote
+															rc = SendSessionStr(session,"\r\n200 Exit remote mode successfull\r\n");
+                                             if(rc < 0) endSession(session,szPeer,userCall,starttime);
+                                             
+                                             sp->EchoMask = EchoMask;  //Restore aprs data stream.
+                                             
+                                             BytesRead = 0;  //Reset buffer
+														}
+                                       
+													//i = 0;
+													break;
+
+                              };
+                           }//end if (loggedon==FALSE)
+
+                           if ((State == REMOTE) && (c != 0x1b) && (c != 0x0) && (c != 0x0a)) 
+                                 {  
+                                     char chbuf[2];
+                                     chbuf[0] = c;
+                                     chbuf[1] = '\0';
+                                     rfWrite(chbuf); //Send chars to TNC in real time if REMOTE
+                                    
+                                 }
+                        }
+
+     						 }else c = 0;
+
+             if(loggedon == FALSE){
+				   if (c == SE) { sbEsc = FALSE; iac = 0;}  //End of telnet suboption string  					
+               if (sbEsc == FALSE) if(iac-- <= 0) iac = 0;  //Count the bytes in the Telnet command string
+             }
+
+             
+               //Terminate loop when we see a CR or LF if it's not the first char on the line.
+			  }while (((i != 0) && (c != 0x0d) && (c != 0x0a)) || ((BytesRead == 0) && (i != 0))  );
+			    
+				
+			if ((BytesRead > 0) && ( i > 0)  )		 // 1 or more bytes needed
+				{																 
+
+				 		i = BytesRead - 1;
+						buf[i++] = 0x0d;        //Put a CR-LF on the end of the buffer
+						buf[i++] = 0x0a;
+						buf[i++] = 0;    
+						
+                  pthread_mutex_lock(pmtxCount);
+                  TotalUserChars += i;
+                  pthread_mutex_unlock(pmtxCount);
+
+                  if(sp){
+                      sp->bytesIn += i;
+                      sp->lastActive = time(NULL);
+                  }
+
+						//cout << szPeer << ": " << buf << flush;		 //Debug code
+					   //printhex(buf,i);
+					 
+                  //cout << endl;
+                  //printhex(buf,strlen(buf));
+               
+               if (State == REMOTE)
+						{	buf[i-2] = '\0';							//No line feed required for TNC
+							//printhex(buf,strlen(buf));			//debug code
+                  }
+
+					if (State == BASE)           //Internet to RF messaging handler
+                  {
+                     BOOL sentOnRF=FALSE;
+                     
+                     aprsString atemp(buf,session,srcUSER,szPeer,userCall);
+                     
+                     if(atemp.aprsType == APRSQUERY){ /* non-directed query ? */
+                        queryResp(session,&atemp);   /* yes, send our response */
+                     }
+                     
+                     //cout << atemp << endl;
+                     //cout << atemp.stsmDest << "|" << szServerCall << "|" << atemp.aprsType << endl;
+                     
+                     if((atemp.aprsType == APRSMSG)
+                       && (atemp.msgType == APRSMSGQUERY)){    /* is this a directed query message? */
+
+                       if((stricmp(szServerCall, atemp.stsmDest.c_str()) == 0)
+                           || (stricmp("aprsd",atemp.stsmDest.c_str()) == 0)
+                           || (stricmp("igate",atemp.stsmDest.c_str()) == 0)){   /* Is query for us? */
+                           queryResp(session,&atemp);   /*Yes, respond. */
+                        }
+                       
+                     }
+                     
+                     string vd;
+                     unsigned idxInvalid=0;
+                     if(atemp.aprsType == APRSLOGON) 
+                           { loggedon = TRUE;
+
+                             verified = FALSE;
+
+                             vd = atemp.user + atemp.pass ;
+                             
+                             /* 2.0.7b Security bug fix - don't allow ;!@#$%~^&*():="\<>[]  in user or pass! */
+                             
+                             if(((idxInvalid = vd.find_first_of(";!@#$%~^&*():=\"\\<>[]",0,20)) == string::npos)
+                                  && (atemp.user.length() <= 15)   /*Limit length to 15 or less*/
+                                  && (atemp.pass.length() <= 15)){
+
+                             
+                               if(validate(atemp.user.c_str(), atemp.pass.c_str(),APRSGROUP, APRS_PASS_ALLOW) == 0)
+                                        verified = TRUE;
+
+                             } 
+                               else {if(idxInvalid != string::npos){ 
+                                      char *cp = new char[256];
+                                       ostrstream msg(cp,256);
+         
+	                                    msg   << szPeer
+                                             << " Invalid character \"" 
+                                             << vd[idxInvalid]
+                                             << "\" in APRS logon"
+                                             <<	endl
+			                                    <<	ends ;
+                                       conQueue.write(cp,0);    //cp deleted by queue reader
+                                       WriteLog(cp,MAINLOG);
+                                       }
+                                    }
+                                                            
+                               checkdeny = toupper(checkUserDeny(atemp.user));  // returns + , L or R 
+                                                                                // + = no restriction
+                                                                                // L = No login
+                                                                                // R = No RF
+                               if (verified){
+                                   szUserStatus = szVERIFIED ;
+                                   if(sp) sp->vrfy = TRUE;
+                               }
+                                 else szUserStatus = szUNVERIFIED;
+
+                               
+
+                               switch(checkdeny){
+                               case 'L':  szUserStatus = szACCESSDENIED; //Read only access
+                                          szRestriction = szRM2;
+                                          verified = false;
+                                          break;
+
+                               case 'R':  szRestriction = szRM3;  //No send on RF access
+                                          break;
+
+                               default:   szRestriction = szRM1;    
+                               
+                               }
+
+
+                               
+
+                               if(checkdeny != 'L'){
+                                 ostrstream msg(infomsg,MAX-1);
+                                 msg	<< szServerCall
+                                       << szAPRSDPATH
+                                       <<  szUSERLISTMSG
+                                       <<  MyLocation << ": "
+                                       <<  szUserStatus << "user "
+                                       <<  atemp.user
+                                       <<  " logged on using "
+                                       <<  atemp.pgmName << " "
+                                       <<  atemp.pgmVers
+                                       <<  "."
+                                       <<  "\r\n"  /* Don't want acks from this! */
+                                       <<    ends;
+                               
+                                 BroadcastString(infomsg);         //send users logon status to everyone
+                               }
+
+
+                                 
+                                {
+                                 ostrstream msg(logmsg,MAX-1);
+                                 msg   << szPeer
+                                       << " " << atemp.user
+                                       << " " << atemp.pgmName
+                                       << " " << atemp.pgmVers
+                                       << " " << szUserStatus
+                                       << endl 
+                                       << ends;
+                                }
+
+                                 WriteLog(logmsg,MAINLOG);
+                                 strncpy(userCall,atemp.user.c_str(),9);  //save users call sign
+                                 pgm_vers = atemp.pgmName + " " + atemp.pgmVers;
+                                 AddSessionInfo(session,userCall,szPeer,serverport,pgm_vers.c_str()); //put it here so HTTP monitor can see it
+                                 
+                                if((!verified) || (checkdeny == 'R'))
+                                 {  char call_pad[] = "         "; //9 spaces
+                                    int len = strlen(atemp.user.c_str());
+                                    if(len > 9) len = 9;
+                                    memmove(call_pad,atemp.user.c_str(),len);
+                                    
+                                    {
+                                    ostrstream msg(infomsg,MAX-1);  //Message to user...
+                                    msg   << szServerCall
+                                          << szAPRSDPATH
+                                          << ':' 
+                                          << call_pad
+                                          << ":" << szRestriction
+                                          << ends ;
+                                    }
+
+                                    rc = SendSessionStr(session,infomsg);
+                                    if(rc < 0) endSession(session,szPeer,userCall,starttime);
+
+                                    if(checkdeny == '+'){
+                                       ostrstream msg(infomsg,MAX-1); //messsage to user
+                                       msg   << szServerCall
+                                             << szAPRSDPATH
+                                             << ':' 
+                                             << call_pad
+                                             << ":Contact program author for registration number.\r\n"
+                                             << ends ;
+                                    rc = SendSessionStr(session,infomsg);
+                                    if(rc < 0) endSession(session,szPeer,userCall,starttime);
+                                    }
+                                 }
+                                 
+                                 
+                                 if(verified && (atemp.pgmName.compare("monitor") == 0))
+                                  { 
+                                    if(sp){
+                                       sp->EchoMask = srcSTATS;
+                                       char prompt[] = "#Entered Monitor mode\n\r";
+                                       aprsString *amsg = new aprsString(prompt,SRC_USER,srcSTATS);
+                                       sendQueue.write(amsg);
+                                       AddSessionInfo(session,userCall,szPeer,serverport,"Monitor");
+                                    }                                  }
+                                    
+                           }
+
+
+                     /*One of the stations in the gate2rf list?*/
+                     BOOL RFalways = find_rfcall(atemp.ax25Source,rfcall);
+                     
+
+                     if( verified  && (!RFalways) && (atemp.aprsType == APRSMSG) && (checkdeny == '+'))
+                        {   sentOnRF = FALSE;
+                            atemp.changePath("TCPIP*","TCPIP");
+                            
+                            sentOnRF = sendOnRF(atemp,szPeer,userCall,srcUSERVALID);   // Send on RF if dest local
+                              
+                            
+                            if(sentOnRF)  //Now find the posit for this guy in the history list
+                                           // and send it too.
+                               { aprsString* posit = getPosit(atemp.ax25Source,srcIGATE | srcUSERVALID);
+                                 if(posit != NULL)
+                                    { time_t Time = time(NULL);           //get current time
+                                      if((Time - posit->timeRF) >= 60*10) //every 10 minutes only
+                                          {  
+                                             timestamp(posit->ID,Time); //Time stamp the original in hist. list
+                                             posit->stsmReformat(MyCall);  // Reformat it for RF delivery
+                                             tncQueue.write(posit);    //posit will be deleted elsewhere
+                                             
+                                          }else delete posit;
+
+                                    } /*else cout << "Can't find matching posit for "
+                                                << atemp.ax25Source
+                                                << endl
+                                                << flush;        //Debug only
+                                                */
+                               }
+                     
+                        }
+
+                            /* Filter out COMMENT type packets, eg: # Tickle  */
+                     if ( verified && (atemp.aprsType != COMMENT) && (atemp.aprsType != APRSLOGON) )
+                        {
+                            aprsString* inetpacket = new aprsString(buf,session,srcUSERVALID,szPeer,userCall);
+                            inetpacket->changePath("TCPIP*","TCPIP") ;
+
+                            if(inetpacket->aprsType == APRSMIC_E)   //Reformat Mic-E packets
+                               { reformatAndSendMicE(inetpacket,sendQueue);
+                                
+                               }else
+                                  sendQueue.write(inetpacket); //note: inetpacket is deleted in DeQueue
+                                    
+
+                        }
+
+
+
+                      if (!verified && (atemp.aprsType != COMMENT) && (atemp.aprsType != APRSLOGON) && (checkdeny != 'L') )
+                        { 
+                            aprsString* inetpacket = new aprsString(buf,session,srcUSER,szPeer,userCall);
+                             
+                            if(inetpacket->ax25Source.compare(userCall) != 0)
+                                          inetpacket->EchoMask = 0;  //No tcpip echo if not from user
+
+                            inetpacket->changePath("TCPIP*","TCPIP") ;
+                            if(inetpacket->changePath("TCPXX*","TCPIP*") == FALSE) 
+                                          inetpacket->EchoMask = 0;  //No tcpip echo if no TCPXX* in path;
+                            //inetpacket->print(cout);  //debug
+                            sendQueue.write(inetpacket); //note: inetpacket is deleted in DeQueue
+                          }
+
+
+
+                      if((atemp.aprsType == APRSMSG) && (RFalways == FALSE) )
+                         {
+                           aprsString* posit = getPosit(atemp.ax25Source,srcIGATE | srcUSERVALID | srcTNC);
+                           if(posit != NULL)
+                              { 
+                                 posit->EchoMask = src3RDPARTY;
+                                 sendQueue.write(posit);  //send matching posit only to msg port
+                                 
+                              } 
+
+                          }
+
+
+
+
+               //Here's where the priviledged get their posits sent to RF full time.
+               if(configComplete
+                    && verified
+                    && RFalways 
+                    && (StationLocal(atemp.ax25Source.c_str(),srcTNC) == FALSE)
+                    && (atemp.tcpxx == FALSE)
+                    && (checkdeny == '+'))
+                  {
+                     aprsString* RFpacket = new aprsString(buf,session,srcUSER,szPeer,userCall); 
+                     RFpacket->changePath("TCPIP*","TCPIP");
+                     
+                     if(RFpacket->aprsType == APRSMIC_E)   //Reformat Mic-E packets
+                           {  
+                             if(ConvertMicE){
+                               aprsString* posit = NULL;                                                                              
+                               aprsString* telemetry = NULL;                                            
+                               RFpacket->mic_e_Reformat(&posit,&telemetry);                           
+                               if(posit){
+                                  posit->stsmReformat(MyCall);  // Reformat it for RF delivery
+                                  tncQueue.write(posit);       //Send reformatted packet on RF
+                               }
+                               if(telemetry) {
+                                  telemetry->stsmReformat(MyCall); // Reformat it for RF delivery
+                                  tncQueue.write(telemetry);      //Send packet on RF
+                               }
+                              
+                               delete RFpacket; 
+
+                             }else{
+                                RFpacket->stsmReformat(MyCall);
+                                tncQueue.write(RFpacket);  // Raw MIC-E data to RF
+                             }
+                             
+                           }else{
+                                 RFpacket->stsmReformat(MyCall);
+                                 tncQueue.write(RFpacket);  // send data to RF  
+                                }                           //Note: RFpacket is deleted elsewhere
+                    }
+
+
+
+
+
+                  }
+
+
+					int j = i-3;
+
+               if ((State == PASS) && (BytesRead > 1))
+						{	strncpy(szPass,buf,15);
+							if(j<16) szPass[j] = '\0'; else szPass[15] = '\0';
+                     
+                     BOOL verified_tnc = FALSE;
+                     unsigned idxInvalid=0;
+                     
+                     int valid = -1;
+                     
+                     string vd = string(szUser) + string(szPass) ;
+                                                                        
+                                                                                                                          
+                     // 2.0.7b Security bug fix - don't allow ;!@#$%~^&*():="\<>[]  in szUser or szPass!
+                      //Probably not needed in 2.0.9 because validate is not an external pgm anymore!
+                                                                                                                                          
+                     if(((idxInvalid = vd.find_first_of(";!@#$%~^&*():=\"\\<>[]",0,20)) == string::npos)                                  
+                          && (strlen(szUser) <= 16)   //Limit length to 16 or less
+                          && (strlen(szPass) <= 16)){                                                
+                      
+                       valid = validate(szUser,szPass,TNCGROUP,APRS_PASS_ALLOW);  //Check user/password
+
+
+                     } 
+                      else {  if(idxInvalid != string::npos){
+                              char *cp = new char[256];
+                              ostrstream msg(cp,256);
+         
+	                            msg   << szPeer
+                                     << " Invalid character \"" 
+                                     << vd[idxInvalid]
+                                     << "\" in TNC logon"
+                                     <<	endl
+			                            <<	ends ;
+                               conQueue.write(cp,0);    //cp deleted by queue reader
+                               WriteLog(cp,MAINLOG);
+                              }
+                            }
+
+                        
+                     if(valid == 0) verified_tnc = TRUE;                                                                             
+                                                                                                                          
+                                                   
+                      
+
+
+							if (verified_tnc)
+								{ if(TncSysopMode == FALSE)
+                           { TncSysopMode = TRUE;
+                             
+                              State = REMOTE;
+                              tncMute = TRUE;
+		                        rc = SendSessionStr(session,"\r\n230 Login successful. <ESC> to exit remote mode.\r\n");
+								      if(rc < 0) endSession(session,szPeer,userCall,starttime);
+                              ostrstream log(szLog,MAX);
+                              log << szPeer << " "
+                                  << szUser 
+                                  << " Entered TNC remote sysop mode." 
+                                  << endl 
+                                  << ends;
+                              WriteLog(szLog,MAINLOG);
+                           }else
+                              { rc = SendSessionStr(session,"\r\n550 Login failed, TNC is busy\r\n");
+                                if(rc < 0) endSession(session,szPeer,userCall,starttime);
+                                 ostrstream log(szLog,MAX);
+                                 log << szPeer << " "
+                                    << szUser 
+                                    << " Login failed: TNC busy." 
+                                    << endl 
+                                    << ends;
+                                 WriteLog(szLog,MAINLOG);
+                                
+										  State = BASE;
+                                
+                                if(sp){
+                                   sp->EchoMask = EchoMask;  //Restore original echomask
+                                   AddSessionInfo(session,userCall,szPeer,serverport,pgm_vers.c_str());
+                                }else{
+                                   /* failed to get a session */
+                                }
+                              }
+
+							   } else
+									{	rc = SendSessionStr(session,"\r\n550 Login failed, invalid user or password\r\n");
+                              if(rc < 0) endSession(session,szPeer,userCall,starttime);
+                              ostrstream log(szLog,MAX);
+                              log << szPeer << " "
+                                 << szUser  << " "
+                                 << szPass
+                                 << " Login failed: Invalid user or password." 
+                                 << endl 
+                                 << ends;
+                              WriteLog(szLog,MAINLOG);
+                              State = BASE;
+                              
+                              if(sp){
+                                 sp->EchoMask = EchoMask;
+                                 AddSessionInfo(session,userCall,szPeer,serverport,pgm_vers.c_str());
+                              }else{
+                                 /* failed to get a session */
+                              }
+									}
+
+                     
+						}
+
+					if ((State == USER) && (BytesRead > 1))
+						{ 	strncpy(szUser,buf,15);
+							if(j < 16) szUser[j] = '\0'; else szUser[15]='\0';
+							State = PASS;
+						   rc = SendSessionStr(session,"\r\n331 Pass:");
+                     if(rc < 0) endSession(session,szPeer,userCall,starttime);
+							
+						}
+
+					
+					
+				 }
+
+
+      } while (BytesRead != 0);		  // Loop back and get another line from remote user.
+
+    if(State == REMOTE){ tncMute = FALSE; TncSysopMode = FALSE; }
+
+    endSession(session,szPeer,userCall,starttime);
+
+    pthread_exit(0);  //Actually thread exits from endSession above.  
+}
+
+
+//------------------------------------------------------------------------
+
+//One instance of this thread is created for each port definition in aprsd.conf.
+//Each instance listens on the a user defined port number for clients
+//wanting to connect.  Each connect request is assigned a
+//new socket and a new instance of TCPSessionThread() is created.
+
+void *TCPServerThread(void *p)
+{
+
+	int	s,rc;
+   unsigned i;
+   SessionParams* session;
+   pthread_t SessionThread;
+   
+	struct sockaddr_in server,client;
+	
+	int optval;
+   ServerParams *sp = (ServerParams*)p;
+
+	
+
+   
+   sp->pid = getpid();
+
+	s = socket(PF_INET,SOCK_STREAM,0);
+	
+   sp->ServerSocket = s;
+
+	optval = 1;								  //Allow address reuse
+	setsockopt(s,SOL_SOCKET,SO_REUSEADDR,(char*)&optval,sizeof(int));
+   setsockopt(s,SOL_SOCKET,SO_KEEPALIVE,(char*)&optval,sizeof(int));
+
+	if (s == 0)
+		{  perror("TCPServerThread socket error");
+			ShutDownServer = TRUE;
+			return NULL;
+		}
+
+	memset(&server,0,sizeof(server));
+	memset(&client,0,sizeof(client));
+
+	server.sin_family = AF_INET;
+	server.sin_addr.s_addr = INADDR_ANY;
+	server.sin_port = htons(sp->ServerPort);
+	if (bind(s,(struct sockaddr *)&server, sizeof(server)) <  0)
+		{
+		   perror("TCPServerThread bind error");
+			ShutDownServer = TRUE;
+			return NULL;
+		}
+
+   cout << "TCP Server listening on port " << sp->ServerPort << endl << flush;
+   
+
+   while(!configComplete) usleep(100000);  //Wait till everything else is running.
+
+	listen(s,2);	
+
+	
+
+	for(;;)
+		{
+		   i = sizeof(client);
+         session = new SessionParams;
+			session->Socket = accept(s,(struct sockaddr *)&client,&i);
+         session->EchoMask = sp->EchoMask;
+         session->ServerPort = sp->ServerPort;
+			if (ShutDownServer)
+				{	close(s);
+			      if (session->Socket >= 0) close(session->Socket);
+					cerr << "Ending TCP server thread\n" << flush;
+               delete session;
+               if(ShutDownServer) raise(SIGTERM);  //Terminate this process
+				  
+				}
+
+			if (session->Socket < 0)
+				{ perror( "Error in accepting a connection");
+              delete session;
+				} else
+				
+            if(session->EchoMask & wantHTML){
+                
+                rc = pthread_create(&SessionThread,NULL,HTTPServerThread,session);  //Added in 2.1.2
+                
+            }
+               else rc = pthread_create(&SessionThread,NULL,TCPSessionThread,session);
+
+					if(  rc  != 0)
+					  {
+	 					  cerr << "Error creating new client thread.\n" << flush;
+						  shutdown(session->Socket,2);
+						  rc = close(session->Socket);      // Close it if thread didn't start
+                    delete session;
+						  if (rc < 0) perror("Session Thread close()");
+					  }else   //session will be deleted in TCPSession Thread
+							pthread_detach(SessionThread);	 //run session thread DETACHED!
+                              
+					memset(&client,0,sizeof(client));
+		}
+
+   return 0;
+
+}
+//----------------------------------------------------------------------
+//This thread listens to a UDP port and sends all packets heard to all
+//logged on clients unless the destination call is "TNC" it sends it 
+//out to RF.
+
+void *UDPServerThread(void *p)
+{
+
+#define UDPSIZE 256
+	int s,i;
+   unsigned client_address_size;
+	struct sockaddr_in client, server;
+	char buf[UDPSIZE+3],szLog[UDPSIZE+50];
+   UdpParams* upp = (UdpParams*)p;
+	int UDP_Port = upp->ServerPort;   //UDP port set in aprsd.conf
+   char *CRLF = "\r\n";
+
+  
+   upp->pid = getpid();
+
+   /*
+    * Create a datagram socket in the internet domain and use the
+    * default protocol (UDP).
+    */
+   if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+   {
+       perror("Failed to create datagram socket");
+       ShutDownServer = TRUE;
+		 return NULL;
+   }
+
+   /*
+    *
+    * Bind my name to this socket so that clients on the network can
+    * send me messages. (This allows the operating system to demultiplex
+    * messages and get them to the correct server)
+    *
+    * Set up the server name. The internet address is specified as the
+    * wildcard INADDR_ANY so that the server can get messages from any
+    * of the physical internet connections on this host. (Otherwise we
+    * would limit the server to messages from only one network interface)
+    */
+   server.sin_family      = AF_INET;   	/* Server is in Internet Domain */
+   server.sin_port        = htons(UDP_Port) ;/* 0 = Use any available port       */
+   server.sin_addr.s_addr = INADDR_ANY;	/* Server's Internet Address    */
+
+   if (bind(s, (struct sockaddr *)&server, sizeof(server)) < 0)
+   {
+       perror("Datagram socket bind error");
+       ShutDownServer = TRUE;
+		 return NULL;
+
+   }
+
+  cout << "UDP Server listening on port " << UDP_Port << endl << flush;
+
+
+  for(;;)		  //Loop forever
+  {
+   
+   client_address_size = sizeof(client);
+
+   i = recvfrom(s, buf, UDPSIZE, 0, (struct sockaddr *) &client, &client_address_size) ; //Get client udp data
+
+   
+   BOOL sourceOK = FALSE;
+   int n=0;
+      do                   //look for clients IP address in list of trusted addresses.
+        {   long maskedTrusted = Trusted[n].sin_addr.s_addr & Trusted[n].sin_mask.s_addr;
+            long maskedClient = client.sin_addr.s_addr & Trusted[n].sin_mask.s_addr;
+            if(maskedClient == maskedTrusted) sourceOK = TRUE;
+            n++;
+      }while((n < nTrusted) && (sourceOK == FALSE)) ;
+
+   if(sourceOK && configComplete && (i > 0)){
+
+      if(buf[i-1] != '\n') strcat(buf,CRLF);  //Add a CR/LF if not present
+
+      ostrstream log(szLog,UDPSIZE+50);
+      log   <<	inet_ntoa(client.sin_addr)
+			   <<	": " << buf
+			   <<	ends;
+           
+      WriteLog(szLog,UDPLOG);
+
+
+
+      aprsString* abuff = new aprsString(buf,SRC_UDP,srcUDP,inet_ntoa(client.sin_addr),"UDP");
+
+      
+     //printhex(abuff->c_str(),strlen(abuff->c_str())); //debug
+
+      if  (abuff->ax25Dest.compare("TNC") == 0  )   //See if it's  data for the TNC
+      {
+            
+            tncQueue.write(abuff,SRC_UDP);       //Send remaining data from ourself to the TNC
+                                                 
+      }else
+         {
+            
+            sendQueue.write(abuff,0);  //else send data to all users. 
+         }                             //Note that abuff is deleted in History list expire func.
+	
+   }
+
+
+    
+
+    
+		if(ShutDownServer) raise(SIGTERM);  //Terminate this process
+	
+
+	}
+
+  return NULL;
+
+ }
+
+//----------------------------------------------------------------------
+
+/* Receive a line of ASCII from "sock" . Nulls, line feeds and carrage returns are
+removed.  End of line is determined by CR or LF or CR-LF or LF-CR .  
+CR-LF sequences appended before the string is returned.  If no data is received in "timeoutMax" seconds
+it returns int Zero else it returns the number of characters in the received
+string.
+Returns ZERO if timeout and -1 if socket error.
+*/
+
+int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
+{
+
+   int c;
+   int i,BytesRead ,timeout;
+
+   *err = 0;
+   BytesRead = 0;
+   BOOL abort ;
+
+   timeout = timeoutMax;
+   abort = FALSE;
+
+do
+	{	c = -1;
+
+      
+		 i = recv(sock,&c,1,0);		//get 1 byte into c
+       
+       if(i == 0) abort = TRUE;   //recv returns ZERO when remote host disconnects
+
+		 if (i == -1)
+				{
+					*err = errno;	
+               if((*err != EWOULDBLOCK) || (ShutDownServer == TRUE))
+							{	BytesRead = 0;	  
+								i = -2;
+                        abort = TRUE;  //exit on errors other than EWOULDBLOCK
+                        
+							}
+
+                sleep(1);  // Wait 1 sec. Don't hog cpu while in loop awaiting data
+
+					 if(timeout-- <= 0) {
+                   i = 0;  
+                   abort = TRUE;  //Force exit if timeout
+                }
+
+                //cout << timeout << " Waiting...  abort= " << abort << "\n";  //debug code
+				}
+      
+       
+
+       if(i == 1) {  
+          c &= 0x7f ;
+
+          BOOL cLFCR =  (( c == LF) || ( c == CR));     //TRUE if c is a LF or CR
+          BOOL rejectCH = (((BytesRead == 0) && cLFCR ) || (c == 0)) ;
+                     
+          if ((BytesRead < (n - 3)) && (rejectCH == FALSE)){  //reject if LF or CR is first on line or it's a NULL
+            buf[BytesRead] = (char)c;                   //and discard data that runs off the end of the buffer
+            BytesRead++;                                //We have to allow 3 extra bytes for CR,LF,NULL 
+            timeout = timeoutMax;
+          }
+       }
+
+       
+
+  }while ((c != CR) && (c != LF) && (abort == FALSE)); /* Loop while c is not CR or LF */
+                                                       /* And no socket errors or timeouts */
+                                                                                    
+  //cerr << "Bytes received=" << BytesRead << " abort=" << abort << endl;   //debug code
+
+  if ((BytesRead > 0) && (abort == FALSE) )		// 1 or more bytes needed
+        {                                           
+            i = BytesRead -1 ;
+            buf[i++] = (char)CR;  //make end-of-line CR-LF
+            buf[i++] = (char)LF;   
+            buf[i++] = 0;         //Stick a NULL on the end.
+            return i-1;           //Return number of bytes received.
+                                         
+         }
+    //if(i == -2) cerr << "errorno= " << *err << endl;    //debug
+    return i;  //Return 0 if timeout or
+               // Return  -2 if socket error
+               
+               
+ 
+ 
+}
+  
+  
+//---------------------------------------------------------------------------------------------
+
+ConnectParams* getNextHub(ConnectParams* pcp)
+{ 
+   int i = 0;
+   if(!pcp->hub) return pcp;
+   while((i < nIGATES) && (pcp != &cpIGATE[i])){ //Find current hub 
+       i++;
+   }
+
+   //cerr << "Previous hub = " << cpIGATE[i].RemoteName << endl; //debug
+   i++;
+   while((i < nIGATES) && (!cpIGATE[i].hub)) i++; //Find next hub
+   if(i == nIGATES){
+      i = 0;          //Wrap around to start again
+      while((i < nIGATES) && (!cpIGATE[i].hub)) i++;
+   
+   }
+
+   //cerr << "Next hub = " << cpIGATE[i].RemoteName << endl;   //debug
+
+   if(cpIGATE[i].hub){
+      cpIGATE[i].pid = getpid();
+      cpIGATE[i].connected = FALSE;
+      cpIGATE[i].bytesIn = 0;
+      cpIGATE[i].bytesOut = 0;
+      cpIGATE[i].starttime = time(NULL);
+      cpIGATE[i].lastActive = time(NULL);
+      return &cpIGATE[i];   //Return pointer to next hub
+   }
+
+  return pcp ; 
+
+}
+
+
+
+//---------------------------------------------------------------------------------------------
+
+/* ***** TCPConnectThread *****
+
+   This thread connects to another aprsd, IGATE or APRServe machine
+   as defined in aprsd.conf with the "igate" and "hub commands.
+    
+   One instance of this thread is created for each and every  igate connection.
+   
+   Only a one hub thread is created regardless of the number of "hub"
+   connectons defined.  Each hub will be tried until an active one is found.
+*/
+
+ void *TCPConnectThread(void *p)
+{
+
+	int rc,length,state;
+   int clientSocket;
+   int data;
+   
+   SessionParams *sp = NULL;
+   
+   struct hostent *hostinfo = NULL;
+   struct hostent hostinfo_d;
+	struct sockaddr_in host;
+   char h_buf[1024];
+   int h_err;
+	char buf[BUFSIZE];
+   char logonBuf[255];
+   char remoteIgateInfo[256];
+   char szLog[MAX];
+	int retryTimer;
+   ConnectParams *pcp = (ConnectParams*)p;
+   int err;
+   BOOL gotID = FALSE;
+   time_t connectTime = 0;
+   BOOL hubConn = pcp->hub;  //Mark this as an IGATE or HUB connection 
+    
+   
+
+   pcp->pid = getpid();
+   pcp->connected = FALSE;
+   pcp->bytesIn = 0;
+   pcp->bytesOut = 0;
+   pcp->starttime = time(NULL);
+   pcp->lastActive = time(NULL);
+   
+
+  
+   retryTimer = 60;      //time between connection attempts in seconds
+  
+  
+   bzero(remoteIgateInfo,256);
+
+   do{   state = 0;
+      
+      pthread_mutex_lock(pmtxDNS);
+     
+      //Thread-Safe version of gethostbyname2() ?  Actually it's still buggy so needs mutex locks!
+      rc = gethostbyname2_r(pcp->RemoteName, AF_INET,
+                                 &hostinfo_d,
+                                 h_buf,
+                                 1024,
+                                 &hostinfo,
+                                 &h_err);
+
+      pthread_mutex_unlock(pmtxDNS);
+
+    
+      if(!hostinfo){
+         
+          char* cp = new char[256];       
+          ostrstream msg(cp,256);                
+          msg  << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends; 
+          WriteLog(cp,MAINLOG);
+          conQueue.write(cp,0); 
+                  
+               
+      }else state = 1;
+      
+      if(state == 1)
+         {  clientSocket = socket(AF_INET,SOCK_STREAM, 0);
+            host.sin_family = AF_INET;
+            host.sin_port = htons(pcp->RemoteSocket);
+            host.sin_addr = *(struct in_addr *)*hostinfo->h_addr_list;
+            length = sizeof(host);
+
+            
+                       
+            rc = connect(clientSocket,(struct sockaddr *)&host, length);
+            if(rc == -1){
+               close(clientSocket);
+               ostrstream os(szLog,MAX);
+               os << "Connection attempt failed " << pcp->RemoteName
+                  << " " << pcp->RemoteSocket << ends;
+               
+               WriteLog(szLog,MAINLOG);
+
+               {
+                  char* cp = new char[256];
+                  ostrstream msg(cp,256);
+                  msg  <<  szLog << endl << ends;
+                  conQueue.write(cp,0);
+               }
+               gotID = FALSE;
+               state = 0;
+
+            } else 
+               {  state++;
+                  pcp->connected = TRUE;
+                  pcp->starttime = time(NULL);
+                  pcp->bytesIn = 0;
+                  pcp->bytesOut = 0;
+                  
+                  ostrstream os(szLog,MAX);
+                  os << "Connected to " << pcp->RemoteName
+                     << " " << pcp->RemoteSocket << ends;
+                  
+                  WriteLog(szLog,MAINLOG);
+                  
+                  char* cp = new char[256];
+                  ostrstream msg(cp,256);
+                  msg  <<  szLog << endl << ends;
+                  conQueue.write(cp,0);           //cp deleted in queue reader
+                 
+               }
+         }
+
+      if (state == 2){
+
+         data = 1;  //Set socket for non-blocking
+	      ioctl(clientSocket,FIONBIO,(char*)&data,sizeof(int));
+
+         int optval = 1;         //Enable keepalive option
+         setsockopt(clientSocket,SOL_SOCKET,SO_KEEPALIVE,(char*)&optval,sizeof(int));
+
+          /* If user and password are supplied we will send our Internet user and TNC
+            data to the IGATE, otherwise we just read data from the IGATE.
+            NEW IN 2.1.2: If only the user name is supplied without a password
+            we send a password of "-1" and do not send any data.
+          */
+         if (pcp->user)
+            {  cout  << "IGATE Login: " 
+                     << pcp->RemoteName 
+                     << " " << pcp->user 
+                     << " " 
+                     << pcp->pass 
+                     << endl 
+                     << flush;
+
+               ostrstream logon(logonBuf,254);   //Build logon string
+               logon << "user "
+                     << pcp->user
+                     << " pass "
+                     << pcp->pass
+                     << " vers "
+                     << VERS
+                     << "\r\n"
+                     << ends;
+
+               
+               rc = send(clientSocket,logonBuf,strlen(logonBuf),0);//Send logon string to IGATE or Hub
+
+                
+                              
+               if(pcp->EchoMask){  //If any bits are set in EchoMask then this add to sessions list.
+                  if(sp == NULL){  //Grab an output session now. Note: This takes away 1 avalable user connection
+                     sp = AddSession(clientSocket,pcp->EchoMask);  //Add this to list of sockets to send on
+                  }else{ // else already had an output session
+                     initSessionParams(sp,clientSocket,pcp->EchoMask); //Restore output session for sending
+                  }
+
+                  if (sp == NULL){                              
+                     cerr << "Can't add IGATE to session list .";
+                     WriteLog("Failed to add IGATE to session list",MAINLOG);
+                  } 
+                  else{
+                     AddSessionInfo(clientSocket,"*","To IGATE",-1,"*");
+                     
+                  }
+
+               } 
+              
+               
+            }
+
+        
+         do{
+         //Reset the retry timer to 60 only if previous connection lasted more than 30 secs.
+         //If less than 30 secs the retrys will increase from 60 to 120 to 240 to 480 and finally 960 secs.
+         if(connectTime > 30) retryTimer = 60;     //Retry connection in 60 seconds if it breaks
+        
+         rc = recvline(clientSocket,buf,BUFSIZE,&err, 900);  //900 sec (15 min) timeout value
+
+         if(sp) {
+            if(sp->dead) rc = -1;  // Force disconnect if OUTgoing connection is dead
+            pcp->bytesOut = sp->bytesOut;
+         }
+
+
+         if (rc > 0)  // rc: = chars recvd,   0 = timeout,  -2 = socket error
+            {
+               if(!gotID){
+                  if(buf[0] == '#') {                 //First line starting with '#' should be the program name and version
+                     strncpy(remoteIgateInfo,buf,255); //This gets used in the html status web page function
+                     gotID = TRUE;
+                     pcp->remoteIgateInfo = remoteIgateInfo;
+                  }     
+                  //cerr << pcp->RemoteName << ":" << remoteIgateInfo ; //Debug                                              
+               }
+
+               pcp->bytesIn += rc;           //Count incoming bytes
+               pcp->lastActive = time(NULL); //record time of this input
+               
+               BOOL sentOnRF=FALSE;
+               aprsString atemp(buf,clientSocket,srcIGATE,pcp->RemoteName,"IGATE");
+
+               if(atemp.aprsType == APRSQUERY){ /* non-directed query ? */
+                       queryResp(SRC_IGATE,&atemp);   /* yes, send our response */
+                    }
+                    
+                    //cout << atemp << endl;
+                    //cout << atemp.stsmDest << "|" << szServerCall << "|" << atemp.aprsType << endl;
+                    
+                    if((atemp.aprsType == APRSMSG)
+                      && (atemp.msgType == APRSMSGQUERY)){    /* is this a directed query message? */
+
+                      if((stricmp(szServerCall, atemp.stsmDest.c_str()) == 0)
+                           || (stricmp("aprsd",atemp.stsmDest.c_str()) == 0)
+                           || (stricmp("igate",atemp.stsmDest.c_str()) == 0)){ /* Is query for us? */
+                          queryResp(SRC_IGATE,&atemp);   /*Yes, respond. */
+                       }
+                      
+                    }
+
+
+
+
+               //One of the stations in the gate2rf list?
+               BOOL RFalways = find_rfcall(atemp.ax25Source,rfcall);
+                  
+               pthread_mutex_lock(pmtxCount);
+               TotalIgateChars += rc;
+               pthread_mutex_unlock(pmtxCount);
+
+               /* Send it on RF if it's 3rd party msg AND TCPXX is not in the path.
+                  The sendOnRF() function determines if the "to station" is local
+                  and the "from station" is not.  It also reformats the packet in
+                  station to station 3rd party format before sending.
+               */
+               
+               if((atemp.aprsType == APRSMSG) 
+                     && (atemp.tcpxx == FALSE) 
+                     && configComplete 
+                     && (!RFalways))
+                   {
+                         
+                        sentOnRF = sendOnRF(atemp,pcp->RemoteName,"IGATE",srcIGATE);   // Try to send on RF
+                        
+                        if(sentOnRF)  //Now find the posit for this guy in the history list
+                                          // and send it too.
+                              { aprsString* posit = getPosit(atemp.ax25Source,srcIGATE | srcUSERVALID);
+                                if(posit != NULL)
+                                   { 
+                                     time_t Time = time(NULL);           //get current time
+                                     if((Time - posit->timeRF) >= 60*10) //posit every 10 minutes only
+                                         { 
+                                            timestamp(posit->ID,Time);  //Time stamp the original in hist. list
+
+                                            posit->stsmReformat(MyCall);  // Reformat it for RF delivery
+                                            tncQueue.write(posit);      //posit will be deleted elsewhere
+                                            
+                                         }else delete posit;
+
+                                   } /*else  cout << "Can't find matching posit for "
+                                               << atemp.ax25Source
+                                               << endl
+                                               << flush;     //Debug only
+                                               */
+                              }
+                    
+                    
+                   }
+
+               /* Send it on TCPIP if it's NOT a 3rd party msg 
+                    OR TCPXX is in path .
+               */
+               
+               if((configComplete) && (atemp.aprsType != COMMENT))  /* Send everything except COMMENT pkts back out to tcpip users */
+                  {  
+                     
+                     aprsString* inetpacket = new aprsString(buf,clientSocket,srcIGATE,pcp->RemoteName,"IGATE"); 
+                     inetpacket->changePath("TCPIP*","TCPIP");
+
+
+                     if(inetpacket->aprsType == APRSMIC_E)   //Reformat Mic-E packets
+                               {  reformatAndSendMicE(inetpacket,sendQueue);
+                                                       
+                               }else
+                                  sendQueue.write(inetpacket,0);  // send data to users.  
+                                                                  //Note: inetpacket is deleted in DeQueue
+                                 
+
+                  } 
+
+
+
+               if(configComplete && (atemp.aprsType == APRSMSG)) //find matching posit for 3rd party msg
+                  {  
+                     aprsString* posit = getPosit(atemp.ax25Source,srcIGATE | srcUSERVALID | srcTNC);
+                     if(posit != NULL)
+                         { 
+                           posit->EchoMask = src3RDPARTY;
+                           
+                           sendQueue.write(posit);  //send matching posit only to msg port
+                                 
+                         }
+
+                  }
+
+
+               //Here's where the priviledged get their posits sent to RF full time.
+               if(configComplete 
+                    && RFalways 
+                    && (StationLocal(atemp.ax25Source.c_str(),srcTNC) == FALSE)
+                    && (atemp.tcpxx == FALSE))
+                  {
+                     aprsString* RFpacket = new aprsString(buf,clientSocket,srcIGATE,pcp->RemoteName,"IGATE"); 
+                     RFpacket->changePath("TCPIP*","TCPIP");
+
+                     
+                     if(RFpacket->aprsType == APRSMIC_E)   //Reformat Mic-E packets
+                           { 
+                              if(ConvertMicE){
+                              
+                               aprsString* posit = NULL;                                                                              
+                               aprsString* telemetry = NULL;                                            
+                               RFpacket->mic_e_Reformat(&posit,&telemetry);                           
+                               if(posit){
+                                  posit->stsmReformat(MyCall);  // Reformat it for RF delivery
+                                  tncQueue.write(posit);       //Send reformatted packet on RF
+                               }
+                               if(telemetry) {
+                                  telemetry->stsmReformat(MyCall); // Reformat it for RF delivery
+                                  tncQueue.write(telemetry);      //Send packet on RF
+                               }
+                               
+                                  
+                               delete RFpacket; 
+                              }  
+                                 else{
+                               
+                                    RFpacket->stsmReformat(MyCall);
+                                    tncQueue.write(RFpacket);  // send raw MIC-E data to RF 
+
+                                 }
+
+                             
+                           }else{
+                                 RFpacket->stsmReformat(MyCall);
+                                 tncQueue.write(RFpacket);  // send data to RF  
+                                }                           //Note: RFpacket is deleted elsewhere
+                    }
+                      
+             }
+
+         
+        
+
+        }while (rc > 0);  //Loop while rc is greater than zero else disconnect
+
+         pthread_mutex_lock(pmtxSend);
+         if(sp) sp->EchoMask = 0;   //Turn off the session output data stream if it's enabled
+         shutdown(clientSocket,2);
+         close(clientSocket);
+         
+         pthread_mutex_unlock(pmtxSend);
+
+         pcp->connected = FALSE;       //set status to unconnected
+         connectTime = time(NULL) - pcp->starttime ;   //Save how long the connection stayed up
+         pcp->starttime = time(NULL);  //reset elapsed timer
+         gotID = FALSE;                //Force new aquisition of ID string next time we connect
+         
+         ostrstream os(szLog,MAX);
+                 os << "Disconnected " << pcp->RemoteName
+                    << " " << pcp->RemoteSocket 
+                    << ends;
+                 
+                 WriteLog(szLog,MAINLOG);
+
+                 {
+                  char* cp = new char[256];
+                  ostrstream msg(cp,256);
+                  msg  <<  szLog << endl << ends;
+                  conQueue.write(cp,0);
+                 }
+
+                 
+
+      }
+
+      //cerr << pcp->RemoteName << " retryTimer= " <<  retryTimer << endl;
+      
+      gotID = FALSE;
+      sleep(retryTimer);
+      retryTimer *= 2;               //Double retry time delay if next try is unsuccessful
+      if (retryTimer >= (16 * 60)) retryTimer = 16 * 60;     //Limit max to 16 minutes
+
+      if(hubConn) { 
+         pcp->remoteIgateInfo = NULL;
+         pcp = getNextHub(pcp);
+         retryTimer = 60;      //Try next hub in 60 sec
+         
+      }
+
+   }while(ShutDownServer == FALSE);
+   pthread_exit(0);
+
+}
+
+//----------------------------------------------------------------------
+
+BOOL sendOnRF(aprsString& atemp,  char* szPeer, char* userCall, const int src)
+{
+  BOOL sentOnRF = FALSE;
+
+  
+  
+  BOOL stsmRFalways =  find_rfcall(atemp.stsmDest,stsmDest_rfcall); //Always send on RF ?
+
+  if((atemp.tcpxx == FALSE) && (atemp.aprsType == APRSMSG))                                                         
+               
+    {  if(checkUserDeny(atemp.ax25Source) != '+') return FALSE; //Reject if no RF or login permitted
+       
+          //Destination station active on VHFand source not?                                                                                                                         
+       if (((StationLocal(atemp.stsmDest.c_str(),srcTNC) == TRUE) || stsmRFalways)                                                              
+           && (StationLocal(atemp.ax25Source.c_str(),srcTNC) == FALSE))                   
+         {                                                                                                                          
+                                                                                                                 
+             aprsString* rfpacket = new aprsString(atemp.getChar(),atemp.sourceSock,src,szPeer,userCall);                                                     
+             //ofstream debug("rfdump.txt");                                                                                                                       
+             //debug << rfpacket->getChar << endl ;  //Debug 
+             //debug.close();
+             rfpacket->stsmReformat(MyCall);  // Reformat it for RF delivery
+             tncQueue.write(rfpacket);        // queue read deletes rfpacket                                                       
+             sentOnRF = TRUE;  
+
+
+                                                                                                                                    
+          }                                                                                                                         
+                                                                                                                                    
+    } 
+
+  
+  return sentOnRF;  
+                                                                                                                        
+}                                                                                                                       
+
+//----------------------------------------------------------------------
+int SendFiletoClient(int session, char *szName)
+{	char Line[256];
+	APIRET rc;
+	int n,retrys;
+	
+   int throttle;
+
+
+	pthread_mutex_lock(pmtxSendFile);
+
+	ifstream file(szName);
+	if (!file)
+		{	cerr << "Can't open " << szName << endl << flush;
+			return -1  ;
+		}
+
+	do
+		{  file.getline(Line,256);	  //Read each line in file and send to client session
+			if (!file.good()) break;
+			if (strlen(Line) > 0)
+					{	strncat(Line,"\r\n",256);
+						n = strlen(Line);
+                  pthread_mutex_lock(pmtxSend);
+                  retrys = -0;
+                  do{
+						   rc = send(session,Line,n,0);
+                     throttle = n * 150;
+                     usleep(throttle);  // Limit max rate to about 50kbaud
+                     if(rc < 0) { usleep(100000); retrys++;  } //0.1 sec between retrys
+                  }while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
+                  
+						if (rc == -1)
+							{  
+								perror("SendFileToClient()");
+                        shutdown(session,2);
+								close(session);				//close the socket if error happened
+                     }
+						
+					   pthread_mutex_unlock(pmtxSend); 
+
+					}
+
+		}while (file.good() && (rc >= 0));
+
+
+   file.close();
+
+	pthread_mutex_unlock(pmtxSendFile);
+
+
+	return rc;
+
+}
+//----------------------------------------------------------------------
+
+
+char* getStats()
+{
+   time_t time_now;
+   
+   static time_t last_time = 0;
+   static ULONG last_chars = 0;
+   static ULONG last_tnc_chars=0;
+   
+
+   char *cbuf = new char[1024];
+
+   time(&time_now);
+   upTime = (double) (time_now - serverStartTime) / 3600;
+
+   pthread_mutex_lock(pmtxCount);
+   aprsStreamRate =  (TotalTncChars + TotalIgateChars 
+                         + TotalUserChars - last_chars) / (time_now - last_time);
+   pthread_mutex_unlock(pmtxCount);
+
+   tncStreamRate = (TotalTncChars - last_tnc_chars) / (time_now - last_time);
+
+   serverLoad =  bytesSent / (time_now - last_time);
+         
+   
+
+   ostrstream os(cbuf,1023);
+	os		<< setiosflags(ios::showpoint | ios::fixed)
+         << setprecision(1)
+         << "#\r\n"
+         << "Server Up Time    = " << upTime << " hours" << "\r\n"
+			<< "Total TNC packets = " << TotalLines << "\r\n"
+         << "TNC stream rate   = " << tncStreamRate << " bytes/sec" << "\r\n"
+         << "Msgs gated to RF  = " << msg_cnt << "\r\n"
+			<< "Connect count     = " << TotalConnects << "\r\n"
+         << "Users             = " << ConnectedClients << "\r\n"
+			<< "Peak Users        = " << MaxConnects << "\r\n"
+			<< "APRS Stream rate  = " << aprsStreamRate << " bytes/sec" << "\r\n"
+         << "Server load       = " << serverLoad << " bytes/sec" << "\r\n"
+         << "History Items     = " << ItemCount << "\r\n"
+         << "aprsString Objs   = " << aprsString::getObjCount() << "\r\n"
+         << "Items in InetQ    = " << sendQueue.getItemsQueued() << "\r\n"
+         << "InetQ overflows   = " << sendQueue.overrun << "\r\n"
+         << "TncQ overflows    = " << tncQueue.overrun << "\r\n"
+         << "conQ overflows    = " << conQueue.overrun << "\r\n"
+         << "charQ overflow    = " << charQueue.overrun << "\r\n"
+         << "Hist. dump aborts = " << dumpAborts << "\r\n"
+         << ends;
+
+   last_time = time_now;
+   last_chars = TotalTncChars + TotalIgateChars + TotalUserChars;
+   last_tnc_chars = TotalTncChars;
+
+   bytesSent = 0;  //Reset this 
+   
+  return cbuf;
+}
+//----------------------------------------------------------------------
+void resetCounters()
+{
+   dumpAborts = 0;
+   sendQueue.overrun = 0 ;
+   tncQueue.overrun = 0 ;
+   conQueue.overrun = 0 ;
+   charQueue.overrun = 0;
+   TotalLines = 0;
+   msg_cnt = 0;
+   TotalConnects = 0;
+   MaxConnects = ConnectedClients;
+}
+
+
+
+//----------------------------------------------------------------------
+
+void serverQuit(termios* initial_settings)      /* Invoked by console 'q' quit */
+{
+   cout << endl << "Beginning shutdown...\n";  
+   WriteLog("Server Shutdown",MAINLOG);
+   tcsetattr(fileno(stdin),TCSANOW,initial_settings); //restore terminal mode
+
+	char *pSaveHistory = new char[strlen(VARPATH) + strlen(SAVE_HISTORY)+1];
+	strcpy(pSaveHistory,VARPATH);
+	strcat(pSaveHistory,SAVE_HISTORY);
+	int n = SaveHistory(pSaveHistory);
+   
+	cout << "Saved " 
+        << n 
+        << " history items in " 
+        << pSaveHistory 
+        << endl << flush ;
+   
+   delete pSaveHistory;
+
+   char *ShutDown = new char[255];
+   strcpy(ShutDown,szServerCall);
+	strcat(ShutDown,szJAVAMSG);
+   strcat(ShutDown,MyLocation);
+   strcat(ShutDown," ");
+   strcat(ShutDown,szServerID);
+   strcat(ShutDown," shutting down.  Bye.\r\n");
+   aprsString* abuff = new aprsString(ShutDown,SRC_INTERNAL,srcTNC);
+   //cout << abuff->c_str() << endl;
+   sendQueue.write(abuff,0);
+   delete ShutDown;
+   sleep(1);
+  
+   if(tncPresent){
+   char *pRestore = new char[strlen(CONFPATH) + strlen(TNC_RESTORE) + 1];
+	strcpy(pRestore,CONFPATH);
+	strcat(pRestore,TNC_RESTORE);
+   
+   rfSendFiletoTNC(pRestore);
+   delete pRestore;
+	rfClose() ;
+   }
+
+   ShutDownServer = TRUE;
+   
+   
+   return ;
+
+	
+}
+
+//---------------------------------------------------------------------
+int serverConfig(char* cf)
+{
+  const int maxToken=32;
+  int nTokens ;
+  char Line[256];
+  string  cmd;
+  
+  int n,m=0;
+  
+  
+  rfcall_idx = 0;
+  posit_rfcall_idx = 0;
+  stsmDest_rfcall_idx = 0;
+  for(int i=0; i < MAXRFCALL; i++) 
+      {   rfcall[i] = NULL;         //clear the rfcall arrays
+          posit_rfcall[i] = NULL;
+          stsmDest_rfcall[i] = NULL;
+      }
+
+  cout << "Reading " << cf << endl << flush;
+  
+  ifstream file(cf);
+  if (!file)
+     {	cerr << "Can't open " << cf << endl << flush;
+        return -1  ;
+     }
+
+  do
+     {  file.getline(Line,256);	  //Read each line in file 
+        if (!file.good()) break;
+        n = 0;
+        if (strlen(Line) > 0)
+             { if(Line[0] != '#')  //Ignore comments
+               {  string sLine(Line);
+                  string token[maxToken];
+                  nTokens = split(sLine, token, maxToken, RXwhite);  //Parse into tokens
+
+                  for(int i = 0 ;i<nTokens;i++) cout << token[i] << " " ;
+                  cout << endl << flush;
+                  upcase(token[0]);
+                  cmd = token[0];
+
+                  
+                  if((cmd.compare("TNCPORT") == 0) && (nTokens >= 2))
+                     {  szComPort = strdup(token[1].c_str());
+                        n = 1;
+                     }
+
+                  if((cmd.compare("UDPPORT") == 0) && (nTokens >= 2))
+                     {  upUdpServer.ServerPort = atoi(token[1].c_str());
+                        n = 1;
+                     }
+
+                  if((cmd.compare("TRUST") == 0) && (nTokens >= 2) && (nTrusted < maxTRUSTED))
+                     {  int rc = inet_aton(token[1].c_str(),&Trusted[nTrusted].sin_addr);
+                        if(nTokens >= 3) 
+                           inet_aton(token[2].c_str(),&Trusted[nTrusted].sin_mask);
+                                    else Trusted[nTrusted].sin_mask.s_addr = 0xffffffff;
+                        if (rc ) nTrusted++; else Trusted[nTrusted].sin_addr.s_addr = 0;
+                        n = 1;
+                     }
+                        
+
+                  if((cmd.compare("IGATE") == 0)
+                      || (cmd.compare("HUB") == 0))
+                  {  
+                    
+                     cpIGATE[m].hub = (cmd.compare("HUB") == 0) ? TRUE : FALSE ;
+
+                     cpIGATE[m].EchoMask = 0;   //default is to not send any data to other igates
+                     cpIGATE[m].user = MyCall;  //default user is MyCall                        
+                     cpIGATE[m].pass = "-1";    //default pass is -1
+                     cpIGATE[m].RemoteSocket = 1313; //Default remote port is 1313
+                     cpIGATE[m].starttime = -1;
+                     cpIGATE[m].lastActive = -1;
+                     cpIGATE[m].pid = 0;
+                     cpIGATE[m].remoteIgateInfo = NULL;
+
+                     if (nTokens >= 2) cpIGATE[m].RemoteName = strdup(token[1].c_str());  //remote domain name
+                     if (nTokens >= 3) cpIGATE[m].RemoteSocket = atoi(token[2].c_str());  //remote port number
+                     if (nTokens >= 4) cpIGATE[m].user = strdup(token[3].c_str());       //User name (call)
+                     if (nTokens >= 5){ 
+                        cpIGATE[m].pass = strdup(token[4].c_str()); //Passcode
+                        cpIGATE[m].EchoMask =  srcUSERVALID         //If passcode present then we send out data      
+                                             + srcUSER              //Same data as igate port 1313      
+                                             + srcTNC                     
+                                             + srcUDP                     
+                                             + srcSYSTEM;                 
+                     }
+                     if(m < maxIGATES) m++;
+                     nIGATES = m;
+                     n = 1;
+                                    
+                  }
+
+                  if(cmd.compare("LOCALPORT") == 0)    //provides local TNC data only
+                         {  
+                           spLocalServer.ServerPort = atoi(token[1].c_str());  //set server port number
+                           spLocalServer.EchoMask =   srcUDP
+                                                      + srcTNC   /*Set data sources to echo*/
+                                                      + srcSYSTEM  
+                                                      + sendHISTORY;    
+                     
+                           
+                            n = 1;
+                         }
+
+                  if(cmd.compare("RAWTNCPORT") == 0)    //provides local TNC data only
+                        {  
+                          spRawTNCServer.ServerPort = atoi(token[1].c_str());  //set server port number
+                          spRawTNCServer.EchoMask =   srcTNC   /*Set data sources to echo*/
+                                                      + sendDUPS  //No dup filtering
+                                                      + wantRAW;  //RAW data
+                                                         
+                    
+                          
+                           n = 1;
+                        }
+
+                  if(cmd.compare("HTTPPORT") == 0){       //provides server status in HTML format 
+                          spHTTPServer.ServerPort = atoi(token[1].c_str());  //set server port number
+                          spHTTPServer.EchoMask = wantHTML;    
+                    
+                          
+                           n = 1;
+                        }
+
+
+                  if(cmd.compare("MAINPORT") == 0)       //provides all data
+                         {  
+                           spMainServer.ServerPort = atoi(token[1].c_str());  //set server port number
+                           spMainServer.EchoMask = srcUSERVALID
+                                                      + srcUSER
+                                                      + srcIGATE
+                                                      + srcUDP 
+                                                      + srcTNC 
+                                                      + srcSYSTEM 
+                                                      + sendHISTORY;    
+                     
+                           
+                            n = 1;
+                         }
+
+
+                  if(cmd.compare("MAINPORT-NH") == 0)       //provides all data but no history dump
+                         {  
+                           spMainServer_NH.ServerPort = atoi(token[1].c_str());  //set server port number
+                           spMainServer_NH.EchoMask = srcUSERVALID
+                                                      + srcUSER
+                                                      + srcIGATE
+                                                      + srcUDP 
+                                                      + srcTNC 
+                                                      + srcSYSTEM; 
+                                                      
+                           
+                            n = 1;
+                         }
+
+
+                  if(cmd.compare("LINKPORT") == 0)       //provides local TNC data + logged on users
+                        {
+                           spLinkServer.ServerPort = atoi(token[1].c_str()); 
+                           spLinkServer.EchoMask = srcUSERVALID
+                                                   + srcUSER
+                                                   + srcTNC 
+                                                   + srcUDP 
+                                                   + srcSYSTEM; 
+                           n = 1;
+
+                        }
+
+                  if(cmd.compare("MSGPORT") == 0)
+                        {  spMsgServer.ServerPort  = atoi(token[1].c_str()); 
+                           spMsgServer.EchoMask = src3RDPARTY + srcSYSTEM; 
+                           n = 1;
+
+                        }
+
+                  if(cmd.compare("IPWATCHPORT") == 0){
+                     spIPWatchServer.ServerPort = atoi(token[1].c_str());
+                     spIPWatchServer.EchoMask = srcUSERVALID
+                                             +  srcUSER
+                                             +  srcIGATE
+                                             +  srcTNC
+                                             +  wantSRCHEADER;
+                     n = 1;
+                  }
+
+
+                  if (cmd.compare("MYCALL") == 0)  //This will be over-written by the MYCALL in INIT.TNC...
+                        {                          //...if a TNC is being used.
+                           MyCall = strdup(token[1].c_str());
+                           if(strlen(MyCall) > 9) MyCall[9] = '\0';  //Truncate to 9 chars.
+                           n = 1;
+                        }
+
+                  if (cmd.compare("MYEMAIL") == 0)
+                        {
+                           MyEmail = strdup(token[1].c_str());
+                           n = 1;
+                        }
+                  
+                  if (cmd.compare("SERVERCALL") == 0)
+                        {
+                           
+                           szServerCall = strdup(token[1].c_str());
+                           if(strlen(szServerCall) > 9) szServerCall[9] = '\0';  //Truncate to 9 chars.
+                           n = 1;
+                        }
+
+                  if (cmd.compare("APRSPATH") == 0)
+                        {
+                           szAprsPath = (char*)malloc(BUFSIZE);
+                           szAprsPath[0] = '\0';
+
+                           for (n = 1; n < nTokens; n++) {
+                               strcat(szAprsPath, token[n].c_str());
+                               strcat(szAprsPath, " ");
+                           }
+
+                           n = 1;
+                        }
+
+
+                  if(cmd.compare("MYLOCATION") == 0)
+                        {  MyLocation = strdup(token[1].c_str());
+                           n = 1;
+                        }
+
+
+                  if (cmd.compare("MAXUSERS") == 0)   //Set max users of server.
+                     {  int mc = atoi(token[1].c_str());
+                        if (mc > 0) MaxClients = mc;
+                        n = 1;
+                     }
+
+                  if (cmd.compare("EXPIRE") == 0)     //Set time to live for history items (minutes)
+                     {  int ttl = atoi(token[1].c_str());
+                        if (ttl > 0) ttlDefault = ttl;
+                        n = 1;
+                     }
+
+                  if (cmd.compare("RF-ALLOW") == 0) //Allow internet to RF message passing.
+                     {  upcase(token[1]);
+                        if(token[1].compare("YES") == 0 ) RF_ALLOW = TRUE; else RF_ALLOW = FALSE;
+                        n = 1;
+                     }
+
+                  if (cmd.compare("IGATEMYCALL") == 0) //Allow igating packets from "MyCall"
+                    {  upcase(token[1]);
+                       if(token[1].compare("YES") == 0 ) igateMyCall = TRUE; else igateMyCall = FALSE;
+                       n = 1;
+                    }
+
+                  if (cmd.compare("LOGALLRF") == 0) //If "YES" then all packets heard are logged to rf.log"
+                    {  upcase(token[1]);
+                       if(token[1].compare("YES") == 0 ) logAllRF = TRUE; else logAllRF = FALSE;
+                       n = 1;
+                    }
+
+                  if (cmd.compare("CONVERTMICE") == 0) //If "YES" then all MIC-E packets converted to classic APRS"
+                    {  upcase(token[1]);
+                       if(token[1].compare("YES") == 0 ) ConvertMicE = TRUE; else ConvertMicE = FALSE;
+                       n = 1;
+                    }
+
+                   
+
+                  if (cmd.compare("GATE2RF") == 0)   //Call signs of users always gated to RF
+                     {   for(int i=1; i < nTokens;i++)
+                           {  
+                              string* s = new string(token[i]);
+                              if(rfcall_idx < MAXRFCALL) rfcall[rfcall_idx++] = s; //add it to the list
+                           }
+                         n = 1;
+                     }
+
+                  if (cmd.compare("POSIT2RF") == 0)   //Call sign posits gated to RF every 16 minutes
+                     {   for(int i=1; i < nTokens;i++)
+                           {  
+                              string* s = new string(token[i]);
+                              if(posit_rfcall_idx < MAXRFCALL) posit_rfcall[posit_rfcall_idx++] = s; //add it to the list
+                           }
+                         n = 1;
+                     }
+
+                  if (cmd.compare("MSGDEST2RF") == 0)   //Destination call signs
+                                                         // of station to station messages
+                     {   for(int i=1; i < nTokens;i++)   //always gated to RF
+                           {  
+                              string* s = new string(token[i]);
+                              if(stsmDest_rfcall_idx < MAXRFCALL) 
+                                   stsmDest_rfcall[stsmDest_rfcall_idx++] = s; //add it to the list
+                           }
+                         n = 1;
+                     }
+
+
+                  if (cmd.compare("ACKREPEATS") == 0)   //How many extra ACKs to send to tnc
+                   {    int mc = atoi(token[1].c_str());
+                        if (mc < 0) { mc = 0; cout << "ACKREPEATS set to ZERO\n";}
+                        if (mc > 9) { mc = 9; cout << "ACKREPEATS set to 9\n";}
+                        ackRepeats = mc;
+                        n = 1;
+                   }
+
+                  if (cmd.compare("ACKREPEATTIME") == 0)   //Time in secs between extra ACKs
+                  {     int mc = atoi(token[1].c_str());
+                        if (mc < 1) { mc = 1; cout << "ACKREPEATTIME set to 1 sec.\n";}
+                        if (mc > 30) { mc = 30; cout << "ACKREPEATTIME set to 30 sec.\n";}
+                        ackRepeatTime = mc;
+                        n = 1;
+                  }
+
+                  if (cmd.compare("NETBEACON") == 0)   //Internet Beacon text
+                  {     
+                     if(nTokens > 1){
+                        NetBeaconInterval = atoi(token[1].c_str());//Set Beacon Interval in minutes
+                        if(nTokens > 2){
+                           string s = token[2]; 
+                           for(int i = 3 ;i<nTokens;i++) s = s + " " + token[i] ;
+                           NetBeacon = strdup(s.c_str());
+                        }
+                     }
+                     n = 1;
+                  }
+
+                  if (cmd.compare("TNCBEACON") == 0)   //TNC Beacon text
+                 {     
+                    if(nTokens > 1){
+                       TncBeaconInterval = atoi(token[1].c_str()); //Set Beacon Interval in minutes  
+                       if(nTokens > 2){
+                          string s = token[2]; 
+                          for(int i = 3 ;i<nTokens;i++) s = s + " " + token[i] ;
+                          
+                          TncBeacon = strdup(s.c_str());
+                       }
+                    }
+                    n = 1;
+                 }
+
+                  if (cmd.compare("TNCPKTSPACING") == 0)   //Set tnc packet spacing in ms
+                 {     
+                    if(nTokens > 1){
+                       tncPktSpacing = 1000 * atoi(token[1].c_str());// ms to microsecond conversion
+                       
+                    }
+                    
+                    n = 1;
+                 }
+
+                  if (cmd.compare("APRSPASS") == 0)   //Allow aprs style user passcodes for validation?
+                 {  
+                     upcase(token[1]);
+                        if(token[1].compare("YES") == 0 ) APRS_PASS_ALLOW = TRUE; 
+                           else APRS_PASS_ALLOW = FALSE;
+                        n = 1;
+                                           
+                 }
+
+
+
+
+
+                  if (n == 0) cout << "Unknown command: " << Line << endl << flush;   
+               }
+             }
+        }while(file.good());
+
+  file.close();
+
+  return 0;
+  }
+
+
+//---------------------------------------------------------------------
+
+/* FOR DEBUGGING ONLY */
+/*
+void segvHandler(int signum)  //For debugging seg. faults
+{
+   pid_t pid,ppid;
+   char* err;
+
+
+   pid = getpid();
+
+   if(pid == pidlist.main) err = "aprsd main";
+   if(pid == spMainServer.pid) err = "spMainServer";
+   if(pid == spMainServer_NH.pid) err = "spMainServer_NH";
+   if(pid == spLocalServer.pid) err = "spLocalServer";
+   if(pid == spLinkServer.pid) err = "spLinkServer" ;
+   if(pid == spMsgServer.pid) err = "spMsgServer";
+   if(pid == upUdpServer.pid) err = "upUdpServer";
+   if(pid == pidlist.SerialInp) err = "Serial input thread";
+   if(pid == pidlist.TncQueue) err = "TNC Dequeue";
+   if(pid == pidlist.InetQueue) err = "Internet Dequeue";
+   
+   char buf[256];
+   ostrstream sout(buf,256);
+   sout  << "A segment violation has occured in process id " 
+         << pid 
+         << " Thread: "
+         << err
+         << endl ;
+
+   char buf2[256];
+   ostrstream sout2(buf2,256);
+
+   sout2 << "Died in "                                     
+         << DBstring                             
+         << " Last packet:  " << lastPacket->c_str()                                               
+         << " Packet length = " << lastPacket->length()   
+         << endl
+         << ends;
+
+
+   cout << buf << buf2;
+   WriteLog(buf,"segfault.log");
+   WriteLog(buf2,"segfault.log");
+    
+   exit(-1);
+}
+*/
+//----------------------------------------------------------------------
+/* Thread to process http request for server status data */
+ void *HTTPServerThread(void *p)
+{
+   char buf[BUFSIZE];
+   SessionParams *psp = (SessionParams*)p;
+  	int sock = psp->Socket;
+   delete psp;
+	int  i;
+	char  szError[MAX];
+	int n, rc,data;
+   int err,nTokens;
+   char *htmlbuf = NULL;
+   time_t localtime;
+   char szTime[64];
+   struct tm *gmt = NULL;
+
+	if (sock < 0) pthread_exit(0);
+
+   pthread_mutex_lock(pmtxCount);
+   webCounter++ ;
+   pthread_mutex_unlock(pmtxCount);
+
+   gmt = new tm;
+   time(&localtime);
+   gmt = gmtime_r(&localtime,gmt);
+   strftime(szTime,64,"%a, %d %b %Y %H:%M:%S GMT",gmt); //Date in RFC 1123 format
+   delete gmt;
+
+	data = 1;  //Set socket for non-blocking
+	ioctl(sock,FIONBIO,(char*)&data,sizeof(int));
+
+   rc = recvline(sock,buf,BUFSIZE,&err, 10);  //10 sec timeout value
+   if(rc<=0){
+      close(sock);
+      pthread_exit(0);
+   }
+
+   string sLine(buf);
+   string token[4];
+   nTokens = split(sLine, token, 4, RXwhite);  //Parse http request into tokens
+
+   //for(int i = 0 ;i< 4 ;i++) cout << token[i] << " " ;  //debug
+  // cout << endl << flush;
+
+   
+   char buf2[127];
+   do{
+      n = recvline(sock,buf2,126,&err, 1);    //Discard everything else
+   }while (n > 0);
+   
+   if(n == -2){
+      close(sock);
+      pthread_exit(0);
+   }
+
+   if((token[0].compare("GET") != 0) || (token[1].compare("/") != 0)) {
+      strcpy(szError,"HTTP/1.0 404 Not Found\nContent-Type: text/html\n\n<HTML><BODY>File not found</BODY></HTML>\n");
+      send(sock,szError,strlen(szError),0);
+      close(sock);
+      pthread_exit(0);
+   }
+
+   #define HTMLSIZE 5000
+   htmlbuf = new char[HTMLSIZE];   
+   ostrstream stats(htmlbuf,HTMLSIZE-1);
+  
+   
+   stats << setiosflags(ios::showpoint | ios::fixed)
+        << setprecision(1)
+        << "HTTP/1.0 200 OK\n"
+        << "Date: " << szTime << "\n"
+        << "Server: aprsd\n"
+        << "MIME-version: 1.0\n"
+        << "Content-type: text/html\n"
+        << "Expires: " << szTime << "\n"
+          //<< "Refresh: 300\n"           /* uncomment to activate 5 minute refresh time */
+        << "\n<HTML>"
+        << "<HEAD><TITLE>" << szServerCall << " Server Status Report</TITLE></HEAD>"
+        << "<BODY ALINK=#0000FF VLINK=#800080 ALINK=#FF0000 BGCOLOR=\"#606060\"><CENTER>"
+        << "<TABLE BORDER=2 BGCOLOR=\"#D0D0D0\">"
+        << "<TR BGCOLOR=\"#FFD700\">"
+        << "<TH COLSPAN=2>" << szServerCall << " " << MyLocation << "</TH>"
+        << "</TR>"
+        << "<TR ALIGN=center><TD COLSPAN=2>" << szTime << "</TD></TR>\n"
+        << "<TR><TD>Server up time</TD><TD>" << upTime << " hours</TD></TR>\n"
+        << "<TR><TD>Users</TD><TD>" << ConnectedClients << "</TD></TR>\n"
+        << "<TR><TD>Peak Users</TD><TD>" << MaxConnects << "</TD></TR>\n"
+        << "<TR><TD>Max User Limit</TD><TD>" << MaxClients << "</TD></TR>\n"
+        << "<TR><TD>Connect count</TD><TD>" << TotalConnects << "</TD></TR>\n"
+        << "<TR><TD>TNC Packets</TD><TD>" << TotalLines << "</TD></TR>\n"
+        << "<TR><TD>TNC Stream Rate</TD><TD>" << tncStreamRate << " bytes/sec</TD></TR>\n"
+        << "<TR><TD>Msgs gated to RF</TD><TD>" << msg_cnt << "</TD></TR>\n"
+        << "<TR><TD>APRS stream rate</TD><TD>" << aprsStreamRate << " bytes/sec</TD></TR>\n"
+        << "<TR><TD>Server Load</TD><TD>" << serverLoad << " bytes/sec</TD></TR>\n"
+        << "<TR><TD>History Time Limit</TD><TD>" << ttlDefault << " min.</TD></TR>\n"
+        << "<TR><TD>History items</TD><TD>" << ItemCount  << "</TD></TR>\n"
+        << "<TR><TD>aprsString Objects</TD><TD>" << aprsString::getObjCount() << "</TD></TR>\n"
+        << "<TR><TD>Items in InetQ</TD><TD>" << sendQueue.getItemsQueued() << "</TD></TR>\n"
+        << "<TR><TD>InetQ overflows</TD><TD>" << sendQueue.overrun << "</TD></TR>\n"
+        << "<TR><TD>TncQ overflows</TD><TD>" << tncQueue.overrun << "</TD></TR>\n"
+        << "<TR><TD>ConQ overflows</TD><TD>" << conQueue.overrun << "</TD></TR>\n"
+        << "<TR><TD>charQ overflows</TD><TD>" << charQueue.overrun << "</TD></TR>\n"
+        << "<TR><TD>History dump aborts</TD><TD>" << dumpAborts << "</TD></TR>\n"
+        << "<TR><TD>HTTP Access Counter</TD><TD>" << webCounter << "</TD></TR>\n"
+        << "<TR><TD>?IGATE? Querys</TD><TD>" << queryCounter << "</TD></TR>\n"
+        << "<TR><TD>Server Version</TD><TD>" << VERS << "</TD></TR>\n"
+        << "<TR><TD>Sysop email</TD><TD><A HREF=\"mailto:" << MyEmail << "\">" << MyEmail << "</A></TD></TR>\n"
+        << "</TABLE><P>" 
+        << ends;
+        
+   rc = send(sock,htmlbuf,strlen(htmlbuf),0);  //Send this part of the page now
+
+  
+   //Now send the Igate connection report.
+   
+   char *igateheader = 
+               "</TABLE><P><TABLE BORDER=2 BGCOLOR=\"#C0C0C0\"><TR BGCOLOR=\"#FFD700\">"
+               "<TH COLSPAN=10>Igate Connections</TH></TR>"
+               "<TR><TH>Domain Name</TH><TH>Port</TH><TH>Type</TH><TH>Status</TH><TH>Igate Pgm</TH>"
+               "<TH>Last active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes<BR> Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>" ;
+
+  
+   
+   rc = send(sock,igateheader,strlen(igateheader),0);
+
+      
+   for(i=0; i< nIGATES;i++){
+        
+      if(cpIGATE[i].RemoteSocket != -1){
+         
+         char timeStr[32];
+         strElapsedTime(cpIGATE[i].starttime,timeStr);   //Compute elapsed time of connection
+         char lastActiveTime[32];
+         strElapsedTime(cpIGATE[i].lastActive,lastActiveTime);   //Compute time since last input char
+        
+         ostrstream igateinfo(htmlbuf,HTMLSIZE-1);
+         char *status, *bgcolor, *conType;
+
+         if(cpIGATE[i].hub){
+            if(cpIGATE[i].connected){
+              status = "UP"; 
+              bgcolor = "\"#C0C0C0\"";
+            }
+            else{
+              status = "N/C" ;
+              bgcolor = "\"#909090\"";
+           }
+            conType = "HUB";
+         
+         }else{
+            if(cpIGATE[i].connected){
+               status = "UP"; 
+               bgcolor = "\"#C0C0C0\"";
+            }
+             else{
+               status = "DOWN" ;
+               bgcolor = "\"#F07070\"";
+            }
+            conType = "IGATE";
+         }
+
+         string infoTokens[3];
+         infoTokens[1] = "*";
+         infoTokens[2] = "";
+         int ntok = 0;
+
+         if(cpIGATE[i].remoteIgateInfo){
+            string rii(cpIGATE[i].remoteIgateInfo);
+            if(rii[0] == '#'){
+               ntok = split(rii, infoTokens, 3, RXwhite);  //Parse into tokens if first char was "#".
+            }                 //Token 1 is remote igate program name and token 2 is the version number.
+         }
+         
+         
+         igateinfo   << "<TR ALIGN=center BGCOLOR=" << bgcolor << "><TD>" 
+                     <<  "<A HREF=\"http://" 
+                     << cpIGATE[i].RemoteName 
+                     << ":14501/\">" << cpIGATE[i].RemoteName
+                     <<  "</A></TD>"
+                     << "<TD>" << cpIGATE[i].RemoteSocket << "</TD>"
+                     << "<TD>" << conType << "</TD>"
+                     << "<TD>" << status << "</TD>"
+                     << "<TD>" << infoTokens[1] << " " << infoTokens[2] << "</TD>"
+                     << "<TD>" << lastActiveTime << "</TD>"
+                     << "<TD>"  << cpIGATE[i].bytesIn / 1000 << " K</TD>"
+                     << "<TD>" << cpIGATE[i].bytesOut / 1000 << " K</TD>"
+                     << "<TD>" << timeStr << "</TD>"
+                     << "<TD>" << cpIGATE[i].pid << "</TD>"
+                     << "</TR>\n"
+                     << ends;
+                     
+        rc = send(sock,htmlbuf,strlen(htmlbuf),0);
+      }
+
+   }  
+
+  char *userheader = "</TABLE><P><TABLE  BORDER=2 BGCOLOR=\"#C0C0C0\">"   /* Start of user list table */
+                     "<TR BGCOLOR=\"#FFD700\"><TH COLSPAN=10>Users</TH></TR>\n"
+                     "<TR><TH>IP Address</TH><TH>Port</TH><TH>Call</TH><TH>Vrfy</TH>"
+                     "<TH>Program Vers</TH><TH>Last Active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes <BR>Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>\n" ;
+ 
+  rc = send(sock,userheader,strlen(userheader),0);
+
+    //pthread_mutex_lock(pmtxAddDelSess); //Comment out to allow viewing this even if the mutex is locked
+   
+   
+   
+   for(i=0;i<MaxClients;i++){         //Create a table with user information
+
+         if((sessions[i].Socket != -1) && (sessions[i].ServerPort != -1)){
+            char timeStr[32];
+            strElapsedTime(sessions[i].starttime,timeStr);   //Compute elapsed time
+            char lastActiveTime[32];
+            strElapsedTime(sessions[i].lastActive,lastActiveTime);   //Compute elapsed time from last input char
+            char* szVrfy;
+            if(sessions[i].vrfy) szVrfy = "YES"; else szVrfy = "NO";
+           
+            ostrstream userinfo(htmlbuf,HTMLSIZE-1);
+
+            userinfo << "<TR ALIGN=center><TD>" 
+                     << "<A HREF=\"http://"
+                     << sessions[i].szPeer 
+                     << ":14501/\">" << sessions[i].szPeer
+                     << "</A></TD>"
+                     << "<TD>" << sessions[i].ServerPort << "</TD>"
+                     << "<TD>" << sessions[i].userCall << "</TD>"
+                     << "<TD>"  << szVrfy << "</TD>"
+                     << "<TD>" << sessions[i].pgmVers << "</TD>"
+                     << "<TD>" << lastActiveTime << "</TD>"
+                     << "<TD>" << sessions[i].bytesIn / 1000 << " K</TD>"
+                     << "<TD>" << sessions[i].bytesOut / 1000 << " K</TD>"
+                     << "<TD>" << timeStr << "</TD>"
+                     << "<TD>" << sessions[i].pid << "</TD>"
+                     << "</TR>" << endl 
+                     << ends ;
+           rc = send(sock,htmlbuf,strlen(htmlbuf),0);
+         }
+   }
+   //pthread_mutex_unlock(pmtxAddDelSess);  //
+
+
+
+   char endpage[] = "</TABLE></CENTER></BODY></HTML>";
+   rc = send(sock,endpage,strlen(endpage),0);
+   
+   
+   close(sock);
+
+   if(htmlbuf != NULL) delete htmlbuf;
+   
+   pthread_exit(0);
+}
+
+//----------------------------------------------------------------------
+// Send the posits of selected users (in posit_rfcall array) to
+// RF every 14.9 minutes.  Call this every second.
+// Stations are defined in the aprsd.conf file with the posit2rf command.
+// Posits are read from the history list. 
+void schedule_posit2RF(time_t t)
+{
+ 
+   static int ptr=0;
+   static time_t last_t = 0;
+   aprsString* abuff;
+
+   if(difftime(t,last_t) < 14) return;  //return if not time yet (14 seconds)
+   last_t = t;
+  
+   if(posit_rfcall[ptr] != NULL)
+      {  
+         abuff = getPosit(*posit_rfcall[ptr] , srcIGATE | srcUSERVALID | srcUSER);
+         if(abuff){
+            abuff->stsmReformat(MyCall);  //Convert to 3rd party format
+            tncQueue.write(abuff);        //Send to TNC
+         }
+      }
+
+   ptr++;                         //point to next call sign 
+   if(ptr >= (MAXRFCALL-1)) ptr = 0;  //wrap around if past end of array
+
+
+
+}
+
+//----------------------------------------------------------------------
+
+int daemonInit(void)
+{
+   pid_t pid;
+   if((pid = fork()) < 0)         
+      return -1 ;
+   else if(pid != 0) exit(0);  /*Parent goes away*/
+
+   /* child continues */
+
+  
+   int nulfd = open("/dev/null", O_RDWR);
+   dup2(nulfd,1);     //Redirect all console I/O to /dev/null
+   dup2(nulfd,2);
+   dup2(nulfd,0);
+   
+   setsid();         //Become session leader
+   chdir(HOMEDIR);   //change to the aprsd2 directory
+   umask(0);         //Clear our file mode selection mask
+      
+   return 0;
+
+
+}
+
+
+
+//----------------------------------------------------------------------
+int main(int argc, char *argv[])
+{
+	
+	int i,rc;
+   char *pSaveHistory, *szConfFile;
+	time_t lastSec,tNow,tLast,tLastDel, tPstats;
+   time_t LastNetBeacon , LastTncBeacon;
+   time_t Time = time(NULL);
+   serverStartTime = Time;
+
+   TotalConnects = TotalTncChars = TotalLines = MaxConnects = TotalIgateChars = 0;
+   TotalUserChars = 0;
+   bytesSent = 0;
+   TotalTNCtxChars = 0;  
+   msg_cnt = 0;
+   posit_cnt = 0;
+   MyCall = "N0CALL";
+   MyLocation = "NoWhere";
+   MyEmail = "nobody@NoWhere.net";
+   TncBeacon = NULL;
+   NetBeacon = NULL;
+   TncBeaconInterval = 0;
+   NetBeaconInterval = 0;
+   tncPktSpacing = 1500000;  //1.5 second default
+   LastNetBeacon = 0;
+   LastTncBeacon = 0;
+   igateMyCall = TRUE;        //To be compatible with previous versions set it TRUE
+   tncPresent = FALSE;
+   logAllRF = FALSE;
+   ConvertMicE = FALSE;
+   tncMute = FALSE;
+   MaxClients = MAXCLIENTS;  //Set default. aprsd.conf file will override this
+   
+   ackRepeats = 2;            //Default extra acks to TNC
+   ackRepeatTime = 5;         //Default time between extra acks to TNC in seconds.
+   msgsn = 0;                 //Clear message serial number
+   APRS_PASS_ALLOW = TRUE;    //Default allow aprs style user passcodes
+   webCounter = 0;
+   queryCounter = 0;
+   
+   spLinkServer.ServerPort = 0;      //Ports are set in aprsd.conf file        
+   spMainServer.ServerPort = 0;
+   spMainServer_NH.ServerPort = 0;
+   spLocalServer.ServerPort = 0;
+   spRawTNCServer.ServerPort = 0;
+   spMsgServer.ServerPort = 0;
+   upUdpServer.ServerPort = 0;
+
+   spHTTPServer.ServerPort = 14501;    //HTTP monitor port default
+   spHTTPServer.EchoMask = wantHTML;
+
+   spIPWatchServer.ServerPort = 14502;    //IP Watch port default
+   spIPWatchServer.EchoMask = srcUSERVALID
+                              +  srcUSER                       
+                              +  srcIGATE                      
+                              +  srcTNC                        
+                              +  wantSRCHEADER;                
+   
+
+   
+   if(argc > 1) if(strcmp("-d",argv[1]) == 0) daemonInit();  //option -d means run as daemon
+
+   signal(SIGPIPE,SIG_IGN);
+   signal(SIGXCPU,SIG_IGN);
+   signal(SIGTSTP,SIG_IGN);
+   signal(SIGSTOP,SIG_IGN);
+
+   
+
+   pidlist.main = getpid();
+   
+   /*
+   memset(&sa,0,sizeof(sa));
+   sa.sa_handler = segvHandler;
+   if(sigaction(SIGSEGV,&sa,NULL)) perror("sigaction");
+    */
+	
+   configComplete = FALSE;
+	szComPort = NULL;				       //null string for TNC com port
+       szAprsPath = NULL;
+
+   szServerCall = "aprsd";    //default server FROM CALL used in system generated pkts.
+
+   szAPRSDPATH = new char[64];
+   bzero(szAPRSDPATH,64);
+   strcpy(szAPRSDPATH,">");
+   strncat(szAPRSDPATH,PGVERS,64);
+   strncat(szAPRSDPATH,",TCPIP*:",64);  // ">APD213,TCPIP*:" 
+
+   
+
+   ShutDownServer = FALSE;
+
+   szConfFile = new char[strlen(CONFPATH) + strlen(CONFFILE) + 1];
+   strcpy(szConfFile,CONFPATH);
+   strcat(szConfFile,CONFFILE);     //default server configuration file
+
+   CreateHistoryList();            //Make the history linked list structure
+   
+	cout << SIGNON << endl << flush;
+
+  
+   /*   //DEBUG & TEST CODE
+   //aprsString mic_e("K4HG-9>RU4U9T,WIDE,WIDE,WIDE:`l'q#R>/\r\n");
+   aprsString mic_e("K4HG-9>RU4W5S,WIDE,WIDE,WIDE:`l(XnUU>/Steve's RX-7/Mic-E\r\n");
+   aprsString* posit = NULL;
+   aprsString* telemetry = NULL;
+   if(mic_e.aprsType == APRSMIC_E) mic_e.mic_e_Reformat(&posit,&telemetry);
+   if(posit){ posit->print(cout); delete posit;}
+   if(telemetry) { telemetry->print(cout); delete telemetry;}
+   
+   sleep(5);
+   */
+
+   //fdump = fopen("dump.txt","w+");  //debug
+
+   pSaveHistory = new char[strlen(VARPATH) + strlen(SAVE_HISTORY)+1];
+	strcpy(pSaveHistory,VARPATH);
+	strcat(pSaveHistory,SAVE_HISTORY);
+
+   
+   ReadHistory(pSaveHistory);
+   
+
+  
+  
+  
+	if (argc > 1)
+	   {  
+         
+			if(strcmp("-d",argv[argc-1]) != 0){
+            szConfFile = new char[sizeof(argv[argc-1]+1)]; 
+            szConfFile = argv[argc-1];	//get optional 1st or 2nd arg which is configuration file name
+         }
+         
+      }
+
+   for(i=0;i<maxIGATES;i++){
+      cpIGATE[i].RemoteSocket = -1;
+      cpIGATE[i].RemoteName = NULL;
+   }
+
+
+   if(serverConfig(szConfFile) != 0) exit(-1);     //Read configuration file (aprsd.conf)
+
+   //Now add a ax25 path to the Internet beacon text string
+
+   if(NetBeacon){
+      char* netbc = new char[256];
+      ostrstream osnetbc(netbc,255);
+      osnetbc  << szServerCall
+               << szAPRSDPATH
+               << NetBeacon
+               << "\r\n"
+               << ends;
+
+      delete NetBeacon;
+      NetBeacon = netbc;   //Internet beacon complete with ax25 path
+   }
+
+   if(TncBeacon){
+      char* tncbc = new char[256];
+      ostrstream ostncbc(tncbc,255);
+      ostncbc  << TncBeacon
+               << "\r\n"
+               << ends;
+
+      delete TncBeacon;
+      TncBeacon = tncbc;  //TNC beacon (no ax25 path)
+   }
+
+  
+   
+	//Make the semaphores
+	pmtxSendFile 	= new pthread_mutex_t;
+   pmtxSend			= new pthread_mutex_t;
+	pmtxAddDelSess = new pthread_mutex_t;
+   pmtxCount      = new pthread_mutex_t;
+   pmtxDNS        = new pthread_mutex_t;
+
+	
+   rc = pthread_mutex_init(pmtxSendFile,NULL);
+   rc = pthread_mutex_init(pmtxSend,NULL);
+	rc = pthread_mutex_init(pmtxAddDelSess,NULL);
+   rc = pthread_mutex_init(pmtxCount,NULL);
+   rc = pthread_mutex_init(pmtxDNS,NULL);
+
+	sessions = new SessionParams[MaxClients];
+
+	if (sessions == NULL) { cerr << "Can't create sessions pointer\n" ; return -1;}
+
+	for(i=0;i<MaxClients;i++) { 
+      sessions[i].Socket = -1;  
+      sessions[i].EchoMask = 0;
+      sessions[i].szPeer = new char[SZPEERSIZE];
+      sessions[i].userCall = new char[USERCALLSIZE];
+      sessions[i].pgmVers = new char[PGMVERSSIZE];
+      bzero((void*)sessions[i].szPeer, SZPEERSIZE);    //Fill strings with nulls
+      bzero((void*)sessions[i].userCall, USERCALLSIZE);
+      bzero((void*)sessions[i].pgmVers, PGMVERSSIZE);
+   }
+	ConnectedClients = 0; 
+
+  
+
+   
+     
+
+   if(spMainServer.ServerPort > 0)
+      {
+	      //Create Main Server thread. (Provides Local data, Logged on users and IGATE data)   
+         rc = pthread_create(&spMainServer.tid, NULL,TCPServerThread,&spMainServer);
+	      if (rc != 0)
+		      {  cerr << "Error: Main TCPServerThread failed to start\n";
+			      exit(-1);
+		      }
+      }
+
+      if(spMainServer_NH.ServerPort > 0)
+      {
+	      //Create another Main Server thread . 
+         // (Provides Local data, Logged on users and IGATE data but doesn't dump the 30 min. history)   
+         rc = pthread_create(&spMainServer_NH.tid, NULL,TCPServerThread,&spMainServer_NH);
+	      if (rc != 0)
+		      {  cerr << "Error: Main-NH TCPServerThread failed to start\n";
+			      exit(-1);
+		      }
+      }
+
+
+   if (spLinkServer.ServerPort > 0)
+      {
+         //Create Link Server thread.  (Provides local TNC data plus logged on users data)
+         rc = pthread_create(&spLinkServer.tid, NULL,TCPServerThread,&spLinkServer);
+	      if (rc != 0)
+		      {  cerr << "Error: Link TCPServerThread failed to start\n";
+			      exit(-1);
+		      }
+      }
+
+
+
+	if(spLocalServer.ServerPort > 0)
+      {
+         //Create Local Server thread  (Provides only local TNC data).
+         rc = pthread_create(&spLocalServer.tid, NULL,TCPServerThread,&spLocalServer);
+	      if (rc != 0)
+		   {  cerr << "Error: Local TCPServerThread failed to start\n";
+			   exit(-1);
+		   }
+      }
+
+   if(spRawTNCServer.ServerPort > 0)
+      {
+         //Create Local Server thread  (Provides only local TNC data).
+         rc = pthread_create(&spRawTNCServer.tid, NULL,TCPServerThread,&spRawTNCServer);
+	      if (rc != 0)
+		   {  cerr << "Error: RAW TNC TCPServerThread failed to start\n";
+			   exit(-1);
+		   }
+      }
+
+
+
+   if(spMsgServer.ServerPort > 0)
+      {
+         //Create message Server thread  (Provides only 3rd party message data).
+         rc = pthread_create(&spMsgServer.tid, NULL,TCPServerThread,&spMsgServer);
+	      if (rc != 0)
+		   {  cerr << "Error: 3rd party message TCPServerThread failed to start\n";
+			   exit(-1);
+		   }
+      }
+
+
+
+   if(upUdpServer.ServerPort > 0)
+    {   rc = pthread_create(&upUdpServer.tid, NULL,UDPServerThread,&upUdpServer);
+	      if (rc != 0)
+		      {  cerr << "Error: UDP Server thread failed to start\n";
+			      exit(-1);
+		      }
+   }
+
+   if(spHTTPServer.ServerPort > 0)
+    {
+       //Create HTTP Server thread. (Provides server status in HTML format)   
+       rc = pthread_create(&spHTTPServer.tid, NULL,TCPServerThread,&spHTTPServer);
+       if (rc != 0)
+          {  cerr << "Error: HTTP server thread failed to start\n";
+             exit(-1);
+          }
+    }
+
+   if(spIPWatchServer.ServerPort > 0)
+    {
+       //Create IPWatch Server thread. (Provides prepended header with IP and User Call on aprs packets)   
+       rc = pthread_create(&spIPWatchServer.tid, NULL,TCPServerThread,&spIPWatchServer);
+       if (rc != 0)
+          {  cerr << "Error: IPWatch server thread failed to start\n";
+             exit(-1);
+          }
+    }
+
+  	
+   
+	
+   
+  
+
+  pthread_t  tidDeQueuethread;
+  rc = pthread_create(&tidDeQueuethread, NULL,DeQueue,NULL);
+  if (rc != 0)
+		{  cerr << "Error: DeQueue thread failed to start\n";
+			exit(-1);
+		}
+  
+   if (szAprsPath) {
+       cout << "APRS packet path = " << szAprsPath << endl;
+       rfSetPath(szAprsPath);
+   }
+
+   if(szComPort != NULL)      //Initialize TNC Com port if specified in config file
+      {
+	      cout  << "Opening device "
+	            << szComPort                    
+	            << endl
+               << flush;                        
+                                               
+	      if ((rc = rfOpen(szComPort)) != 0) 
+	         {  sleep(2);                       
+	            return -1;                      
+	         }                                  
+
+         cout << "Setting up TNC\n" << flush;
+
+         char *pInitTNC = new char[strlen(CONFPATH) + strlen(TNC_INIT) +1];
+	      strcpy(pInitTNC,CONFPATH);
+	      strcat(pInitTNC,TNC_INIT);
+
+
+         rfSendFiletoTNC(pInitTNC);	//Setup TNC from initialization file
+         tncPresent = TRUE;
+
+      }else cout << "TNC com port not defined.\n" << flush;
+
+
+   if (RF_ALLOW) cout << "Internet to RF data flow is ENABLED\n" ; 
+           else cout << "Internet to RF data flow is DISABLED\n";
+
+   
+         
+   WriteLog("Server Start",MAINLOG);
+	cout << "Server Started\n" << flush;
+
+   BOOL firstHub = FALSE;
+
+   if (nIGATES > 0) cout << "Connecting to IGATEs and Hubs now..." << endl << flush;   
+   for(i=0;i<nIGATES;i++)
+      {  if(!firstHub){
+            rc = pthread_create(&cpIGATE[i].tid, NULL,TCPConnectThread,&cpIGATE[i]);
+            if(rc == 0) pthread_detach(cpIGATE[i].tid);
+            if(cpIGATE[i].hub) firstHub = TRUE;
+         }else
+            if(!cpIGATE[i].hub){
+               rc = pthread_create(&cpIGATE[i].tid, NULL,TCPConnectThread,&cpIGATE[i]);
+               if(rc == 0) pthread_detach(cpIGATE[i].tid);
+            }
+         
+      }
+
+   
+	   
+
+	Time = time(NULL);
+	tNow = Time;
+	tLast = Time;
+   tLastDel = Time ;
+	tPstats = Time;
+
+   configComplete = TRUE;
+
+   if(TncBeacon)
+      cout << "TncBeacon every " << TncBeaconInterval << " minutes : " << TncBeacon << endl;
+   if(NetBeacon)
+       cout << "NetBeacon every " << NetBeaconInterval << " minutes : " << NetBeacon << endl;
+
+   
+   cout << "MYCALL set to: " << MyCall << endl;
+
+   struct termios initial_settings, new_settings;
+   tcgetattr(fileno(stdin),&initial_settings);
+   new_settings = initial_settings;
+   new_settings.c_lflag &= ~ICANON;
+   new_settings.c_lflag &= ~ISIG;
+   new_settings.c_cc[VMIN] = 0;
+   new_settings.c_cc[VTIME] = 1;		 //.1 second timeout for input chars
+
+   tcsetattr(fileno(stdin),TCSANOW,&new_settings);
+
+   
+
+  do
+	{
+	  
+    usleep(1000);
+
+    if(msgsn > 9999) msgsn = 0;
+
+    while(conQueue.ready())         //Data for Console?
+       { char *cp = (char*)conQueue.read(NULL);    //Yes, read and print it.
+         if(cp){  printf("%s",cp);
+                  strcat(cp,"\r");
+                  aprsString* monStats = new aprsString(cp,SRC_INTERNAL,srcSTATS);
+                  sendQueue.write(monStats);
+                  
+                  delete cp;
+               }
+       }
+
+    char ch = fgetc(stdin);  //stalls for 0.1 sec.
+
+    switch(ch)
+       {
+         case  'r': resetCounters();
+                     break;
+         case 0x03: 
+         case 'q' :
+                     serverQuit(&initial_settings);
+                     raise(SIGTERM);;
+      }
+   
+	 lastSec = Time;
+    Time = time(NULL);
+    
+
+    if(difftime(Time,lastSec) > 0) schedule_posit2RF(Time);  //Once per second
+
+
+    if(difftime(Time,LastNetBeacon) >= NetBeaconInterval * 60){  //Send Internet Beacon text
+       LastNetBeacon = Time;
+       if((NetBeacon) && (NetBeaconInterval > 0)){
+         aprsString* netbc = new aprsString(NetBeacon,SRC_INTERNAL,srcSYSTEM);
+         sendQueue.write(netbc);
+       }
+    }
+
+    if(difftime(Time,LastTncBeacon) >= TncBeaconInterval * 60){  //Send TNC Beacon text
+       LastTncBeacon = Time;
+       if((TncBeacon) && (TncBeaconInterval > 0)){
+        aprsString* tncbc = new aprsString(TncBeacon,SRC_INTERNAL,srcSYSTEM);
+        tncQueue.write(tncbc);
+      }
+
+    }
+
+
+ /*debug*/
+   /*
+	 if (Time != lastSec)	  //send the test message for debugging
+		 {
+		      char *test = "W4ZZ>APRS,TCPIP:!BOGUS PACKET ";
+            char testbuf[256];
+            ostrstream os(testbuf,255);
+            os << test << Time << "\r\n" << ends;
+            aprsString* inetpacket = new aprsString(testbuf,0,srcTNC);
+            inetpacket->changePath("TCPIP*","TCPIP") ;     
+            tncQueue.write(inetpacket); //note: inetpacket is deleted in DeQueue
+
+		 }
+  	 */
+    
+	if ((Time - tPstats) > 60)			// 1 minute
+		{	if (WatchDog < 2)
+					{	cerr 	<< "** No data from TNC during previous 2 minutes **\n"
+								<< flush;
+
+					  								
+					}
+          /*       //# Tickle  has been commented out.
+          if(aprsStreamRate == 0){    //Send  tickle if nothing else is being sent.
+            aprsString* tickle = new aprsString("# Tickle\r\n",SRC_INTERNAL,srcSYSTEM);
+            sendQueue.write(tickle);
+          } */
+          
+		    tPstats = Time;
+			 WatchDog = 0;				//Serial port reader increments this with each rx line.
+          char *stats = getStats();
+          cout << stats << flush;
+          //getProcStats();
+          aprsString* monStats = new aprsString(stats,SRC_INTERNAL,srcSTATS);
+          sendQueue.write(monStats);
+          delete stats;
+
+          /*
+          for(int i=0;i<MaxClients;i++)
+		         cout << setw(4) << sessions[i].Socket  ;
+          
+          cout << endl;
+          */
+		}
+
+	
+	if ((Time - tLastDel) > 300 )		//do this every 5 minutes.
+			{														//Remove old entrys from history list
+				int di = DeleteOldItems(5);
+            if (di > 0) cout << " Deleted " << di << " expired items from history list" << endl << flush;
+			   tLastDel = Time;
+         }
+   /*
+	if ((Time - tLast) > 900)		//Save history list every 15 minutes
+		{
+		  SaveHistory(pSaveHistory);
+		  tLast = Time;
+		}
+
+    */
+
+  	}while (1==1);		// ctrl-C to quit
+
+    return 0;
+
+
+}

@@ -1,0 +1,297 @@
+[COMPILER]
+
+INCLUDEDIRS=%(INCLUDE)
+COMPILE=concur|capture,make %n.obj
+MAKE=concur|capture,make
+DEBUG=,xxgdb [exename-here]
+USER1=concur|capture,
+USER2=,
+
+[FILES]
+/home/wa4dsy/proj/aprsd214/INIT.TNC
+/home/wa4dsy/proj/aprsd214/INSTALLDAEMON
+/home/wa4dsy/proj/aprsd214/INSTALLPGM
+/home/wa4dsy/proj/aprsd214/Makefile
+/home/wa4dsy/proj/aprsd214/REMOVE
+/home/wa4dsy/proj/aprsd214/RESTORE.TNC
+/home/wa4dsy/proj/aprsd214/aprsString.cpp
+/home/wa4dsy/proj/aprsd214/aprsString.h
+/home/wa4dsy/proj/aprsd214/aprsd.conf
+/home/wa4dsy/proj/aprsd214/aprsd.cpp
+/home/wa4dsy/proj/aprsd214/aprsd.init
+/home/wa4dsy/proj/aprsd214/aprsd214.vpj
+/home/wa4dsy/proj/aprsd214/aprsddoc.html
+/home/wa4dsy/proj/aprsd214/aprspass.cpp
+/home/wa4dsy/proj/aprsd214/constant.h
+/home/wa4dsy/proj/aprsd214/cpqueue.cpp
+/home/wa4dsy/proj/aprsd214/cpqueue.h
+/home/wa4dsy/proj/aprsd214/crc.h
+/home/wa4dsy/proj/aprsd214/crc32.c
+/home/wa4dsy/proj/aprsd214/dupCheck.cpp
+/home/wa4dsy/proj/aprsd214/dupCheck.h
+/home/wa4dsy/proj/aprsd214/history.cpp
+/home/wa4dsy/proj/aprsd214/history.h
+/home/wa4dsy/proj/aprsd214/mic-e.cpp
+/home/wa4dsy/proj/aprsd214/mic_e.cpp
+/home/wa4dsy/proj/aprsd214/mic_e.h
+/home/wa4dsy/proj/aprsd214/ports.html
+/home/wa4dsy/proj/aprsd214/queryResp.cpp
+/home/wa4dsy/proj/aprsd214/queryResp.h
+/home/wa4dsy/proj/aprsd214/serialp.cpp
+/home/wa4dsy/proj/aprsd214/serialp.h
+/home/wa4dsy/proj/aprsd214/sniptype.h
+/home/wa4dsy/proj/aprsd214/udp_example
+/home/wa4dsy/proj/aprsd214/user.deny
+/home/wa4dsy/proj/aprsd214/utils.cpp
+/home/wa4dsy/proj/aprsd214/utils.h
+/home/wa4dsy/proj/aprsd214/validate.cpp
+/home/wa4dsy/proj/aprsd214/validate.h
+/home/wa4dsy/proj/aprsd214/welcome.txt
+[STATE]
+SCREEN: 1024 768 93 50 836 620 0 0 N 0 32 0 44
+CWD: /home/wa4dsy/proj/mic_e
+BUFFER: BN="/home/wa4dsy/.vslick/vrestore.slk"
+BI: MA=1 254 1  TABS=1 9  WWS=3 IWT=0 ST=0 IN=0 BW=0 US=0 RO=0 SE=0 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=4 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/INIT.TNC"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=5 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/INSTALLDAEMON"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=6 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/INSTALLPGM"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=7 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/Makefile"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=8 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/REMOVE"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=9 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/RESTORE.TNC"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=10 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsString.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=11 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsd.init"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=12 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsd214.vpj"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=13 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprspass.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=14 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/cpqueue.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=15 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/cpqueue.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=16 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/crc.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=17 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/crc32.c"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=18 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/dupCheck.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=19 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/dupCheck.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=20 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/mic_e.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=21 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/ports.html"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=0 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=HTML	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=22 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/queryResp.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=23 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/queryResp.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=24 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/serialp.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=25 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/sniptype.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=26 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/user.deny"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=27 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/validate.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=28 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/validate.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=29 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/welcome.txt"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=30 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/serialp.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.9439 CL=77 LE=1 CX=75 CY=21 WI=4 BI=31 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/mic_e.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.5412 CL=7 LE=0 CX=6 CY=5 WI=4 BI=32 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/utils.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=33 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/utils.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.9508 CL=3 LE=0 CX=2 CY=24 WI=4 BI=34 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/constant.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.117 CL=30 LE=0 CX=29 CY=3 WI=4 BI=36 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/history.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.5219 CL=15 LE=0 CX=14 CY=7 WI=4 BI=37 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsddoc.html"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=0 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=HTML	HM=0
+VIEW: LN=.0 CL=28 LE=0 CX=27 CY=1 WI=4 BI=38 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsd.conf"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.4139 CL=80 LE=4 CX=75 CY=22 WI=4 BI=39 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/udp_example"
+BI: MA=1 74 1  TABS=1 9  WWS=1 IWT=1 ST=0 IN=1 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=Fundamental	HM=0
+VIEW: LN=.902 CL=24 LE=0 CX=23 CY=26 WI=4 BI=41 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsd.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.36515 CL=7 LE=0 CX=6 CY=27 WI=4 BI=40 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsString.cpp"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.23505 CL=40 LE=0 CX=39 CY=23 WI=4 BI=35 HT=0 HN=0 HF=0 HC=4
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/history.h"
+BI: MA=1 74 1  TABS=1 4  WWS=1 IWT=0 ST=0 IN=2 BW=0 US=32000 RO=0 SE=1 SN=0 BIN=0 MN=C	HM=0
+VIEW: LN=.0 CL=1 LE=0 CX=0 CY=1 WI=4 BI=42 HT=0 HN=0 HF=0 HC=4
+WINDOW: 150 182 574 373 0 0 N  WF=0 WT=25 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/history.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=25 BI=42 HT=0 HN=0 HF=0 HC=4
+WINDOW: 0 32 574 373 0 0 N  WF=0 WT=3 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/INIT.TNC"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=26 BI=5 HT=0 HN=0 HF=0 HC=4
+WINDOW: 25 57 574 373 0 0 N  WF=0 WT=4 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/INSTALLDAEMON"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=27 BI=6 HT=0 HN=0 HF=0 HC=4
+WINDOW: 50 82 574 373 0 0 N  WF=0 WT=5 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/INSTALLPGM"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=28 BI=7 HT=0 HN=0 HF=0 HC=4
+WINDOW: 75 107 574 373 0 0 N  WF=0 WT=6 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/Makefile"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=29 BI=8 HT=0 HN=0 HF=0 HC=4
+WINDOW: 100 132 574 373 0 0 N  WF=0 WT=7 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/REMOVE"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=30 BI=9 HT=0 HN=0 HF=0 HC=4
+WINDOW: 125 157 574 373 0 0 N  WF=0 WT=8 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/RESTORE.TNC"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=31 BI=10 HT=0 HN=0 HF=0 HC=4
+WINDOW: 175 207 574 373 0 0 N  WF=0 WT=10 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsString.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=32 BI=11 HT=0 HN=0 HF=0 HC=4
+WINDOW: 50 82 574 373 0 0 N  WF=0 WT=13 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsd.init"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=33 BI=12 HT=0 HN=0 HF=0 HC=4
+WINDOW: 75 107 574 373 0 0 N  WF=0 WT=14 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsd214.vpj"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=34 BI=13 HT=0 HN=0 HF=0 HC=4
+WINDOW: 125 157 574 373 0 0 N  WF=0 WT=16 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprspass.cpp"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=35 BI=14 HT=0 HN=0 HF=0 HC=4
+WINDOW: 175 207 574 373 0 0 N  WF=0 WT=18 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/cpqueue.cpp"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=36 BI=15 HT=0 HN=0 HF=0 HC=4
+WINDOW: 0 32 574 373 0 0 N  WF=0 WT=19 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/cpqueue.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=37 BI=16 HT=0 HN=0 HF=0 HC=4
+WINDOW: 25 57 574 373 0 0 N  WF=0 WT=20 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/crc.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=38 BI=17 HT=0 HN=0 HF=0 HC=4
+WINDOW: 50 82 574 373 0 0 N  WF=0 WT=21 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/crc32.c"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=39 BI=18 HT=0 HN=0 HF=0 HC=4
+WINDOW: 75 107 574 373 0 0 N  WF=0 WT=22 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/dupCheck.cpp"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=40 BI=19 HT=0 HN=0 HF=0 HC=4
+WINDOW: 100 132 574 373 0 0 N  WF=0 WT=23 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/dupCheck.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=41 BI=20 HT=0 HN=0 HF=0 HC=4
+WINDOW: 25 57 574 373 0 0 N  WF=0 WT=28 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/mic_e.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=42 BI=21 HT=0 HN=0 HF=0 HC=4
+WINDOW: 50 82 574 373 0 0 N  WF=0 WT=29 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/ports.html"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=43 BI=22 HT=0 HN=0 HF=0 HC=4
+WINDOW: 75 107 574 373 0 0 N  WF=0 WT=30 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/queryResp.cpp"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=44 BI=23 HT=0 HN=0 HF=0 HC=4
+WINDOW: 100 132 574 373 0 0 N  WF=0 WT=31 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/queryResp.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=45 BI=24 HT=0 HN=0 HF=0 HC=4
+WINDOW: 150 182 574 373 0 0 N  WF=0 WT=33 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/serialp.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=46 BI=25 HT=0 HN=0 HF=0 HC=4
+WINDOW: 175 207 574 373 0 0 N  WF=0 WT=34 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/sniptype.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=47 BI=26 HT=0 HN=0 HF=0 HC=4
+WINDOW: 25 57 574 373 0 0 N  WF=0 WT=36 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/user.deny"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=48 BI=27 HT=0 HN=0 HF=0 HC=4
+WINDOW: 100 132 574 373 0 0 N  WF=0 WT=39 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/validate.cpp"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=49 BI=28 HT=0 HN=0 HF=0 HC=4
+WINDOW: 125 157 574 373 0 0 N  WF=0 WT=40 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/validate.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=50 BI=29 HT=0 HN=0 HF=0 HC=4
+WINDOW: 215 208 574 373 0 0 N  WF=0 WT=41 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/welcome.txt"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=51 BI=30 HT=0 HN=0 HF=0 HC=4
+WINDOW: 125 157 574 373 0 0 N  WF=0 WT=32 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/serialp.cpp"
+VIEW: LN=.9439 CL=77 LE=1 CX=76 CY=21 WI=52 BI=31 HT=0 HN=0 HF=0 HC=4
+WINDOW: 0 32 574 373 0 0 N  WF=0 WT=27 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/mic_e.cpp"
+VIEW: LN=.5412 CL=7 LE=0 CX=7 CY=5 WI=53 BI=32 HT=0 HN=0 HF=0 HC=4
+WINDOW: 75 107 574 373 0 0 N  WF=0 WT=38 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/utils.h"
+VIEW: LN=.0 CL=1 LE=0 CX=1 CY=1 WI=54 BI=33 HT=0 HN=0 HF=0 HC=4
+WINDOW: 50 82 574 373 0 0 N  WF=0 WT=37 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/utils.cpp"
+VIEW: LN=.9508 CL=3 LE=0 CX=3 CY=24 WI=55 BI=34 HT=0 HN=0 HF=0 HC=4
+WINDOW: 150 182 574 373 0 0 N  WF=0 WT=17 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/constant.h"
+VIEW: LN=.117 CL=30 LE=0 CX=30 CY=3 WI=57 BI=36 HT=0 HN=0 HF=0 HC=4
+WINDOW: 125 157 574 373 0 0 N  WF=0 WT=24 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/history.cpp"
+VIEW: LN=.5219 CL=15 LE=0 CX=15 CY=7 WI=58 BI=37 HT=0 HN=0 HF=0 HC=4
+WINDOW: 100 132 574 373 0 0 N  WF=0 WT=15 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsddoc.html"
+VIEW: LN=.0 CL=28 LE=0 CX=28 CY=1 WI=59 BI=38 HT=0 HN=0 HF=0 HC=4
+WINDOW: 0 32 574 373 0 0 N  WF=0 WT=11 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsd.conf"
+VIEW: LN=.4139 CL=80 LE=4 CX=76 CY=22 WI=60 BI=39 HT=0 HN=0 HF=0 HC=4
+WINDOW: 0 32 574 373 0 0 N  WF=0 WT=35 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/udp_example"
+VIEW: LN=.902 CL=24 LE=0 CX=24 CY=24 WI=62 BI=41 HT=0 HN=0 HF=0 HC=4
+WINDOW: 25 57 574 373 0 0 N  WF=0 WT=12 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsd.cpp"
+VIEW: LN=.36515 CL=7 LE=0 CX=7 CY=24 WI=61 BI=40 HT=0 HN=0 HF=0 HC=4
+WINDOW: 150 182 574 373 0 0 M  WF=0 WT=9 "OEM Fixed Font,10,0"
+BUFFER: BN="/home/wa4dsy/proj/aprsd214/aprsString.cpp"
+VIEW: LN=.23505 CL=40 LE=0 CX=40 CY=23 WI=56 BI=35 HT=0 HN=0 HF=0 HC=4
+FILEHIST: 9
+/home/wa4dsy/proj/aprsd214/udp_example
+/home/wa4dsy/proj/aprsd214/user.deny
+/home/wa4dsy/proj/aprsd214/utils.cpp
+/home/wa4dsy/proj/aprsd214/utils.h
+/home/wa4dsy/proj/aprsd214/validate.cpp
+/home/wa4dsy/proj/aprsd214/validate.h
+/home/wa4dsy/proj/aprsd214/welcome.txt
+/home/wa4dsy/proj/mic_e/micetest3.dat
+/home/wa4dsy/proj/mic_e/micetest.dat
+BOOKMARK: 2
+^TAG4^ .134528 56 /home/wa4dsy/proj/aprsd214/aprsd.cpp
+^TAG3^ .3988 8 /home/wa4dsy/proj/aprsd214/aprsd.cpp
+PUSHTAG: 0 5
