@@ -204,7 +204,7 @@ int fmt_mic_e(const u_char *t,          // tocall
         // Recover the latitude digits from the ax25 destination field
         for (x=0;x<6;x++) {
             lx = t[x] - '0';            // subtract offset from raw latitude character
-            if ((lx >= 0 ) && ( lx < strlen(lattb))) {
+            if (lx < strlen(lattb)) {
                 lat[x] = lattb[lx];     // Latitude output digits into lat[] array
             } else
                 lat[x] = ' ';
