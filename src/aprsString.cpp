@@ -39,16 +39,19 @@ extern "C" {
 #include <stdexcept>
 #include <strstream>
 
-
+#include "osdep.h"
 #include "constant.h"
 #include "aprsString.h"
 #include "utils.h"
 #include "mic_e.h"
 #include "crc.h"
+#include "mutex.h"
 
 using namespace std;
+using namespace aprsd;
 
-pthread_mutex_t* TAprsString::pmtxCounters = NULL;  // mutex semaphore pointer common to all instances of TAprsString
+//pthread_mutex_t* TAprsString::pmtxCounters = NULL;  // mutex semaphore pointer common to all instances of TAprsString
+Mutex TAprsString::mutex;
 
 int TAprsString::NN = 0;
 long TAprsString::objCount = 0;
@@ -127,6 +130,7 @@ TAprsString::TAprsString(TAprsString& as) : string(as)
     raw = as.raw;
     srcHeader = as.srcHeader;
     msgdata = "";
+    Lock lock(mutex);
 
     for (int i=0;i<MAXWORDS;i++)
         ax25Path[i] = as.ax25Path[i];
@@ -142,30 +146,32 @@ TAprsString::TAprsString(TAprsString& as) : string(as)
     EchoMask = as.EchoMask;
     lastPositTx = as.lastPositTx;
 
-    if(pthread_mutex_lock(pmtxCounters) != 0)
-        cerr << "Unable to lock pmtxCounters - CopyConstructors.\n" << endl;
-
+    //if(pthread_mutex_lock(pmtxCounters) != 0)
+    //    cerr << "Unable to lock pmtxCounters - CopyConstructors.\n" << endl;
+    lock.get();
     NN++;                               // Increment counters
     objCount++;
     ID = objCount;                      // new serial number
     timestamp = time(NULL);             // User current time instead of time in original
     instances = 0;
 
-    if(pthread_mutex_unlock(pmtxCounters) != 0)
-        cerr << "Unable to unlock pmtxCounters - CopyConstructors.\n" << endl;
-
+    //if(pthread_mutex_unlock(pmtxCounters) != 0)
+    //    cerr << "Unable to unlock pmtxCounters - CopyConstructors.\n" << endl;
+    lock.release();
 }
 
 
 TAprsString::~TAprsString(void)
 {
-    if(pthread_mutex_lock(pmtxCounters) != 0)
-        cerr << "Unable to lock pmtxCounters - ItemDestructor.\n" << endl;
-
+    Lock lock(mutex);
+    //if(pthread_mutex_lock(pmtxCounters) != 0)
+    //    cerr << "Unable to lock pmtxCounters - ItemDestructor.\n" << endl;
+    lock.get();
     NN--;
 
-    if(pthread_mutex_unlock(pmtxCounters) != 0)
-        cerr << "Unable to unlock pmtxCounters - ItemDestructor.\n" << endl;
+    //if(pthread_mutex_unlock(pmtxCounters) != 0)
+    //    cerr << "Unable to unlock pmtxCounters - ItemDestructor.\n" << endl;
+    lock.release();
 }
 
 
@@ -192,22 +198,23 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
         query = "";
         lastPositTx = 0;
         msgdata = "";
+        Lock lock(mutex);
 
-        if (pmtxCounters == NULL) {     // Create mutex semaphore to protect counters if it doesn't exist...
-            pmtxCounters = new pthread_mutex_t; // ...This semaphore is common to all instances of TAprsString.
-            if (pthread_mutex_init(pmtxCounters,NULL) == -1)
-                cerr << "Unable to initialize pmtxCounters." << endl;
-        }
+        //if (pmtxCounters == NULL) {     // Create mutex semaphore to protect counters if it doesn't exist...
+        //    pmtxCounters = new pthread_mutex_t; // ...This semaphore is common to all instances of TAprsString.
+        //    if (pthread_mutex_init(pmtxCounters,NULL) == -1)
+        //        cerr << "Unable to initialize pmtxCounters." << endl;
+        //}
 
-        if(pthread_mutex_lock(pmtxCounters) != 0)
-            cerr << "Unable to lock pmtxCounters - ConstructorSetup." << endl;
-
+        //if(pthread_mutex_lock(pmtxCounters) != 0)
+        //    cerr << "Unable to lock pmtxCounters - ConstructorSetup." << endl;
+        lock.get();
         objCount++;
         ID = objCount;                  // set unique ID number for this new object
         NN++;
-        if(pthread_mutex_unlock(pmtxCounters) != 0)
-            cerr << "Unable to unlock pmtxCounters - ConstructorSetup." << endl;
-
+        //if(pthread_mutex_unlock(pmtxCounters) != 0)
+        //    cerr << "Unable to unlock pmtxCounters - ConstructorSetup." << endl;
+        lock.release();
         timestamp = time(NULL);
 
         for (int i = 0; i<MAXPATH; i++)
@@ -889,12 +896,15 @@ INT32 TAprsString::gethash()
 int TAprsString::getObjCount()
 {
     int n;
-    if(pthread_mutex_lock(pmtxCounters) != 0)
-        cerr << "Unable to lock pmtxCounters - getobjects.\n" << flush;
+    Lock lock(mutex);
+    //if(pthread_mutex_lock(pmtxCounters) != 0)
+    //    cerr << "Unable to lock pmtxCounters - getobjects.\n" << flush;
 
+    lock.get();
     n = NN;
-    if(pthread_mutex_unlock(pmtxCounters) != 0)
-        cerr << "Unable to unlock pmtxCounters - getobjects.\n" << flush;
+    lock.release();
+    //if(pthread_mutex_unlock(pmtxCounters) != 0)
+    //    cerr << "Unable to unlock pmtxCounters - getobjects.\n" << flush;
 
     return(n);
 }

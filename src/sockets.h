@@ -27,6 +27,9 @@
 
 #include "constant.h"
 
+// TCP Wrappers
+int inet_ptons(int family, const char *strptr, void *addrptr);
+
 int SocketOpen (const char *rfport, const char *destcall);
 int SocketClose (void);
 int SocketWrite (const char *cp);

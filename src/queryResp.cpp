@@ -32,6 +32,7 @@
 #include <netdb.h>                      // gethostbyname2_r
 #include <strstream>
 
+#include "osdep.h"
 #include "constant.h"
 #include "utils.h"
 #include "aprsString.h"
@@ -39,7 +40,7 @@
 
 using namespace std;
 
-void BroadcastString(char *cp);
+extern void BroadcastString(const char *cp);
 
 extern char* szAPRSDPATH ;
 //extern char* szServerCall ;
@@ -53,8 +54,10 @@ extern string MyEmail;
 
 extern int msgsn;
 extern cpQueue tncQueue;
-extern pthread_mutex_t* pmtxCount;
-extern pthread_mutex_t* pmtxDNS;
+//extern pthread_mutex_t* pmtxCount;
+//extern pthread_mutex_t* pmtxDNS;
+extern RecursiveMutex mtxCount;
+extern RecursiveMutex mtxDNS;
 
 char szHostIP[HOSTIPSIZE];
 int queryCounter;
@@ -67,6 +70,8 @@ void queryResp(int session, const TAprsString* pkt)
     struct hostent hostinfo_d;
     char h_buf[512];
     int h_err;
+    Lock dnsLock(mtxDNS, false);
+    Lock countLock(mtxCount, false);
 
     TAprsString *rfpacket, *ackRFpacket;
     char* hostname = new char[80];
@@ -88,8 +93,9 @@ void queryResp(int session, const TAprsString* pkt)
     if (rc != 0)
         strcpy(hostname,"Host_Unknown");
     else {
-	if(pthread_mutex_lock(pmtxDNS) != 0)
-	    cerr << "Unable to lock pmtxDNS - queryResp.\n" << flush;
+        //if(pthread_mutex_lock(pmtxDNS) != 0)
+        //    cerr << "Unable to lock pmtxDNS - queryResp.\n" << flush;
+        dnsLock.get();
         // Thread-Safe verison of gethostbyname2() ?  Actually it's not so lock after all
         rc = gethostbyname2_r(hostname, AF_INET,
                                 &hostinfo_d,
@@ -98,8 +104,10 @@ void queryResp(int session, const TAprsString* pkt)
                                 &h,
                                 &h_err);
 
-	if(pthread_mutex_unlock(pmtxDNS) != 0)
-	    cerr << "Unable to unlock pmtxDNS - queryResp.\n" << flush;
+        // if(pthread_mutex_unlock(pmtxDNS) != 0)
+        //  cerr << "Unable to unlock pmtxDNS - queryResp.\n" << flush;
+        dnsLock.release();
+
         if (h != NULL) {
             strncpy(hostname,h->h_name,80);             // Full host name
             strncpy((char*)hip,h->h_addr_list[0],4);    // Host IP
@@ -143,11 +151,13 @@ void queryResp(int session, const TAprsString* pkt)
     // Now build the query specfic packet(s)
 
     if (pkt->query.compare("IGATE") == 0) {
-	if(pthread_mutex_lock(pmtxCount) != 0)
-	    cerr << "Unable to lock pmtxCount - queryresp-queryCounter.\n" << flush;
+        //if(pthread_mutex_lock(pmtxCount) != 0)
+        //    cerr << "Unable to lock pmtxCount - queryresp-queryCounter.\n" << flush;
+        countLock.get();
         queryCounter++;                 // Count this query
-	if(pthread_mutex_unlock(pmtxCount) != 0)
-	    cerr << "Unable to unlock pmtxCount - queryresp-queryCounter.\n" << flush;
+        countLock.release();
+        //if(pthread_mutex_unlock(pmtxCount) != 0)
+        //    cerr << "Unable to unlock pmtxCount - queryresp-queryCounter.\n" << flush;
 
         reply << szServerCall << szAPRSDPATH << ":"
             << sourceCall << ":"

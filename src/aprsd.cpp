@@ -106,7 +106,7 @@ N6OAA>APRS,GATE,WIDE*:@280144z4425.56N/08513.11W/ "Mitch", Lake City, MI
 #define DEBUG
 
 #ifdef HAVE_CONFIG_H
-#include "../config.h"
+#include "config.h"
 #endif
 
 #ifdef __cplusplus
@@ -144,6 +144,7 @@ extern "C" {
 #include <sstream>
 #include <iomanip>
 
+#include "osdep.h"
 #include "dupCheck.h"
 #include "cpqueue.h"
 #include "utils.h"
@@ -153,9 +154,17 @@ extern "C" {
 #include "aprsString.h"
 #include "validate.h"
 #include "queryResp.h"
-#include "except.hpp"
+#include "sockets.h"
+#include "mutex.h"
+#include "assert.h"
+#include "exception.h"
+#include "exceptionguard.h"
+
+
 
 using namespace std;
+using namespace aprsd;
+
 
 //--------------------------------------------------
 #define BASE 0
@@ -218,11 +227,11 @@ const char szRM2[] = "Send Access Denied. Access is Read-Only.\r\n";
 const char szRM3[] = "RF access denied, Internet access only.\r\n";
 const char szACCESSDENIED[] = "Access Denied ";
 
-pthread_mutex_t *pmtxSendFile;
-pthread_mutex_t *pmtxSend;              // protect socket send()
-pthread_mutex_t *pmtxAddDelSess;        // protects AddSession() and DeleteSession()
-pthread_mutex_t *pmtxCount;             // Protect counters
-pthread_mutex_t *pmtxDNS;               // Protect buggy gethostbyname2_r()
+//pthread_mutex_t *pmtxSendFile;
+//pthread_mutex_t *pmtxSend;              // protect socket send()
+//pthread_mutex_t *pmtxAddDelSess;        // protects AddSession() and DeleteSession()
+//pthread_mutex_t *pmtxCount;             // Protect counters
+//pthread_mutex_t *pmtxDNS;               // Protect buggy gethostbyname2_r()
 
 bool ShutDownServer, configComplete;
 int ConnectedClients;
@@ -244,6 +253,12 @@ bool respondToAprsdQueries;
 bool broadcastJavaInfo;
 bool logBadPackets;
 bool checknogate;                // Honor NOGATE or RFONLY in ax25Path
+
+RecursiveMutex mtxSendFile;
+RecursiveMutex mtxSend;
+RecursiveMutex mtxAddDelSess;
+RecursiveMutex mtxCount;
+RecursiveMutex mtxDNS;
 
 //----------------------------
 
@@ -402,8 +417,8 @@ void initSessionParams(SessionParams* sp, int s, int echo)
     sp->dead = false;
     sp->starttime = time(NULL);
     sp->lastActive = sp->starttime;
-    memset((void*)sp->szPeer, NULLCHR, SZPEERSIZE);
-    memset((void*)sp->userCall, NULLCHR, USERCALLSIZE);
+    memset((void*)sp->szPeer, '\0', SZPEERSIZE);
+    memset((void*)sp->userCall, '\0', USERCALLSIZE);
 }
 
 
@@ -415,44 +430,46 @@ SessionParams* AddSession(int s, int echo)
 {
     SessionParams *rv = NULL;
     int i;
+    Lock AddDelSessLock(mtxAddDelSess, false);
+    Lock SendLock(mtxSend, false);
+    Lock CountLock(mtxCount, false);
 
-    try {
-        if(pthread_mutex_lock(pmtxAddDelSess) != 0)
-            cerr << "Unable to lock pmtxAddDelSess - SessionParams.\n" << flush;
+    //if(pthread_mutex_lock(pmtxAddDelSess) != 0)
+    //    cerr << "Unable to lock pmtxAddDelSess - SessionParams.\n" << flush;
 
-        if(pthread_mutex_lock(pmtxSend) != 0)
-            cerr << "Unable to lock pmtxSend - SessionParams.\n" << flush;
+    //if(pthread_mutex_lock(pmtxSend) != 0)
+    //    cerr << "Unable to lock pmtxSend - SessionParams.\n" << flush;
 
-        DBstring = "SessionParams - top of loop to find available session";
-        for (i = 0; i < MaxClients; i++)
-            if (sessions[i].Socket == -1)
-                break;                      // Find available unused session
+    AddDelSessLock.get();
+    SendLock.get();
+    DBstring = "SessionParams - top of loop to find available session";
+    for (i = 0; i < MaxClients; i++)
+        if (sessions[i].Socket == -1)
+            break;                      // Find available unused session
 
-        if (i < MaxClients) {
-            rv = &sessions[i];
-            initSessionParams(rv, s, echo);
-            if(pthread_mutex_lock(pmtxCount) != 0)
-                cerr << "Unable to lock pmtxCount - SessionParams.\n" << flush;
+    if (i < MaxClients) {
+        rv = &sessions[i];
+        initSessionParams(rv, s, echo);
+        CountLock.get();
+        //if(pthread_mutex_lock(pmtxCount) != 0)
+        //    cerr << "Unable to lock pmtxCount - SessionParams.\n" << flush;
 
-            ConnectedClients++;
-            if(pthread_mutex_unlock(pmtxCount) != 0)
-                cerr << "Unable to unlock pmtxCount - SessionParams.\n" << flush;
-        } else
-            rv = NULL;
-            DBstring = "SessionParams - completed add";
-            if(pthread_mutex_unlock(pmtxSend) != 0)
-                cerr << "Unable to unlock pmtxSend - SessionParams.\n" << flush;
+        ConnectedClients++;
+        //if(pthread_mutex_unlock(pmtxCount) != 0)
+        //    cerr << "Unable to unlock pmtxCount - SessionParams.\n" << flush;
+        CountLock.release();
+    } else
+        rv = NULL;
 
-            if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
-                cerr << "Unable to unlock pmtxAddDelSess - SessionParams.\n" << flush;
+    DBstring = "SessionParams - completed add";
+    //if(pthread_mutex_unlock(pmtxSend) != 0)
+    //    cerr << "Unable to unlock pmtxSend - SessionParams.\n" << flush;
 
-            return(rv);
-    }
-    catch (TAprsdException except) {
-        cout << except.what() << endl;
-        WriteLog(except.what(), ERRORLOG);
-        return(rv);
-    }
+    //if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
+    //    cerr << "Unable to unlock pmtxAddDelSess - SessionParams.\n" << flush;
+    SendLock.release();
+    AddDelSessLock.release();
+    return(rv);
 }
 
 
@@ -462,45 +479,43 @@ bool DeleteSession(int s)
 {
     int i = 0;
     bool rv = false;
+    Lock addDelSessLock(mtxAddDelSess, false);
+    Lock countLock(mtxCount, false);
 
     if (s == -1)
         return false;
-    try {
-        DBstring = "DeleteSession - top of loop";
-        if(pthread_mutex_lock(pmtxAddDelSess) != 0)
-            cerr << "Unable to lock pmtxAddDelSess - DeleteSession.\n" << flush;
 
-        for (i=0; i<MaxClients; i++) {
-            if (sessions[i].Socket == s ) {
-                sessions[i].Socket = -1;
-                sessions[i].EchoMask = 0;
-                sessions[i].pid = 0;
-                sessions[i].dead = true;
-                if(pthread_mutex_lock(pmtxCount) != 0)
-                    cerr << "Unable to lock pmtxCount - DeleteSession.\n" << flush;
+    DBstring = "DeleteSession - top of loop";
+    //if(pthread_mutex_lock(pmtxAddDelSess) != 0)
+    //    cerr << "Unable to lock pmtxAddDelSess - DeleteSession.\n" << flush;
+    addDelSessLock.get();
+    for (i = 0; i < MaxClients; i++) {
+        if (sessions[i].Socket == s ) {
+            sessions[i].Socket = -1;
+            sessions[i].EchoMask = 0;
+            sessions[i].pid = 0;
+            sessions[i].dead = true;
+            //if(pthread_mutex_lock(pmtxCount) != 0)
+            //    cerr << "Unable to lock pmtxCount - DeleteSession.\n" << flush;
+            countLock.get();
+            ConnectedClients--;
+            if ( ConnectedClients < 0)
+                ConnectedClients = 0;
 
-                ConnectedClients--;
-                if ( ConnectedClients < 0)
-                    ConnectedClients = 0;
+            countLock.release();
+            //if(pthread_mutex_unlock(pmtxCount) != 0)
+            //    cerr << "Unable to unlock pmtxCount - DeleteSession.\n" << flush;
 
-                if(pthread_mutex_unlock(pmtxCount) != 0)
-                    cerr << "Unable to unlock pmtxCount - DeleteSession.\n" << flush;
-
-                rv = true;
-            }
+            rv = true;
         }
-        DBstring = "DeleteSession - out of loop";
-
-        if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
-            cerr << "Unable to unlock pmtxAddDelSess - DeleteSession.\n" << flush;
-
-        return(rv);
     }
-    catch (TAprsdException except) {
-        cout << except.what() << endl;
-        WriteLog(except.what(), ERRORLOG);
-        return(false);
-    }
+    DBstring = "DeleteSession - out of loop";
+
+    //if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
+    //    cerr << "Unable to unlock pmtxAddDelSess - DeleteSession.\n" << flush;
+    addDelSessLock.release();
+    return(rv);
+
 }
 
 //-------------------------------------------------
@@ -508,40 +523,39 @@ bool AddSessionInfo(int s, const char* userCall, const char* szPeer, int port, c
 {
     int i = 0;
     bool rv = false;
+    Lock addDelSessLock(mtxAddDelSess, false);
+    Lock sendLock(mtxSend, false);
 
-    try {
-        if(pthread_mutex_lock(pmtxAddDelSess) != 0)
-            cerr << "Unable to lock pmtxAddDelSess - AddSessionInfo.\n" << flush;
+    //if(pthread_mutex_lock(pmtxAddDelSess) != 0)
+    //    cerr << "Unable to lock pmtxAddDelSess - AddSessionInfo.\n" << flush;
 
-        if(pthread_mutex_lock(pmtxSend) != 0) 
-            cerr << "Unable to lock pmtxSend - AddSessionInfo.\n" << flush;
+    //if(pthread_mutex_lock(pmtxSend) != 0)
+    //    cerr << "Unable to lock pmtxSend - AddSessionInfo.\n" << flush;
 
-        DBstring = "AddSessionInfo - top of loop";
-        for (i = 0; i<MaxClients; i++) {
-            if (sessions[i].Socket == s ) {
-                strncpy(sessions[i].szPeer, szPeer, SZPEERSIZE-1);
-                strncpy(sessions[i].userCall, userCall, USERCALLSIZE-1);
-                sessions[i].ServerPort = port;
-                strncpy(sessions[i].pgmVers, pgmVers, PGMVERSSIZE-1);
-                sessions[i].pid = getpid();
-                rv = true;
-            }
+    addDelSessLock.get();
+    sendLock.get();
+    DBstring = "AddSessionInfo - top of loop";
+    for (i = 0; i<MaxClients; i++) {
+        if (sessions[i].Socket == s ) {
+            strncpy(sessions[i].szPeer, szPeer, SZPEERSIZE-1);
+            strncpy(sessions[i].userCall, userCall, USERCALLSIZE-1);
+            sessions[i].ServerPort = port;
+            strncpy(sessions[i].pgmVers, pgmVers, PGMVERSSIZE-1);
+            sessions[i].pid = getpid();
+            rv = true;
         }
-        DBstring = "AddSessionInfo - out of loop";
-
-        if(pthread_mutex_unlock(pmtxSend) != 0)   
-            cerr << "Unable to unlock pmtxSend - AddSessionInfo.\n" << flush;
-
-        if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
-            cerr << "Unable to unlock pmtxAddDelSess - AddSessionInfo.\n" << flush;
-
-        return(rv);
     }
-    catch (TAprsdException except) {
-        cout << except.what() << endl;
-        WriteLog(except.what(), ERRORLOG);
-        return(false);
-    }
+    DBstring = "AddSessionInfo - out of loop";
+    sendLock.release();
+    addDelSessLock.release();
+    //if(pthread_mutex_unlock(pmtxSend) != 0)
+    //    cerr << "Unable to unlock pmtxSend - AddSessionInfo.\n" << flush;
+
+    //if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
+    //    cerr << "Unable to unlock pmtxAddDelSess - AddSessionInfo.\n" << flush;
+
+    return(rv);
+
 }
 
 //---------------------------------------------------------------------
@@ -566,10 +580,14 @@ void SendToAllClients(TAprsString* p)
 {
     int ccount = 0;
     int rc, n, nraw, nsh;
+    Lock addDelSessLock(mtxAddDelSess, false);
+    Lock sendLock(mtxSend, false);
+    Lock countLock(mtxCount, false);
 
     if (p == NULL)
         return;
-    DBstring = "Top of Error Check"; 
+
+    DBstring = "Top of Error Check";
     if ((p->aprsType == APRSERROR) || (p->length() < 3)  ) {
         if (logBadPackets) {
             if (!((p->find("Sent") <= p->length())
@@ -580,7 +598,7 @@ void SendToAllClients(TAprsString* p)
                 if (p->aprsType == APRSERROR) {
                     char *fubarmsg;
                     fubarmsg = new char[2049];
-                    memset(fubarmsg, 0, 2049);
+                    memset(fubarmsg, '\0', 2049);
                     ostrstream msg(fubarmsg, 2048);
 
                     msg << "FUBARPKT " << p->srcHeader.c_str()
@@ -598,149 +616,151 @@ void SendToAllClients(TAprsString* p)
         }
         return;                         // Reject runts and error pkts
     }
-    try {
-        DBstring = "Lock mutexes before send";
-        if(pthread_mutex_lock(pmtxAddDelSess) != 0)
-            cerr << "Unable to lock pmtxAddDelSess - SendToAllClients.\n" << flush;
 
-        if(pthread_mutex_lock(pmtxSend) != 0)
-            cerr << "Unable to lock pmtxSend - SendToAllClients.\n" << flush;
-        DBstring = "Mutexes locked for send";
+    DBstring = "Lock mutexes before send";
+    //if(pthread_mutex_lock(pmtxAddDelSess) != 0)
+    //    cerr << "Unable to lock pmtxAddDelSess - SendToAllClients.\n" << flush;
 
-        n = p->length();
-        nraw = p->raw.length();
-        nsh = p->srcHeader.length();
-        DBstring = "SendToAllClients: p length check";
-        for (int i = 0; i < MaxClients; i++) {
-            DBstring = "SendToAllClients: top of for loop";
-            if (sessions[i].Socket != -1) {
-                bool dup, wantdups, wantsrcheader;
-                dup = wantdups = wantsrcheader = false ;
+    //if(pthread_mutex_lock(pmtxSend) != 0)
+    //    cerr << "Unable to lock pmtxSend - SendToAllClients.\n" << flush;
 
-                if (p->EchoMask & sendDUPS)
-                    dup = true;             // This packet is a duplicate
+    addDelSessLock.get();
+    sendLock.get();
 
-                if (sessions[i].EchoMask & sendDUPS)
-                    wantdups = true;        // User wants duplicates
+    DBstring = "Mutexes locked for send";
 
-                if (sessions[i].EchoMask & wantSRCHEADER)
-                    wantsrcheader = true;   // User wants IP source header
+    n = p->length();
+    nraw = p->raw.length();
+    nsh = p->srcHeader.length();
+    DBstring = "SendToAllClients: p length check";
+    for (int i = 0; i < MaxClients; i++) {
+        DBstring = "SendToAllClients: top of for loop";
+        if (sessions[i].Socket != -1) {
+            bool dup, wantdups, wantsrcheader;
+            dup = wantdups = wantsrcheader = false ;
 
-                int Em = p->EchoMask & 0x1ff;   // Mask off non-source determining bits
+            if (p->EchoMask & sendDUPS)
+                dup = true;             // This packet is a duplicate
 
-                if ((sessions[i].EchoMask & Em) // Echo inet data if source mask bits match
-                        && (p->sourceSock != sessions[i].Socket) // no echo to original sender
-                        && (ShutDownServer == false)
-                        && (sessions[i].dead == false) // dead socket?
-                        && ((dup == false) || (wantdups))) { //dups filtered (or not)
+            if (sessions[i].EchoMask & sendDUPS)
+                wantdups = true;        // User wants duplicates
 
-                    rc = 0;
-                    if (sessions[i].EchoMask & wantRAW) {  //User wants raw data?
-                        rc = send(sessions[i].Socket,p->raw.c_str(),nraw,0); //Raw data to clients
-                    } else {
-                        if ((p->reformatted == false)  // No 3rd party reformatted packets allowed
-                                && (wantsrcheader == false) // This guy doesn't want the IP source header prepended
-                                && (dup == false)) {        // No duplicates
-                            DBstring = "SendToAllClient: at send";
-                            rc = send(sessions[i].Socket, p->c_str(), n, 0); // Cooked data to clients (normal mode)
-                        }
+            if (sessions[i].EchoMask & wantSRCHEADER)
+                wantsrcheader = true;   // User wants IP source header
 
-                        if (wantsrcheader) {// Append source header to aprs packets, duplicates ok.
-                                            // Mostly for debugging the network
-                            rc = send(sessions[i].Socket,p->srcHeader.c_str(),nsh,0);
-                            if (rc != -1)
-                                rc = send(sessions[i].Socket,p->c_str(),n,0);
+            int Em = p->EchoMask & 0x1ff;   // Mask off non-source determining bits
 
-                        }
+            if ((sessions[i].EchoMask & Em) // Echo inet data if source mask bits match
+                    && (p->sourceSock != sessions[i].Socket) // no echo to original sender
+                    && (ShutDownServer == false)
+                    && (sessions[i].dead == false) // dead socket?
+                    && ((dup == false) || (wantdups))) { //dups filtered (or not)
+
+                rc = 0;
+                if (sessions[i].EchoMask & wantRAW) {  //User wants raw data?
+                    rc = send(sessions[i].Socket,p->raw.c_str(),nraw,0); //Raw data to clients
+                } else {
+                    if ((p->reformatted == false)  // No 3rd party reformatted packets allowed
+                            && (wantsrcheader == false) // This guy doesn't want the IP source header prepended
+                            && (dup == false)) {        // No duplicates
+                        DBstring = "SendToAllClient: at send";
+                        rc = send(sessions[i].Socket, p->c_str(), n, 0); // Cooked data to clients (normal mode)
                     }
 
-                    // Disconnect user if socket error or he failed
-                    // to accept 10 consecutive packets due to
-                    // resource temporarally unavailable errors
-                    if (rc == -1) {
-                        if (errno == EAGAIN) {
-                            sessions[i].overruns++;
-                            cerr << "Session overrun (" << sessions[i].userCall << ")" << ends << endl;
-                        }
-                        if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
-                            sessions[i].EchoMask = 0;   // No more data for you!
-                            sessions[i].dead = true;    // Mark connection as dead for later removal...
-                                                        // ...by thread that owns it.
-                        }
-                    } else {
-                        if(pthread_mutex_lock(pmtxCount) != 0)
-                            cerr << "Unable to lock pmtxCount - SessionOverrun.\n" << flush;
+                    if (wantsrcheader) {// Append source header to aprs packets, duplicates ok.
+                                        // Mostly for debugging the network
+                        rc = send(sessions[i].Socket,p->srcHeader.c_str(),nsh,0);
+                        if (rc != -1)
+                            rc = send(sessions[i].Socket,p->c_str(),n,0);
 
-                        sessions[i].overruns = 0;       // Clear users overrun counter if he accepted packet
-                        sessions[i].bytesOut += rc;     // Add these bytes to his bytesOut total
-
-                        if(pthread_mutex_unlock(pmtxCount) != 0)
-                            cerr << "Unable to unlock pmtxCount - SessionOverrun.\n" << flush;
                     }
-                    if(pthread_mutex_lock(pmtxCount) != 0)
-                        cerr << "Unable to lock pmtxCount - SessionOverrun2.\n" << flush;
-
-                    ccount++;
-
-                    if(pthread_mutex_unlock(pmtxCount) != 0)
-                        cerr << "Unable to unlock pmtxCount - SessionOverrun2.\n" << flush;
                 }
+
+                // Disconnect user if socket error or he failed
+                // to accept 10 consecutive packets due to
+                // resource temporarally unavailable errors
+                if (rc == -1) {
+                    if (errno == EAGAIN) {
+                        sessions[i].overruns++;
+                        cerr << "Session overrun (" << sessions[i].userCall << ")" << ends << endl;
+                    }
+                    if ((errno != EAGAIN) || (sessions[i].overruns >= 10)) {
+                        sessions[i].EchoMask = 0;   // No more data for you!
+                        sessions[i].dead = true;    // Mark connection as dead for later removal...
+                                                    // ...by thread that owns it.
+                    }
+                } else {
+                    //if(pthread_mutex_lock(pmtxCount) != 0)
+                    //    cerr << "Unable to lock pmtxCount - SessionOverrun.\n" << flush;
+                    countLock.get();
+                    sessions[i].overruns = 0;       // Clear users overrun counter if he accepted packet
+                    sessions[i].bytesOut += rc;     // Add these bytes to his bytesOut total
+
+                    //if(pthread_mutex_unlock(pmtxCount) != 0)
+                    //    cerr << "Unable to unlock pmtxCount - SessionOverrun.\n" << flush;
+                    countLock.release();
+                }
+                //if(pthread_mutex_lock(pmtxCount) != 0)
+                //    cerr << "Unable to lock pmtxCount - SessionOverrun2.\n" << flush;
+
+                countLock.get();
+                ccount++;
+                countLock.release();
+
+                //if(pthread_mutex_unlock(pmtxCount) != 0)
+                //    cerr << "Unable to unlock pmtxCount - SessionOverrun2.\n" << flush;
             }
         }
-        DBstring = "SendToAllClients: out of loop";
-        if(pthread_mutex_unlock(pmtxSend) != 0)
-            cerr << "Unable to unlock pmtxSend - SendToAllClients.\n" << flush;
-
-        if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
-            cerr << "Unable to unlock pmtxAddDelSess - SendToAllClients.\n" << flush;
-
-        DBstring = "Unlock AddDelSess and Send Mutexes";
-
-        /*if ((ccount > 0) && ((p->EchoMask & srcSTATS) == 0)) {
-            char *cp = new char[257];
-            memset(cp,0,257);
-            ostrstream msg(cp,256);
-
-            //msg << "Sent " << setw(4) << n << " bytes to " << setw(3) << ccount << " clients"
-            //    << endl
-            //    << ends ;
-
-            if (cp != NULL)
-                conQueue.write(cp,0);           // cp deleted by queue reader
-            else
-                DBstring = "SendToAllClients: cp is NULL!";
-        }*/
-
-        DBstring = "Lock pmtxCount for bytesSent increment";
-        if(pthread_mutex_lock(pmtxCount) != 0)
-            cerr << "Unable to lock pmtxCount - SendToAlClients.\n" << flush;
-
-        bytesSent += (n * ccount);
-
-        if (pthread_mutex_unlock(pmtxCount) != 0)
-            cerr << "Unable to unlock pmtxCount - SendToAllClients.\n" << flush;
-
-        DBstring = "Unlock pmtxCount after bytesSent increment";
-
-        /*
-            gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
-            t1 = tv.tv_usec + (tv.tv_sec * 1000000);
-            cout << "t= " << t1-t0 << endl;
-        */
-        return;
     }
+    DBstring = "SendToAllClients: out of loop";
+    //if(pthread_mutex_unlock(pmtxSend) != 0)
+    //    cerr << "Unable to unlock pmtxSend - SendToAllClients.\n" << flush;
 
-    catch (TAprsdException except) {
-        cout << except.what() << endl;
-        WriteLog(except.what(), ERRORLOG);
-        return;
-    }
+    //if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
+    //    cerr << "Unable to unlock pmtxAddDelSess - SendToAllClients.\n" << flush;
+
+    sendLock.release();
+    addDelSessLock.release();
+    DBstring = "Unlock AddDelSess and Send Mutexes";
+
+    /*if ((ccount > 0) && ((p->EchoMask & srcSTATS) == 0)) {
+        char *cp = new char[257];
+        memset(cp,0,257);
+        ostrstream msg(cp,256);
+
+        //msg << "Sent " << setw(4) << n << " bytes to " << setw(3) << ccount << " clients"
+        //    << endl
+        //    << ends ;
+
+        if (cp != NULL)
+            conQueue.write(cp,0);           // cp deleted by queue reader
+        else
+            DBstring = "SendToAllClients: cp is NULL!";
+    }*/
+
+    DBstring = "Lock pmtxCount for bytesSent increment";
+    //if(pthread_mutex_lock(pmtxCount) != 0)
+    //    cerr << "Unable to lock pmtxCount - SendToAlClients.\n" << flush;
+    countLock.get();
+    bytesSent += (n * ccount);
+    countLock.release();
+    //if (pthread_mutex_unlock(pmtxCount) != 0)
+    //    cerr << "Unable to unlock pmtxCount - SendToAllClients.\n" << flush;
+
+    DBstring = "Unlock pmtxCount after bytesSent increment";
+
+    /*
+        gettimeofday(&tv,&tz);  //Get time of day in microseconds to tv.tv_usec
+        t1 = tv.tv_usec + (tv.tv_sec * 1000000);
+        cout << "t= " << t1-t0 << endl;
+    */
+    return;
 }
 
 
 //---------------------------------------------------------------------
 // Pushes a character string into the server send queue.
-void BroadcastString(char *cp)
+void BroadcastString(const char *cp)
 {
     DBstring = "BroadcastString - function entrance";
     TAprsString *msgbuf = new TAprsString(cp,SRC_INTERNAL,srcSYSTEM);
@@ -765,6 +785,7 @@ void *DeQueue(void *)
     long t0;
     //const char *dcp;
     //string(dcp);
+    //Lock countLock(mtxCount, false);
 
     usLastTime = usNow = 0;
 
@@ -808,7 +829,8 @@ void *DeQueue(void *)
                         dequeueTNC();       // Check the TNC queue
                 }
             }
-            reliable_usleep(1000);      // 1ms  ZPO - try .1ms
+            //reliable_usleep(1000);      // 1ms  ZPO - try .1ms
+            usleep(1000);
 
             if (ShutDownServer)
                 pthread_exit(0);
@@ -830,7 +852,7 @@ void *DeQueue(void *)
             DBstring = "Entrance to dup check";
             dup = false;
             if (!((abuff->EchoMask) & (srcSTATS | srcSYSTEM)))
-                dup  = dupFilter.check(abuff,30);   // Check for duplicates within 15 second window
+                dup  = dupFilter.check(abuff, 30);   // Check for duplicates within 30 second window
 
             if (((abuff->EchoMask & src3RDPARTY)&&((abuff->aprsType == APRSPOS)) // No Posits fetched from history list
                     || (abuff->aprsType == COMMENT)               // No comment packets in the history buffer
@@ -847,13 +869,13 @@ void *DeQueue(void *)
                 abuff->ttl = MaxAge;
                 DBstring = "Add item to history list - before";
 
-                if(pthread_mutex_lock(pmtxCount) != 0)
-                    cerr << "Unable to lock pmtxCount - DeQueue-AddHistoryItem.\n" << flush;
+                //if(pthread_mutex_lock(pmtxCount) != 0)
+                //    cerr << "Unable to lock pmtxCount - DeQueue-AddHistoryItem.\n" << flush;
 
                 AddHistoryItem(abuff);  // Put item in history list.
 
-                if(pthread_mutex_unlock(pmtxCount) != 0)
-                    cerr << "Unable to unlock pmtxCount - DeQueue-AddHistoryItem.\n" << flush;
+                //if(pthread_mutex_unlock(pmtxCount) != 0)
+                //    cerr << "Unable to unlock pmtxCount - DeQueue-AddHistoryItem.\n" << flush;
 
                 DBstring = "Add item to history list - after";
 
@@ -897,7 +919,8 @@ void *ACKrepeaterThread(void *p)
     paprs->ttl = 0;                     // Flag tells caller we're done with it.
 
     for (int i=0 ;i<ackRepeats;i++) {
-        sleep(ackRepeatTime);
+        //sleep(ackRepeatTime);
+        usleep(ackRepeatTime * 1000000);
         TAprsString *ack =  new TAprsString(*abuff);
 
         tncQueue.write(ack);            // ack TAprsString  will be deleted by TNC queue reader
@@ -918,6 +941,7 @@ void dequeueTNC(void)
     char *rfbuf = NULL;
     TAprsString* abuff = NULL;
     char szUserMsg[UMSG_SIZE];
+    Lock countLock(mtxCount, false);
 
     pthread_t tid;
 
@@ -946,7 +970,7 @@ void dequeueTNC(void)
     }
 
     rfbuf = new char[300];
-    memset(rfbuf, 0, 300);
+    memset(rfbuf, '\0', 300);
 
     if (rfbuf != NULL) {
         if (tncPresent ) {
@@ -954,52 +978,54 @@ void dequeueTNC(void)
                     && (abuff->msgType == APRSMSGACK)   // Only ack packets
                     && (ackRepeats > 0) ) {             // Only if repeats greater than zero
                 abuff->ttl = 1;                         // Mark it as unprocessed (ttl serves double duty here)
-                int rc = pthread_create(&tid, NULL, ACKrepeaterThread, abuff);    // Create ack repeater thread
-                if (rc != 0) {          // Make sure it starts
+                int rc; //= pthread_create(&tid, NULL, ACKrepeaterThread, abuff);    // Create ack repeater thread
+                if ( (rc = pthread_create(&tid, NULL, ACKrepeaterThread, (void *) abuff) != 0)) {          // Make sure it starts
                     cerr << "Error: ACKrepeaterThread failed to start\n";
                     abuff->ttl = 0;
                 } else
                     pthread_detach(tid);                // Run detached to free resources.
             }
 
-            strncpy(rfbuf,abuff->data.c_str(),256); // copy only data portion to rf buffer
+            strncpy(rfbuf, abuff->data.c_str(), 256); // copy only data portion to rf buffer
                                                     // and truncate to 256 bytes
-            RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
-            rfbuf[256] = NULLCHR;          // Make sure there's a null on the end
-            strcat(rfbuf,"\r");         // append a CR to the end
+            //RemoveCtlCodes(rfbuf);      // remove control codes and set 8th bit to zero.
+            rfbuf[256] = '\0';          // Make sure there's a null on the end
+            strcat(rfbuf, "\r");         // append a CR to the end
             char* cp = new char[300];   // Will be deleted by conQueue reader.
-            memset(cp, 0, 300);
-            ostrstream msg(cp,299);
+            memset(cp, '\0', 300);
+            ostrstream msg(cp, 299);
 
-            msg << "Sending to TNC: " << rfbuf << endl << ends; //debug only
+            msg << "Sending to TNC: " << rfbuf << endl; //debug only
             conQueue.write(cp, 0);
 
-            if(pthread_mutex_lock(pmtxCount) != 0)
-                cerr << "Unable to lock pmtxCount - SendToTNC.\n" << flush;
-
+            //if (pthread_mutex_lock(pmtxCount) != 0)
+            //    cerr << "Unable to lock pmtxCount - SendToTNC." << endl;
+            countLock.get();
             TotalTNCtxChars += strlen(rfbuf);
-            if(pthread_mutex_unlock(pmtxCount) != 0)
-                cerr << "Unable to unlock pmtxCount - SendToTNC.\n" << flush;
+            countLock.release();
+            //if (pthread_mutex_unlock(pmtxCount) != 0)
+            //    cerr << "Unable to unlock pmtxCount - SendToTNC." << endl;
 
             if (!tncMute) {
-                if(abuff->reformatted) {
-                    if(pthread_mutex_lock(pmtxCount) != 0)
-                        cerr << "Unable to lock pmtxCount - SendToTNC - Msg.\n" << flush;
-
+                if (abuff->reformatted) {
+                    //if (pthread_mutex_lock(pmtxCount) != 0)
+                    //    cerr << "Unable to lock pmtxCount - SendToTNC - Msg." << endl;
+                    countLock.get();
                     msg_cnt++;
+                    countLock.release();
 
-                    if(pthread_mutex_unlock(pmtxCount) != 0)
-                        cerr << "Unable to unlock pmtxCount - SendToTNC - Msg.\n" << flush;
+                    //if (pthread_mutex_unlock(pmtxCount) != 0)
+                    //    cerr << "Unable to unlock pmtxCount - SendToTNC - Msg." << endl;
 
-                    memset(szUserMsg,0,MAX);
-                    ostrstream umsg(szUserMsg,MAX-1);
+                    memset(szUserMsg, '\0', MAX);
+                    ostrstream umsg(szUserMsg, MAX-1);
                     umsg << abuff->peer << " " << abuff->user
                         << ": "
                         << abuff->getChar()
                         << ends;
 
                     //Save the station-to-station message in the log
-                    WriteLog(szUserMsg,STSMLOG);
+                    WriteLog(szUserMsg, STSMLOG);
                 }
                 rfWrite(rfbuf);         // Send string out on RF via TNC
             }
@@ -1008,7 +1034,8 @@ void dequeueTNC(void)
 
     if (abuff) {
         while (abuff->ttl > 0)
-            reliable_usleep(10);                 // wait 'till it's safe to delete this...
+            //reliable_usleep(10);                 // wait 'till it's safe to delete this...
+            usleep(1000);
 
         delete abuff;                   // ...ack repeater thread will set ttl to zero
         abuff = NULL;                   // ...Perhaps the ack repeater should delete this?
@@ -1026,23 +1053,26 @@ void dequeueTNC(void)
 int SendSessionStr(int session, const char *s)
 {
     int rc, retrys;
+    Lock sendLock(mtxSend, false);
 
-    if(pthread_mutex_lock(pmtxSend) != 0)
-        cerr << "Unable to lock pmtxSend - SendSessionStr.\n" << flush;
+    //if (pthread_mutex_lock(pmtxSend) != 0)
+    //    cerr << "Unable to lock pmtxSend - SendSessionStr." << endl;
 
+    sendLock.get();
     retrys = 0;
 
     do {
         rc = send(session, s, strlen(s), 0);
         if (rc < 0) {
-            reliable_usleep(50000);              // try again 50ms later
+            //reliable_usleep(50000);              // try again 50ms later
+            usleep(500);
             retrys++;
         }
     } while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
 
-    if(pthread_mutex_unlock(pmtxSend) != 0)
-        cerr << "Unable to unlock pmtxSend - SendSessionStr.\n" << flush;
-
+    //if (pthread_mutex_unlock(pmtxSend) != 0)
+    //    cerr << "Unable to unlock pmtxSend - SendSessionStr.\n" << flush;
+    sendLock.release();
     return(rc);
 }
 
@@ -1051,25 +1081,27 @@ int SendSessionStr(int session, const char *s)
 void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 {
     char szLog[MAX],infomsg[MAX];
+    Lock sendLock(mtxSend, false);
+    Lock countLock(mtxCount, false);
 
     if (ShutDownServer)
         pthread_exit(0);
 
-    if(pthread_mutex_lock(pmtxSend) != 0)
-        cerr << "Unable to lock pmtxSend - endSession.\n" << flush;
+    //if(pthread_mutex_lock(pmtxSend) != 0)
+    //    cerr << "Unable to lock pmtxSend - endSession.\n" << flush;
 
     DeleteSession(session);             // remove it  from list
     shutdown(session, 2);
     close(session);                     // Close socket
-    if(pthread_mutex_unlock(pmtxSend) != 0)
-        cerr << "Unable to unlock pmtxSend - endSession.\n" << flush;
+    //if(pthread_mutex_unlock(pmtxSend) != 0)
+    //    cerr << "Unable to unlock pmtxSend - endSession.\n" << flush;
 
     {
         char* cp = new char[128];
-        memset(cp, 0, 128);
+        memset(cp, '\0', 128);
         ostrstream msg(cp,127);
         msg << szPeer << " " << userCall
-            << " has disconnected\n"
+            << " has disconnected"
             << ends;
 
         conQueue.write(cp, 0);
@@ -1091,7 +1123,8 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
 
     WriteLog(szLog, MAINLOG);
 
-    {   memset(infomsg,0,MAX);
+    {
+        memset(infomsg, '\0', MAX);
         ostrstream msg(infomsg, MAX-1);
 
         msg << szServerCall
@@ -1105,14 +1138,15 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << " users online.\r\n"
             << ends;
     }
+
     if (broadcastJavaInfo)
         BroadcastString(infomsg);           // Say IP address of disconected client
 
     if (strlen(userCall) > 0) {
-        if(pthread_mutex_lock(pmtxCount) != 0)
-            cerr << "Unable to lock pmtxCount - EndSession.\n" << flush;
-
-        memset(infomsg,0,MAX);
+        //if (pthread_mutex_lock(pmtxCount) != 0)
+        //    cerr << "Unable to lock pmtxCount - EndSession.\n" << flush;
+        countLock.get();
+        memset(infomsg, '\0', MAX);
         ostrstream msg(infomsg, MAX-1);
         msg << szServerCall
             << szAPRSDPATH
@@ -1125,9 +1159,9 @@ void endSession(int session, char* szPeer, char* userCall, time_t starttime)
             << "\r\n"
             << ends;
 
-        if(pthread_mutex_unlock(pmtxCount) != 0)
-            cerr << "Unable to unlock pmtxCount - EndSession.\n" << flush;
-
+        //if(pthread_mutex_unlock(pmtxCount) != 0)
+        //    cerr << "Unable to unlock pmtxCount - EndSession.\n" << flush;
+        countLock.release();
         BroadcastString(infomsg);       // Say call sign of disconnected client
     }
 
@@ -1158,7 +1192,7 @@ void *TCPSessionThread(void *p)
     const char *szUserStatus;
     unsigned char c;
     unsigned adr_size = sizeof(peer_adr);
-    int n, rc,data,verified=false, loggedon=false;
+    int n, rc, data, verified=false, loggedon=false;
     ULONG State = BASE;
     char userCall[10];
     char* tc;
@@ -1172,28 +1206,33 @@ void *TCPSessionThread(void *p)
 
     char szUser[16], szPass[16];
     //char* szServerPort[10];
+    Lock countLock(mtxCount, false);
 
     if (session < 0)
         return NULL;
 
     DBstring = "TCPSessionThread - basic initialization complete";
 
-    if(pthread_mutex_lock(pmtxCount) != 0)
-        cerr << "Unable to lock pmtxCount - TCPSessionThread - TotalConnects.\n" << flush;
+    //if(pthread_mutex_lock(pmtxCount) != 0)
+    //    cerr << "Unable to lock pmtxCount - TCPSessionThread - TotalConnects.\n" << flush;
 
     TotalConnects++;
-    if(pthread_mutex_unlock(pmtxCount) != 0)
-        cerr << "Unable to unlock pmtxCount - TCPSessionThread - Total Connects.\n" << flush;
+    //if(pthread_mutex_unlock(pmtxCount) != 0)
+    //    cerr << "Unable to unlock pmtxCount - TCPSessionThread - Total Connects.\n" << flush;
 
     time_t  starttime = time(NULL);
 
-    szPeer[0] = NULLCHR;
-    userCall[0] = NULLCHR;
+    szPeer[0] = '\0';
+    userCall[0] = '\0';
 
-    if (getpeername(session, (struct sockaddr *)&peer_adr, &adr_size) == 0)
-        strncpy(szPeer, inet_ntoa(peer_adr.sin_addr), 32);
+    if (getpeername(session, (SA *)&peer_adr, &adr_size) < 0) {
+            char buff[100];
+            throw SocketException(strerror_r(errno, buff, sizeof(buff)));
+        } else
+            strncpy(szPeer, inet_ntoa(peer_adr.sin_addr), 32);
 
-    {   memset(szError,0,MAX);
+    {
+        memset(szError, '\0', MAX);
         ostrstream msg(szError, MAX-1);  // Build an error message in szError
 
         msg << szServerCall
@@ -1206,13 +1245,14 @@ void *TCPSessionThread(void *p)
 
     {
         char *cp = new char[256];
-        memset(cp, 0, 256);
+        memset(cp, '\0', 256);
         ostrstream msg(cp, 255);
-        msg << szPeer << " has connected to port " << serverport << endl << ends;
+        msg << szPeer << " has connected to port " << serverport;
         conQueue.write(cp, 0);           // queue reader deletes cp
     }
 
-    {   memset(szLog,0,MAX);
+    {
+        memset(szLog, '\0', MAX);
         ostrstream msg(szLog, MAX-1);
         msg << szPeer
             << " connected on "
@@ -1245,23 +1285,23 @@ void *TCPSessionThread(void *p)
                                                                         // except messages generated by this system.
         DBstring = "TCPSessionThread - return from SendHistory";
         if (n < 0) {
-            memset(szLog,0,MAX);
+            memset(szLog, '\0', MAX);
             ostrstream msg(szLog, MAX-1);
             msg << szPeer
                 << " aborted during history dump on "
                 << serverport
                 << ends;
 
-            WriteLog(szLog,MAINLOG);
+            WriteLog(szLog, MAINLOG);
             endSession(session, szPeer, userCall, starttime);
         }
 
         {
             char *cp = new char[256];
-            memset(cp, 0, 256);
-            ostrstream msg(cp,255);
-            msg << "Sent " << n << " history items to " << szPeer << endl << ends;
-            conQueue.write(cp,0);       // queue reader deletes cp
+            memset(cp, '\0', 256);
+            ostrstream msg(cp, 255);
+            msg << "Sent " << n << " history items to " << szPeer << ends;
+            conQueue.write(cp, 0);       // queue reader deletes cp
         }
     }
     char *pWelcome = new char[strlen(CONFPATH) + strlen(WELCOME) + 1];
@@ -1271,8 +1311,8 @@ void *TCPSessionThread(void *p)
     rc = SendFiletoClient(session, pWelcome);    // Read Welcome message from file
 
     if (rc < 0) {
-        memset(szLog,0,MAX);
-        ostrstream msg(szLog,MAX-1);
+        memset(szLog, '\0', MAX);
+        ostrstream msg(szLog, MAX-1);
         msg << szPeer
             << " aborted welcome msg on "
             << serverport
@@ -1302,18 +1342,19 @@ void *TCPSessionThread(void *p)
         cerr << "Can't find free session.\n" << flush;		// debug stuff
         endSession(session, szPeer, userCall, starttime);
         char *cp = new char[256];
-        memset(cp, 0, 256);
+        memset(cp, '\0', 256);
         ostrstream msg(cp, 255);
         msg <<  "Can't add client to session list, too many users - closing connection.\n"
             << ends;
 
-        conQueue.write(cp,0);
+        conQueue.write(cp, 0);
     }
 
-    AddSessionInfo(session,"*",szPeer,serverport, "*");
+    AddSessionInfo(session, "*", szPeer, serverport, "*");
 
+    countLock.get();
     {
-        memset(infomsg,0,MAX);
+        memset(infomsg, '\0', MAX);
         ostrstream msg(infomsg, MAX-1);
 
         msg << szServerCall
@@ -1329,15 +1370,18 @@ void *TCPSessionThread(void *p)
         if (broadcastJavaInfo)
             BroadcastString(infomsg);
     }
+    //countLock.release();
 
-    if(pthread_mutex_lock(pmtxCount) != 0)
-        cerr << "Unable to lock pmtxCount - TCPSessionThread - disco1.\n" << flush;
+    //if(pthread_mutex_lock(pmtxCount) != 0)
+    //    cerr << "Unable to lock pmtxCount - TCPSessionThread - disco1.\n" << flush;
 
+    //countLock.get();
     if (ConnectedClients > MaxConnects)
         MaxConnects = ConnectedClients;
 
-    if(pthread_mutex_unlock(pmtxCount) != 0)
-        cerr << "Unable to unlock pmtxCount - TCPSessionThread - disco1.\n" << flush;
+    countLock.release();
+    //if(pthread_mutex_unlock(pmtxCount) != 0)
+    //    cerr << "Unable to unlock pmtxCount - TCPSessionThread - disco1.\n" << flush;
 
     iac = 0;
     sbEsc = false;
@@ -1381,7 +1425,8 @@ void *TCPSessionThread(void *p)
 
                 //cerr << "i=" << i << "  chTimer=" << chTimer << "   c=" << c << endl;
                 if (State != REMOTE)
-                    sleep(1);           // Don't hog cpu while in loop awaiting data
+                    //sleep(1);           // Don't hog cpu while in loop awaiting data
+                    usleep(1000000);
             }
             if (sp->dead) {             // force disconnect if connection is dead
                 BytesRead = 0;
@@ -1435,16 +1480,15 @@ void *TCPSessionThread(void *p)
                                 //<ESC> = exit TNC control
                                 if ((State != BASE) && tncPresent) {
                                     if (State == REMOTE) {
-                                        memset(szLog,0,MAX);
+                                        memset(szLog, '\0', MAX);
                                         ostrstream log(szLog, MAX-1);
 
                                         log << szPeer << " "
                                             << szUser << " "
                                             << " Exited TNC remote sysop mode."
-                                            << endl
-                                            << ends;
+                                            << endl;
 
-                                        WriteLog(szLog,MAINLOG);
+                                        WriteLog(szLog, MAINLOG);
                                     }
 
                                     tncMute = false;
@@ -1453,7 +1497,7 @@ void *TCPSessionThread(void *p)
                                     rc = SendSessionStr(session,"\r\n200 Exit remote mode successfull\r\n");
 
                                     if (rc < 0)
-                                        endSession(session,szPeer,userCall,starttime);
+                                        endSession(session, szPeer, userCall, starttime);
 
                                     sp->EchoMask = EchoMask;    // Restore aprs data stream.
                                     BytesRead = 0;  //Reset buffer
@@ -1467,7 +1511,7 @@ void *TCPSessionThread(void *p)
                     if ((State == REMOTE) && (c != 0x1b) && (c != 0x0) && (c != 0x0a)) {
                         char chbuf[2];
                         chbuf[0] = c;
-                        chbuf[1] = NULLCHR;
+                        chbuf[1] = '\0';
                         rfWrite(chbuf);     // Send chars to TNC in real time if REMOTE
                     }
                 }
@@ -1496,14 +1540,14 @@ void *TCPSessionThread(void *p)
             buf[i++] = 0x0a;
             buf[i++] = 0;
 
-            if(pthread_mutex_lock(pmtxCount) != 0)
-                cerr << "Unable to lock pmtxCount - TCPSessionThread - Character/Frame Counters.\n" << flush;
-
+            //if(pthread_mutex_lock(pmtxCount) != 0)
+            //    cerr << "Unable to lock pmtxCount - TCPSessionThread - Character/Frame Counters.\n" << flush;
+            countLock.get();
             TotalUserChars += i;
             frame_cnt++;
-
-            if(pthread_mutex_unlock(pmtxCount) != 0)
-                cerr << "Unable to unlock pmtxCount - TCPSessionThread - Character/Frame Counters.\n" << flush;
+            countLock.release();
+            //if(pthread_mutex_unlock(pmtxCount) != 0)
+            //    cerr << "Unable to unlock pmtxCount - TCPSessionThread - Character/Frame Counters.\n" << flush;
 
             if (sp) {
                 sp->bytesIn += i;
@@ -1526,8 +1570,11 @@ void *TCPSessionThread(void *p)
 
                 TAprsString atemp(buf, session, srcUSER, szPeer, userCall);
 
-                if (atemp.aprsType == APRSQUERY){   // non-directed query ?
-                    queryResp(session,&atemp);      // yes, send our response
+                if ((atemp.aprsType == APRSQUERY) &&
+                        ((!respondToIgateQueries) || (!respondToAprsdQueries))) {   // non-directed query ?
+                    queryResp(session, &atemp);      // yes, send our response
+                } else {
+                    cerr << "Ignored APRSQUERY from " << atemp.ax25Source << endl;
                 }
 
                 //cout << atemp << endl;
@@ -1576,18 +1623,17 @@ void *TCPSessionThread(void *p)
                     } else {
                         if (idxInvalid != string::npos) {
                             char *cp = new char[256];
-                            memset(cp, 0, 256);
+                            memset(cp, '\0', 256);
                             ostrstream msg(cp, 255);
 
                             msg << szPeer
                                 << " Invalid character \""
                                 << vd[idxInvalid]
                                 << "\" in APRS logon"
-                                << endl
-                                << ends ;
+                                << endl;
 
-                            conQueue.write(cp,0);       // cp deleted by queue reader
-                            WriteLog(cp,MAINLOG);
+                            conQueue.write(cp, 0);       // cp deleted by queue reader
+                            WriteLog(cp, MAINLOG);
                         }
                     }
 
@@ -1618,7 +1664,7 @@ void *TCPSessionThread(void *p)
                     } // switch
 
                     if (checkdeny != 'L') {
-                        memset(infomsg,0,MAX);
+                        memset(infomsg, '\0', MAX);
                         ostrstream msg(infomsg, MAX-1);
 
                         msg << szServerCall
@@ -1632,28 +1678,26 @@ void *TCPSessionThread(void *p)
                             << atemp.pgmVers
                             << ". "
                             << ConnectedClients << " users"
-                            << "\r\n"   // Don't want acks from this!
-                            << ends;
+                            << "\r\n";   // Don't want acks from this!
 
                         BroadcastString(infomsg);   // send users logon status to everyone
                     }
 
                     {
-                        memset(logmsg,0,MAX);
+                        memset(logmsg, '\0', MAX);
                         ostrstream msg(logmsg, MAX-1);
                         msg << szPeer
                             << " " << atemp.user
                             << " " << atemp.pgmName
                             << " " << atemp.pgmVers
                             << " " << szUserStatus
-                            << endl
-                            << ends;
+                            << endl;
                     }
 
-                    WriteLog(logmsg,MAINLOG);
+                    WriteLog(logmsg, MAINLOG);
                     strncpy(userCall, atemp.user.c_str(), 9);     // save users call sign
                     pgm_vers = atemp.pgmName + " " + atemp.pgmVers;
-                    AddSessionInfo(session,userCall,szPeer,serverport,pgm_vers.c_str());  // put it here so HTTP monitor can see it
+                    AddSessionInfo(session, userCall, szPeer, serverport, pgm_vers.c_str());  // put it here so HTTP monitor can see it
 
                     if ((!verified) || (checkdeny == 'R')) {
                         char call_pad[] = "         ";  // 9 spaces
@@ -1661,18 +1705,17 @@ void *TCPSessionThread(void *p)
                         if (len > 9)
                             len = 9;
 
-                        memmove(call_pad,atemp.user.c_str(),len);
+                        memmove(call_pad, atemp.user.c_str(), len);
 
                         {
-                            memset(infomsg,0,MAX);
+                            memset(infomsg, '\0', MAX);
                             ostrstream msg(infomsg, MAX-1);  // Message to user...
 
                             msg << szServerCall
                                 << szAPRSDPATH
                                 << ':'
                                 << call_pad
-                                << ":" << szRestriction
-                                << ends ;
+                                << ":" << szRestriction;
                         }
 
                         rc = SendSessionStr(session, infomsg);
@@ -1680,14 +1723,13 @@ void *TCPSessionThread(void *p)
                             endSession(session, szPeer, userCall, starttime);
 
                         if (checkdeny == '+') {
-                            memset(infomsg,0,MAX);
+                            memset(infomsg, '\0', MAX);
                             ostrstream msg(infomsg, MAX-1);  // messsage to user
                             msg << szServerCall
                                 << szAPRSDPATH
                                 << ':'
                                 << call_pad
-                                << ":Contact program author for registration number.\r\n"
-                                << ends ;
+                                << ":Contact program author for registration number.\r\n";
 
                             rc = SendSessionStr(session, infomsg);
 
@@ -1700,9 +1742,9 @@ void *TCPSessionThread(void *p)
                         if (sp) {
                             sp->EchoMask = srcSTATS;
                             char prompt[] = "#Entered Monitor mode\n\r";
-                            TAprsString *amsg = new TAprsString(prompt,SRC_USER,srcSTATS);
+                            TAprsString *amsg = new TAprsString(prompt, SRC_USER, srcSTATS);
                             sendQueue.write(amsg);
-                            AddSessionInfo(session,userCall,szPeer,serverport,"Monitor");
+                            AddSessionInfo(session, userCall, szPeer, serverport, "Monitor");
                         }
                     }
                 }
@@ -1712,19 +1754,19 @@ void *TCPSessionThread(void *p)
 
                 if ( verified  && (!RFalways) && (atemp.aprsType == APRSMSG) && (checkdeny == '+')) {
                     sentOnRF = false;
-                    atemp.changePath("TCPIP*","TCPIP");
+                    atemp.changePath("TCPIP*", "TCPIP");
 
-                    sentOnRF = sendOnRF(atemp,szPeer,userCall,srcUSERVALID);    // Send on RF if dest local
+                    sentOnRF = sendOnRF(atemp, szPeer, userCall, srcUSERVALID);    // Send on RF if dest local
 
                     if (sentOnRF) {     //Now find the posit for this guy in the history list
                                         // and send it too.
-                        TAprsString* posit = getPosit(atemp.ax25Source,srcIGATE | srcUSERVALID);
+                        TAprsString* posit = getPosit(atemp.ax25Source, srcIGATE | srcUSERVALID);
 
                         if (posit != NULL) {
                             time_t Time = time(NULL);       // get current time
 
                             if ((Time - posit->timeRF) >= 60*10) {  // every 10 minutes only
-                                timestamp(posit->ID,Time);          // Time stamp the original in hist. list
+                                timestamp(posit->ID, Time);          // Time stamp the original in hist. list
                                 posit->stsmReformat(MyCall);        // Reformat it for RF delivery
                                 tncQueue.write(posit);              // posit will be deleted elsewhere
                             } else {
@@ -1739,12 +1781,13 @@ void *TCPSessionThread(void *p)
                     }
                 }
                 if (atemp.aprsType == APRSERROR) {
-                    if(pthread_mutex_lock(pmtxCount) != 0)
-                        cerr << "Unable to lock pmtxCount - TCPSessionThread - error counter." << endl;
-
+                    //if(pthread_mutex_lock(pmtxCount) != 0)
+                    //    cerr << "Unable to lock pmtxCount - TCPSessionThread - error counter." << endl;
+                    countLock.get();
                     error_cnt++;
-                    if(pthread_mutex_unlock(pmtxCount) != 0)
-                        cerr << "Unable to unlock pmtxCount - TCPSessionThread - error counter." << endl;
+                    countLock.release();
+                    //if(pthread_mutex_unlock(pmtxCount) != 0)
+                    //    cerr << "Unable to unlock pmtxCount - TCPSessionThread - error counter." << endl;
                 }
 
                 // Filter out COMMENT type packets, eg: # Tickle
@@ -1762,14 +1805,14 @@ void *TCPSessionThread(void *p)
                         && (atemp.aprsType != APRSLOGON)
                         && (checkdeny != 'L') ) {
 
-                    TAprsString* inetpacket = new TAprsString(buf,session,srcUSER,szPeer,userCall);
+                    TAprsString* inetpacket = new TAprsString(buf, session, srcUSER, szPeer, userCall);
 
                     if (inetpacket->ax25Source.compare(userCall) != 0)
                         inetpacket->EchoMask = 0;       // No tcpip echo if not from user
 
-                    inetpacket->changePath("TCPIP*","TCPIP") ;
+                    inetpacket->changePath("TCPIP*", "TCPIP") ;
 
-                    if (inetpacket->changePath("TCPXX*","TCPIP*") == false)
+                    if (inetpacket->changePath("TCPXX*", "TCPIP*") == false)
                         inetpacket->EchoMask = 0;       // No tcpip echo if no TCPXX* in path;
 
                     //inetpacket->print(cout);  //debug
@@ -1777,7 +1820,7 @@ void *TCPSessionThread(void *p)
                 }
 
                 if ((atemp.aprsType == APRSMSG) && (RFalways == false) ) {
-                    TAprsString* posit = getPosit(atemp.ax25Source,srcIGATE | srcUSERVALID | srcTNC);
+                    TAprsString* posit = getPosit(atemp.ax25Source, srcIGATE | srcUSERVALID | srcTNC);
                     if (posit != NULL) {
                         posit->EchoMask = src3RDPARTY;
                         sendQueue.write(posit);         // send matching posit only to msg port
@@ -1792,7 +1835,7 @@ void *TCPSessionThread(void *p)
                         && (atemp.tcpxx == false)
                         && (checkdeny == '+')) {
 
-                    TAprsString* RFpacket = new TAprsString(buf,session,srcUSER,szPeer,userCall);
+                    TAprsString* RFpacket = new TAprsString(buf, session, srcUSER, szPeer, userCall);
                     RFpacket->changePath("TCPIP*","TCPIP");
 
                     if (RFpacket->aprsType == APRSMIC_E) {      // Reformat Mic-E packets
@@ -1810,7 +1853,6 @@ void *TCPSessionThread(void *p)
                                 telemetry->stsmReformat(MyCall);    // Reformat it for RF delivery
                                 tncQueue.write(telemetry);          // Send packet on RF
                             }
-
                             delete RFpacket;
                             RFpacket = NULL;
                         } else {
@@ -1830,12 +1872,12 @@ void *TCPSessionThread(void *p)
                 strncpy(szPass,buf,15);
 
                 if (j<16)
-                    szPass[j] = NULLCHR;
+                    szPass[j] = '\0';
                 else
-                    szPass[15] = NULLCHR;
+                    szPass[15] = '\0';
 
                 bool verified_tnc = false;
-                unsigned idxInvalid=0;
+                unsigned idxInvalid = 0;
 
                 int valid = -1;
 
@@ -1847,22 +1889,21 @@ void *TCPSessionThread(void *p)
                         && (strlen(szUser) <= 16)       // Limit length to 16 or less
                         && (strlen(szPass) <= 16)) {
 
-                    valid = validate(szUser,szPass,TNCGROUP,APRS_PASS_ALLOW);   // Check user/password
+                    valid = validate(szUser, szPass, TNCGROUP, APRS_PASS_ALLOW);   // Check user/password
                 } else {
                     if (idxInvalid != string::npos) {
                         char *cp = new char[256];
-                        memset(cp, 0, 256);
+                        memset(cp, '\0', 256);
                         ostrstream msg(cp, 255);
 
                         msg << szPeer
                             << " Invalid character \""
                             << vd[idxInvalid]
                             << "\" in TNC logon"
-                            << endl
-                            << ends ;
+                            << endl;
 
-                        conQueue.write(cp,0);       // cp deleted by queue reader
-                        WriteLog(cp,MAINLOG);
+                        conQueue.write(cp, 0);       // cp deleted by queue reader
+                        WriteLog(cp, MAINLOG);
                     }
                 }
 
@@ -1875,66 +1916,62 @@ void *TCPSessionThread(void *p)
 
                         State = REMOTE;
                         tncMute = true;
-                        rc = SendSessionStr(session,"\r\n230 Login successful. <ESC> to exit remote mode.\r\n");
-
+                        rc = SendSessionStr(session, "\r\n230 Login successful. <ESC> to exit remote mode.\r\n");
                         if (rc < 0)
                             endSession(session,szPeer,userCall,starttime);
 
-                        memset(szLog,0,MAX);
+                        memset(szLog, '\0', MAX);
                         ostrstream log(szLog, MAX-1);
                         log << szPeer << " "
                             << szUser
                             << " Entered TNC remote sysop mode."
-                            << endl
-                            << ends;
+                            << endl;
 
-                        WriteLog(szLog,MAINLOG);
+                        WriteLog(szLog, MAINLOG);
                     } else {
-                        rc = SendSessionStr(session,"\r\n550 Login failed, TNC is busy\r\n");
+                        rc = SendSessionStr(session, "\r\n550 Login failed, TNC is busy\r\n");
 
                         if (rc < 0)
-                            endSession(session,szPeer,userCall,starttime);
+                            endSession(session, szPeer, userCall, starttime);
 
-                        memset(szLog,0,MAX);
+                        memset(szLog, '\0', MAX);
                         ostrstream log(szLog, MAX-1);
                         log << szPeer << " "
                             << szUser
                             << " Login failed: TNC busy."
-                            << endl
-                            << ends;
+                            << endl;
 
-                        WriteLog(szLog,MAINLOG);
+                        WriteLog(szLog, MAINLOG);
                         State = BASE;
 
                         if (sp) {
                             sp->EchoMask = EchoMask;    // Restore original echomask
-                            AddSessionInfo(session,userCall,szPeer,serverport,pgm_vers.c_str());
+                            AddSessionInfo(session, userCall, szPeer, serverport, pgm_vers.c_str());
                         } else {
                             // failed to get a session
                         }
                     }
                 } else {
-                    rc = SendSessionStr(session,"\r\n550 Login failed, invalid user or password\r\n");
+                    rc = SendSessionStr(session, "\r\n550 Login failed, invalid user or password\r\n");
 
                     if (rc < 0)
-                        endSession(session,szPeer,userCall,starttime);
+                        endSession(session, szPeer, userCall, starttime);
 
-                    memset(szLog,0,MAX);
+                    memset(szLog, '\0', MAX);
                     ostrstream log(szLog, MAX-1);
 
                     log << szPeer << " "
                         << szUser  << " "
                         << szPass
                         << " Login failed: Invalid user or password."
-                        << endl
-                        << ends;
+                        << endl;
 
-                    WriteLog(szLog,MAINLOG);
+                    WriteLog(szLog, MAINLOG);
                     State = BASE;
 
                     if (sp) {
                         sp->EchoMask = EchoMask;
-                        AddSessionInfo(session,userCall,szPeer,serverport,pgm_vers.c_str());
+                        AddSessionInfo(session, userCall, szPeer, serverport, pgm_vers.c_str());
                     } else {
                         // failed to get a session
                     }
@@ -1942,17 +1979,17 @@ void *TCPSessionThread(void *p)
             }
 
             if ((State == USER) && (BytesRead > 1)) {
-                strncpy(szUser,buf,15);
+                strncpy(szUser, buf, 15);
                 if (j < 16)
-                    szUser[j] = NULLCHR;
+                    szUser[j] = '\0';
                 else
-                    szUser[15]=NULLCHR;
+                    szUser[15] = '\0';
 
                 State = PASS;
-                rc = SendSessionStr(session,"\r\n331 Pass:");
+                rc = SendSessionStr(session, "\r\n331 Pass:");
 
                 if (rc < 0)
-                    endSession(session,szPeer,userCall,starttime);
+                    endSession(session, szPeer, userCall, starttime);
             }
         }
     } while (BytesRead != 0);   // Loop back and get another line from remote user.
@@ -1962,7 +1999,7 @@ void *TCPSessionThread(void *p)
         TncSysopMode = false;
     }
 
-    endSession(session,szPeer,userCall,starttime);
+    endSession(session, szPeer, userCall, starttime);
 
     pthread_exit(0);  //Actually thread exits from endSession above.
     return(NULL);
@@ -1983,48 +2020,69 @@ void *TCPServerThread(void *p)
     SessionParams* session;
     pthread_t SessionThread;
     struct sockaddr_in server,client;
-    int optval;
+    //int optval;
     ServerParams *sp = (ServerParams*)p;
-    
+
     sp->pid = getpid();
-    s = socket(PF_INET,SOCK_STREAM,0);
+    if (( s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+        char buf[100];
+        throw IOException(strerror_r(errno, buf, sizeof(buf)));
+    }
 
     sp->ServerSocket = s;
 
-    optval = 1;                                 // Allow address reuse
-    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*)&optval, sizeof(int));
-    setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, sizeof(int));
+    //optval = 1;                                 // Allow address reuse
+    //setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*)&optval, sizeof(int));
+    //setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, sizeof(int));
 
-    if (s == 0) {
-        perror("TCPServerThread socket error");
-        ShutDownServer = true;
-        return NULL;
-    }
+    // Let the kernel reuse the socket without waiting for the
+    // port to time out.
+    int reuse = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
-    memset(&server, NULLCHR, sizeof(server));
-    memset(&client, NULLCHR, sizeof(client));
+    //if (s == 0) {
+    //    perror("TCPServerThread socket error");
+    //    ShutDownServer = true;
+    //    return NULL;
+    //}
+
+    memset(&server, '\0', sizeof(server));
+    memset(&client, '\0', sizeof(client));
 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(sp->ServerPort);
 
-    if (bind(s, (struct sockaddr *)&server, sizeof(server)) <  0) {
-        perror("TCPServerThread bind error");
-        ShutDownServer = true;
-        return NULL;
+    // Bind the socket to the port.
+    if (bind(s, (SA *)&server, sizeof(server))) {
+        close(s);
+        char buf[100];
+        throw BindException(strerror_r(errno, buf, sizeof(buf)));
     }
+
+    //if (bind(s, (SA *)&server, sizeof(server)) <  0) {
+    //    perror("TCPServerThread bind error");
+    //    ShutDownServer = true;
+    //    return NULL;
+    //}
 
     cout << "TCP Server listening on port " << sp->ServerPort << endl << flush;
 
     while (!configComplete)
-        reliable_usleep(100000);                // Wait till everything else is running.
+        //reliable_usleep(100000);                // Wait till everything else is running.
+        usleep(1000000);
 
     listen(s, 2);
+    // Listen for connections.
+    if (listen(s, 2)) {
+        char buf[100];
+        throw IOException(strerror_r(errno, buf, sizeof(buf)));
+    }
 
     for(;;) {
         i = sizeof(client);
         session = new SessionParams;
-        session->Socket = accept(s, (struct sockaddr *)&client, &i);
+        session->Socket = accept(s, (SA *)&client, &i);
         session->EchoMask = sp->EchoMask;
         session->ServerPort = sp->ServerPort;
 
@@ -2033,7 +2091,7 @@ void *TCPServerThread(void *p)
             if (session->Socket >= 0)
                 close(session->Socket);
 
-            cerr << "Ending TCP server thread\n" << flush;
+            cerr << "Ending TCP server thread" << endl;
             delete session;
             session = NULL;
 
@@ -2064,7 +2122,7 @@ void *TCPServerThread(void *p)
         } else                                  // session will be deleted in TCPSession Thread
             pthread_detach(SessionThread);      // run session thread DETACHED!
 
-        memset(&client, NULLCHR, sizeof(client));
+        memset(&client, '\0', sizeof(client));
     }
     return(0);
 }
@@ -2113,7 +2171,7 @@ void *UDPServerThread(void *p)
     server.sin_port = htons(UDP_Port);  // 0 = Use any available port
     server.sin_addr.s_addr = INADDR_ANY;    // Server's Internet Address
 
-    if (bind(s, (struct sockaddr *)&server, sizeof(server)) < 0) {
+    if (bind(s, (SA *)&server, sizeof(server)) < 0) {
         perror("Datagram socket bind error");
         ShutDownServer = true;
         return NULL;
@@ -2123,7 +2181,7 @@ void *UDPServerThread(void *p)
 
     for (;;) {                          // Loop forever
         client_address_size = sizeof(client);
-        i = recvfrom(s, buf, UDPSIZE, 0, (struct sockaddr *) &client, &client_address_size) ; //Get client udp data
+        i = recvfrom(s, buf, UDPSIZE, 0, (SA *) &client, &client_address_size) ; //Get client udp data
 
         bool sourceOK = false;
         int n=0;
@@ -2143,7 +2201,7 @@ void *UDPServerThread(void *p)
                 << ": " << buf
                 << ends;
 
-            WriteLog(log.str().c_str(),UDPLOG);
+            WriteLog(log.str().c_str(), UDPLOG);
 
             TAprsString* abuff = new TAprsString(buf,SRC_UDP,srcUDP,inet_ntoa(client.sin_addr),"UDP");
 
@@ -2202,7 +2260,8 @@ int recvline(int sock, char *buf, int n, int *err,int timeoutMax)
                 abort = true;           // exit on errors other than EWOULDBLOCK
             }
 
-            sleep(1);                   // Wait 1 sec. Don't hog cpu while in loop awaiting data
+            //sleep(1);                   // Wait 1 sec. Don't hog cpu while in loop awaiting data
+            usleep(1000000);
 
             if (timeout-- <= 0) {
                 i = 0;
@@ -2321,6 +2380,10 @@ void *TCPConnectThread(void *p)
     bool gotID = false;
     time_t connectTime = 0;
     bool hubConn = pcp->hub;            // Mark this as an IGATE or HUB connection
+    Lock dnsLock(mtxDNS, false);
+    Lock sendLock(mtxSend, false);
+    Lock addDelSessLock(mtxAddDelSess, false);
+    Lock countLock(mtxCount, false);
 
     pcp->pid = getpid();
     pcp->connected = false;
@@ -2331,57 +2394,67 @@ void *TCPConnectThread(void *p)
 
     retryTimer = 60;                    // time between connection attempts in seconds
 
-    memset(remoteIgateInfo, NULLCHR, 256);
+    memset(remoteIgateInfo, '\0', 256);
 
     do {
         state = 0;
 
-        if(pthread_mutex_lock(pmtxDNS) != 0)
-            cerr << "Unable to lock pmtxDNS - TCPConnectThread.\n" << flush;
-
+        //if(pthread_mutex_lock(pmtxDNS) != 0)
+        //    cerr << "Unable to lock pmtxDNS - TCPConnectThread.\n" << flush;
+        dnsLock.get();
         // Thread-Safe version of gethostbyname2() ?  Actually it's still buggy so needs mutex locks!
-        rc = gethostbyname2_r(pcp->RemoteName, AF_INET,
-                                 &hostinfo_d,
-                                 h_buf,
-                                 1024,
-                                 &hostinfo,
-                                 &h_err);
+        //rc = gethostbyname2_r(pcp->RemoteName, AF_INET,
+        //                         &hostinfo_d,
+        //                         h_buf,
+        //                         1024,
+        //                         &hostinfo,
+        //                         &h_err);
 
-        if(pthread_mutex_unlock(pmtxDNS) != 0)
-            cerr << "Unable to unlock pmtxDNS - TCPConnectThread.\n" << flush;
+        if (gethostbyname_r(pcp->RemoteName, &hostinfo_d, h_buf, sizeof(h_buf), &hostinfo, &h_err) == -1)
+            hostinfo = NULL;
+
+        if (!hostinfo)
+        {
+            throw UnknownHostException(hstrerror(h_err));
+        }
+
+        //if(pthread_mutex_unlock(pmtxDNS) != 0)
+        //    cerr << "Unable to unlock pmtxDNS - TCPConnectThread.\n" << flush;
+        dnsLock.release();
 
         if (!hostinfo) {
             char* cp = new char[256];
-            memset(cp, 0, 256);
+            memset(cp, '\0', 256);
             ostrstream msg(cp, 255);
             msg << "Can't resolve igate host name: "  << pcp->RemoteName << endl << ends;
             WriteLog(cp, MAINLOG);
-            conQueue.write(cp,0);       // cp deleted by conQueue
+            conQueue.write(cp, 0);       // cp deleted by conQueue
         } else
             state = 1;
 
         if (state == 1) {
-            clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+            if (( clientSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+                char buf[100];
+                throw IOException(strerror_r(errno, buf, sizeof(buf)));
+            }
             host.sin_family = AF_INET;
             host.sin_port = htons(pcp->RemoteSocket);
             host.sin_addr = *(struct in_addr *)*hostinfo->h_addr_list;
             length = sizeof(host);
 
-            rc = connect(clientSocket,(struct sockaddr *)&host, length);
-
-            if (rc == -1) {
+            if (( rc = connect(clientSocket,(SA *)&host, length)) < 0) {
                 close(clientSocket);
                 ostringstream os;
                 os << "Connection attempt failed " << pcp->RemoteName
-                    << " " << pcp->RemoteSocket << ends;
+                    << " " << pcp->RemoteSocket;
 
                 WriteLog(os.str().c_str(), MAINLOG);
 
                 {
                     char* cp = new char[256];
-                    memset(cp, 0, 256);
+                    memset(cp, '\0', 256);
                     ostrstream msg(cp, 255);
-                    msg << os.str() << endl << ends;
+                    msg << os.str();
                     conQueue.write(cp, 0);      // cp deleted by conQueue
                 }
 
@@ -2397,14 +2470,14 @@ void *TCPConnectThread(void *p)
 
                 ostringstream os;
                 os << "Connected to " << pcp->RemoteName
-                    << " " << pcp->RemoteSocket << ends;
+                    << " " << pcp->RemoteSocket;
 
                 WriteLog(os.str().c_str(), MAINLOG);
 
                 char* cp = new char[256];
-                memset(cp, 0, 256);
+                memset(cp, '\0', 256);
                 ostrstream msg(cp, 255);
-                msg << os.str() << endl << ends;
+                msg << os.str();
                 conQueue.write(cp, 0);               // cp deleted in queue reader
 
             }
@@ -2430,8 +2503,7 @@ void *TCPConnectThread(void *p)
                     << " " << pcp->user
                     << " "
                     << pcp->pass
-                    << endl
-                    << flush;
+                    << endl;
 
                 ostringstream logon;
                 logon << "user "
@@ -2440,8 +2512,7 @@ void *TCPConnectThread(void *p)
                     << pcp->pass
                     << " vers "
                     << VERS
-                    << "\r\n"
-                    << ends;
+                    << "\r\n";
 
                 rc = send(clientSocket, logon.str().c_str(), logon.str().length(), 0); // Send logon string to IGATE or Hub
 
@@ -2450,19 +2521,22 @@ void *TCPConnectThread(void *p)
                         sp = AddSession(clientSocket, pcp->EchoMask);    // Add this to list of sockets to send on
                     } else {            // else already had an output session
 
-                        if(pthread_mutex_lock(pmtxAddDelSess) != 0) //need locking as initSessionParams has none
-                            cerr << "Unable to lock pmtxAddDelSess - SessionParams.\n" << flush;
+                        //if(pthread_mutex_lock(pmtxAddDelSess) != 0) //need locking as initSessionParams has none
+                        //    cerr << "Unable to lock pmtxAddDelSess - SessionParams.\n" << flush;
 
-                        if(pthread_mutex_lock(pmtxSend) != 0)
-                            cerr << "Unable to lock pmtxSend - SessionParams.\n" << flush;
+                        //if(pthread_mutex_lock(pmtxSend) != 0)
+                        //    cerr << "Unable to lock pmtxSend - SessionParams.\n" << flush;
 
+                        addDelSessLock.get();
+                        sendLock.get();
                         initSessionParams(sp, clientSocket, pcp->EchoMask);   // Restore output session for sending
+                        sendLock.release();
+                        addDelSessLock.release();
+                        //if(pthread_mutex_unlock(pmtxSend) != 0)
+                        //    cerr << "Unable to unlock pmtxSend - SessionParams.\n" << flush;
 
-                        if(pthread_mutex_unlock(pmtxSend) != 0)
-                            cerr << "Unable to unlock pmtxSend - SessionParams.\n" << flush;
-
-                        if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
-                            cerr << "Unable to unlock pmtxAddDelSess - SessionParams.\n" << flush;
+                        //if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
+                        //    cerr << "Unable to unlock pmtxAddDelSess - SessionParams.\n" << flush;
 
 
                     }
@@ -2521,20 +2595,22 @@ void *TCPConnectThread(void *p)
                                 || (stricmp("aprsd",atemp.stsmDest.c_str()) == 0)
                                 || (stricmp("igate",atemp.stsmDest.c_str()) == 0)) { // Is query for us?
 
-                            queryResp(SRC_IGATE, &atemp);   //Yes, respond.
+                            //queryResp(SRC_IGATE, &atemp);   //Yes, respond.
                         }
                     }
 
                     // One of the stations in the gate2rf list?
                     bool RFalways = find_rfcall(atemp.ax25Source, rfcall);
 
-                    if(pthread_mutex_lock(pmtxCount) != 0)
-                        cerr << "Unable to lock pmtxCount - TCPSessionThread - IgateChars.\n" << flush;
+                    //if(pthread_mutex_lock(pmtxCount) != 0)
+                    //    cerr << "Unable to lock pmtxCount - TCPSessionThread - IgateChars.\n" << flush;
 
+                    countLock.get();
                     TotalIgateChars += rc;
+                    countLock.release();
 
-                    if(pthread_mutex_unlock(pmtxCount) != 0)
-                        cerr << "Unable to unlock pmtxCount - TCPSessionThread - IgateChars.\n" << flush;
+                    //if(pthread_mutex_unlock(pmtxCount) != 0)
+                    //    cerr << "Unable to unlock pmtxCount - TCPSessionThread - IgateChars.\n" << flush;
 
                     /*
                         Send it on RF if it's 3rd party msg AND TCPXX is not in the path.
@@ -2636,16 +2712,18 @@ void *TCPConnectThread(void *p)
                 }
             } while (rc > 0);           // Loop while rc is greater than zero else disconnect
 
-            if(pthread_mutex_lock(pmtxAddDelSess) != 0)
-                cerr << "Unable to lock pmtxAddDelSess - TCPConnectThread.\n" << flush;
+            //if(pthread_mutex_lock(pmtxAddDelSess) != 0)
+            //    cerr << "Unable to lock pmtxAddDelSess - TCPConnectThread.\n" << flush;
 
-            if(pthread_mutex_lock(pmtxSend) != 0)
-                cerr << "Unable to lock pmtxSend - TCPConnectThread.\n" << flush;
+            //if(pthread_mutex_lock(pmtxSend) != 0)
+            //    cerr << "Unable to lock pmtxSend - TCPConnectThread.\n" << flush;
 
+            addDelSessLock.get();
+            sendLock.get();
             if (sp)
                 sp->EchoMask = 0;       // Turn off the session output data stream if it's enabled
 
-            shutdown(clientSocket,2);
+            shutdown(clientSocket, 2);
             close(clientSocket);
 
 
@@ -2663,24 +2741,27 @@ void *TCPConnectThread(void *p)
 
             {
                 char* cp = new char[300];
-                memset(cp, 0, 300);
-                ostrstream msg(cp,299);
-                msg << os.str() << endl << ends;
+                memset(cp, '\0', 300);
+                ostrstream msg(cp, 299);
+                msg << os.str() << endl;
                 conQueue.write(cp,0);
 
-            if(pthread_mutex_unlock(pmtxSend) != 0)
-                cerr << "Unable to unlock pmtxSend - TCPConnectThread.\n" << flush;
+            //if(pthread_mutex_unlock(pmtxSend) != 0)
+            //    cerr << "Unable to unlock pmtxSend - TCPConnectThread.\n" << flush;
 
-            if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
-                cerr << "Unable to unlock pmtxAddDelSess - TCPConnectThread.\n" << flush;
+            //if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
+            //    cerr << "Unable to unlock pmtxAddDelSess - TCPConnectThread.\n" << flush;
 
             }
+            sendLock.release();
+            addDelSessLock.release();
         }
 
         //cerr << pcp->RemoteName << " retryTimer= " <<  retryTimer << endl;
 
         gotID = false;
-        sleep(retryTimer);
+        //sleep(retryTimer);
+        usleep(retryTimer * 1000000);
         retryTimer *= 2;                // Double retry time delay if next try is unsuccessful
 
         if (retryTimer >= (16 * 60))
@@ -2731,7 +2812,7 @@ int SendFiletoClient(int session, char *szName)
     APIRET rc = 0;
     int n,retrys;
     int throttle;
-    
+
     //if(pthread_mutex_lock(pmtxSendFile) != 0)
     //    cerr << "Unable to lock pmtxSendFile - SendFilteToClient.\n" << flush;
 
@@ -2760,10 +2841,12 @@ int SendFiletoClient(int session, char *szName)
             do {
                 rc = send(session, Line, n, 0);
                 throttle = n * 150;
-                reliable_usleep(throttle);       // Limit max rate to about 50kbaud
+                //reliable_usleep(throttle);       // Limit max rate to about 50kbaud
+                usleep(throttle);
 
                 if (rc < 0) {
-                    reliable_usleep(100000);     // 0.1 sec between retrys
+                    //reliable_usleep(100000);     // 0.1 sec between retrys
+                    usleep(100000);
                     retrys++;
                 }
             } while((rc < 0) && (errno == EAGAIN) && (retrys <= MAXRETRYS));
@@ -2805,13 +2888,15 @@ const char* getStats()
     double serverRate = 0;
     double inetRate = 0;
     string inetRateX, serverRateX;
+    Lock countLock(mtxCount, false);
 
     time(&time_now);
     upTime = ((double)(time_now - serverStartTime) / 3600);
 
-    if(pthread_mutex_lock(pmtxCount) != 0)
-        cerr << "Unable to lock pmtxCount - Calculate text stats.\n" << flush;
+    //if(pthread_mutex_lock(pmtxCount) != 0)
+    //    cerr << "Unable to lock pmtxCount - Calculate text stats.\n" << flush;
 
+    countLock.get();
     aprsStreamRate =  ((TotalTncChars + TotalIgateChars + TotalUserChars - last_chars) / (time_now - last_time));
     tncStreamRate = ((TotalTncChars - last_tnc_chars) / (time_now - last_time));
     serverLoad =  (bytesSent / (time_now - last_time));
@@ -2869,8 +2954,9 @@ const char* getStats()
 
     bytesSent = 0;                      // Reset this
 
-    if(pthread_mutex_unlock(pmtxCount) != 0)
-        cerr << "Unable to unlock pmtxCount - Calculate text stats.\n" << flush;
+    //if(pthread_mutex_unlock(pmtxCount) != 0)
+    //    cerr << "Unable to unlock pmtxCount - Calculate text stats.\n" << flush;
+    countLock.release();
 
     return(os.str().c_str());  // cbuf deleted by calling function... or should be :)
 }
@@ -2880,8 +2966,9 @@ const char* getStats()
 //
 void resetCounters()
 {
-    if(pthread_mutex_lock(pmtxCount) != 0)
-        cerr << "Unable to lock pmtxCount - ResetCounters.\n" << flush;
+    //if(pthread_mutex_lock(pmtxCount) != 0)
+    //    cerr << "Unable to lock pmtxCount - ResetCounters.\n" << flush;
+    Lock countLock(mtxCount);
 
     dumpAborts = 0;
     sendQueue.overrun = 0 ;
@@ -2893,8 +2980,8 @@ void resetCounters()
     TotalConnects = 0;
     MaxConnects = ConnectedClients;
 
-    if(pthread_mutex_unlock(pmtxCount) != 0)
-        cerr << "Unable to unlock pmtxCount - ResetCounters.\n" << flush;
+    //if(pthread_mutex_unlock(pmtxCount) != 0)
+    //    cerr << "Unable to unlock pmtxCount - ResetCounters.\n" << flush;
 }
 
 
@@ -2942,7 +3029,8 @@ void serverQuit(termios* initial_settings)
         sendQueue.write(abuff,0);
         //delete ShutDown;
     }
-    sleep(1);
+    //sleep(1);
+    usleep(1000000);
 
     if (tncPresent) {
         char *pRestore = new char[strlen(CONFPATH) + strlen(TNC_RESTORE) + 1];
@@ -3424,7 +3512,7 @@ int serverConfig(const string& cf)
 //---------------------------------------------------------------------
 // FOR DEBUGGING ONLY */
 //
-#ifdef DEBUG
+//#ifdef DEBUG
 void segvHandler(int signum)  //For debugging seg. faults
 {
     pid_t pid; //,ppid;
@@ -3463,44 +3551,43 @@ void segvHandler(int signum)  //For debugging seg. faults
         err = "Internet Dequeue";
 
     char buf[256];
-    memset(buf,0,256);
-    ostrstream sout(buf,255);
+    memset(buf, '\0', 256);
+    ostrstream sout(buf, 255);
     sout << "A segment violation (" << signum << ") has occurred in process id "
          << pid
          << " Thread: "
          << err
-         << endl ;
+         << endl;
 
     char buf2[256];
-    memset(buf2,0,256);
-    ostrstream sout2(buf2,255);
+    memset(buf2, '\0', 256);
+    ostrstream sout2(buf2, 255);
 
     sout2 << "Died in "
          << DBstring
          << " Last packet:  " << lastPacket->c_str()
          << " Packet length = " << lastPacket->length()
-         << endl
-         << ends;
+         << endl;
 
     cout << buf << buf2;
-    WriteLog(buf,"segfault.log");
-    WriteLog(buf2,"segfault.log");
+    WriteLog(buf, "segfault.log");
+    WriteLog(buf2, "segfault.log");
 
     exit(-1);
 }
-#endif
+//#endif
 //----------------------------------------------------------------------
 
 
 /*  Thread to process http request for server status data */
 
-/*  Reworked 14-July-2001 by wa4dsy. 
+/*  Reworked 14-July-2001 by wa4dsy.
     The original version sent out strings to the client
     as they were created. This version builds the entire
-    html page in memory then sends it out 
+    html page in memory then sends it out
     to the user in a single loop near the end of the function.
     This allows for the detection of send errors and retrys
-    without locking the various mutexs for long periods of time. 
+    without locking the various mutexs for long periods of time.
 
 */
  void *HTTPServerThread(void *p)
@@ -3508,6 +3595,9 @@ void segvHandler(int signum)  //For debugging seg. faults
     char buf[BUFSIZE];
     SessionParams *psp = (SessionParams*)p;
     int sock = psp->Socket;
+    Lock countLock(mtxCount, false);
+    Lock sendLock(mtxSend, false);
+    Lock addDelSessLock(mtxAddDelSess, false);
 
     delete psp;
     psp = NULL;
@@ -3534,9 +3624,9 @@ void segvHandler(int signum)  //For debugging seg. faults
     if (sock < 0)
         pthread_exit(0);
 
-    if(pthread_mutex_lock(pmtxCount) != 0)
-        cerr << "Unable to lock pmtxCount - HTTPStats1.\n" << flush;
-
+    //if(pthread_mutex_lock(pmtxCount) != 0)
+    //    cerr << "Unable to lock pmtxCount - HTTPStats1.\n" << flush;
+    countLock.get();
     webCounter++ ;
 
     if (aprsStreamRate > 1024) {
@@ -3562,8 +3652,9 @@ void segvHandler(int signum)  //For debugging seg. faults
         serverRate = (double)serverLoad;
         serverRateX = "Bps";
     }
-    if(pthread_mutex_unlock(pmtxCount) != 0)
-        cerr << "Unable to unlock pmtxCount - HTTPStats1.\n" << flush;
+    //if(pthread_mutex_unlock(pmtxCount) != 0)
+    //    cerr << "Unable to unlock pmtxCount - HTTPStats1.\n" << flush;
+    countLock.release();
 
     gmt = new tm;
     time(&localtime);
@@ -3606,16 +3697,18 @@ void segvHandler(int signum)  //For debugging seg. faults
         close(sock);
         pthread_exit(0);
     }
-  
+
 
 #define HTMLSIZE 5000
 
-    if(pthread_mutex_lock(pmtxCount) != 0)
-        cerr << "Unable to lock pmtxCount - HTTPStats2.\n" << flush;
+    //if(pthread_mutex_lock(pmtxCount) != 0)
+    //    cerr << "Unable to lock pmtxCount - HTTPStats2.\n" << flush;
 
     htmlbuf = new char[HTMLSIZE];
     htmlbuf[HTMLSIZE-1] = '\0';   //Set last byte in buffer to null
     ostrstream stats(htmlbuf,HTMLSIZE-1);
+
+    countLock.get();
 
     stats << setiosflags(ios::showpoint | ios::fixed)
         << setprecision(1)
@@ -3664,11 +3757,9 @@ void segvHandler(int signum)  //For debugging seg. faults
         << "</TABLE>"
         << ends;
 
-
-
-    if(pthread_mutex_unlock(pmtxCount) != 0)
-        cerr << "Unable to unlock pmtxCount - HTTPStats2.\n" << flush;
-
+    //if(pthread_mutex_unlock(pmtxCount) != 0)
+    //    cerr << "Unable to unlock pmtxCount - HTTPStats2.\n" << flush;
+    countLock.release();
 
     html2send[idx] = new char[strlen(htmlbuf)+1];  //Create space for server status report string
     strcpy(html2send[idx],htmlbuf);                //copy data
@@ -3683,7 +3774,7 @@ void segvHandler(int signum)  //For debugging seg. faults
                "<TH COLSPAN=10>Internal Queue Report</TH></TR>"
                "<TR><TH>Name</TH><TH>Items</TH><TH>HWmark</TH><TH>Size</TH><TH>Overflows</TH></TR>";
 
-    
+
     html2send[idx] = new char[strlen(queueheader)+1];
     strcpy(html2send[idx],queueheader);
     idx++;
@@ -3726,7 +3817,7 @@ void segvHandler(int signum)  //For debugging seg. faults
 	<< "</TABLE>"
         << ends;
 
-            
+
      if(idx < HSIZE){
          html2send[idx] = new char[strlen(htmlbuf)+1];
          strcpy(html2send[idx],htmlbuf);
@@ -3742,19 +3833,16 @@ void segvHandler(int signum)  //For debugging seg. faults
                "<TR><TH>Domain Name</TH><TH>Port</TH><TH>Type</TH><TH>Status</TH><TH>Igate Pgm</TH>"
                "<TH>Last active<BR>H:M:S</TH><TH>Bytes<BR> In</TH><TH>Bytes<BR> Out</TH><TH>Time<BR> H:M:S</TH><TH>PID</TH></TR>" ;
 
-    
+
     html2send[idx] = new char[strlen(igateheader)+1];
     strcpy(html2send[idx],igateheader);
     idx++;
-    
-    if(pthread_mutex_lock(pmtxCount) != 0)
-        cerr << "Unable to lock pmtxCount - HTTPStats3.\n" << flush;
 
-    
+    //if(pthread_mutex_lock(pmtxCount) != 0)
+    //    cerr << "Unable to lock pmtxCount - HTTPStats3.\n" << flush;
+    countLock.get();
+
     for (i=0; i< nIGATES;i++) {
-
-        
-
         if (cpIGATE[i].RemoteSocket != -1) {
             char timeStr[32];
             strElapsedTime(cpIGATE[i].starttime,timeStr);           // Compute elapsed time of connection
@@ -3816,22 +3904,19 @@ void segvHandler(int signum)  //For debugging seg. faults
                 << "</TR>\n"
                 << ends;
 
-           
-
-           
-            
             if(idx < HSIZE){
                 html2send[idx] = new char[strlen(htmlbuf)+1];
                 strcpy(html2send[idx],htmlbuf);
                 idx++;
             }
 
-                        
+
         }
     }
-    
-    if(pthread_mutex_unlock(pmtxCount) != 0)
-        cerr << "Unable to unlock pmtxCount - HTTPStats3.\n" << flush;
+
+    //if(pthread_mutex_unlock(pmtxCount) != 0)
+    //    cerr << "Unable to unlock pmtxCount - HTTPStats3.\n" << flush;
+    countLock.release();
 
     char userheader[] =
         "</TABLE><P><TABLE  BORDER=2 BGCOLOR=\"#C0C0C0\">"       // Start of user list table
@@ -3845,41 +3930,43 @@ void segvHandler(int signum)  //For debugging seg. faults
         strcpy(html2send[idx], userheader);
         idx++;
     }
-    
-    if(pthread_mutex_lock(pmtxAddDelSess) != 0)		// comment this out to allow viewing if mutex is locked
-        cerr << "Unable to lock pmtxAddDelSess HTTPStats4- .\n" << flush;
-                
-    if(pthread_mutex_lock(pmtxSend) != 0)
-        cerr << "Unable to lock pmtxSend - HTTPStats4.\n" << flush;
 
-    if(pthread_mutex_lock(pmtxCount) != 0)
-        cerr << "Unable to lock pmtxCount - HTTPStats4.\n" << flush;
-    
+    //if(pthread_mutex_lock(pmtxAddDelSess) != 0)		// comment this out to allow viewing if mutex is locked
+    //    cerr << "Unable to lock pmtxAddDelSess HTTPStats4- .\n" << flush;
+
+    //if(pthread_mutex_lock(pmtxSend) != 0)
+    //    cerr << "Unable to lock pmtxSend - HTTPStats4.\n" << flush;
+
+    //if(pthread_mutex_lock(pmtxCount) != 0)
+    //    cerr << "Unable to lock pmtxCount - HTTPStats4.\n" << flush;
+
+    addDelSessLock.get();
+    sendLock.get();
+    countLock.get();
+
     string TszPeer;
     string TserverPort;
     string TuserCall;
     string TpgmVers;
     string TlastActive;
     string TtimeStr;
-    
+
     int bytesout = 0;
     int bytesin = 0;
     int npid = -1;
 
-    
-    for (i=0;i<MaxClients;i++) {        // Create html table with user information
-        
-        if ((sessions[i].Socket != -1) && (sessions[i].ServerPort != -1)) {
 
-            
+    for (i = 0; i < MaxClients; i++) {        // Create html table with user information
+        if ((sessions[i].Socket != -1) && (sessions[i].ServerPort != -1)) {
             char timeStr[32];
             strElapsedTime(sessions[i].starttime, timeStr);      // Compute elapsed time
             char lastActiveTime[32];
             strElapsedTime(sessions[i].lastActive, lastActiveTime);  // Compute elapsed time from last input char
-            
+
             string szVrfy;
             TszPeer = sessions[i].szPeer;
             TuserCall = sessions[i].userCall;
+            upcase(TuserCall);
             TpgmVers = sessions[i].pgmVers;
             TlastActive = lastActiveTime;
             TtimeStr = timeStr;
@@ -3924,27 +4011,31 @@ void segvHandler(int signum)  //For debugging seg. faults
                      << ends ;
 
             //Copy each user status line into html2send array
-            if(idx < HSIZE){ 
+            if(idx < HSIZE){
                 html2send[idx] = new char[strlen(htmlbuf)+1];
                 strcpy(html2send[idx],htmlbuf);
                 idx++;
             }
 
-                        
+
         }   //End of if()
 
-        
+
     }   //End of for()
-    
-    if(pthread_mutex_unlock(pmtxCount) != 0)
-        cerr << "Unable to unlock pmtxCount - HTTPStats4.\n" << flush;
 
-    if(pthread_mutex_unlock(pmtxSend) != 0)
-        cerr << "Unable to unlock pmtxSend - HTTPStats4.\n" << flush;
+    //if(pthread_mutex_unlock(pmtxCount) != 0)
+    //    cerr << "Unable to unlock pmtxCount - HTTPStats4.\n" << flush;
 
-    if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
-        cerr << "Unable to unlock pmtxAddDelSess - HTTPStats4.\n" << flush;
-    
+    //if(pthread_mutex_unlock(pmtxSend) != 0)
+    //    cerr << "Unable to unlock pmtxSend - HTTPStats4.\n" << flush;
+
+    //if(pthread_mutex_unlock(pmtxAddDelSess) != 0)
+    //    cerr << "Unable to unlock pmtxAddDelSess - HTTPStats4.\n" << flush;
+
+    countLock.release();
+    sendLock.release();
+    addDelSessLock.release();
+
     char endpage[] = "</TABLE></CENTER></BODY></HTML>";
 
     if(idx < HSIZE){
@@ -3963,7 +4054,7 @@ void segvHandler(int signum)  //For debugging seg. faults
     rc = 1;
     i = 0;
     while((rc > 0) && (i < idx)){             //Loop until  rc shows an error or done
-       cp = html2send[i++];                     //Get a char string pointer 
+       cp = html2send[i++];                     //Get a char string pointer
        rc = 0;
        ecnt = 0;
 
@@ -3973,19 +4064,20 @@ void segvHandler(int signum)  //For debugging seg. faults
        do{                                       //For non-blocking socket
             rc = send(sock, cp, strlen(cp), 0);  //Send the string
             if(rc == -1){                        //check for send error
-                 sleep(1);                       //if error then sleep for a second
+                 //sleep(1);                       //if error then sleep for a second
+                 usleep(1000000);
                  ecnt++;                         //...and bump the error counter.
             }
        }while((rc == -1) && (ecnt < 5));         //Retry for 5 secs max.
        */
-       
+
     }
 
     close(sock);
 
     //Free up all the memory we allocated
-   
-    if(htmlbuf) {     
+
+    if(htmlbuf) {
         delete[] htmlbuf;
         htmlbuf = NULL;
     }
@@ -4104,545 +4196,564 @@ int main(int argc, char *argv[])
     time_t lastSec,tNow,tLast,tLastDel, tPstats;
     time_t LastNetBeacon , LastTncBeacon;
     time_t Time = time(NULL);
-    serverStartTime = Time;
+    Lock countLock(mtxCount, false);
+    ExceptionGuard exceptionGuard;
 
-    TotalConnects = TotalTncChars = TotalLines = MaxConnects = TotalIgateChars = 0;
-    TotalUserChars = 0;
-    bytesSent = 0;
-    TotalTNCtxChars = 0;
-    msg_cnt = 0;
-    posit_cnt = 0;
-    MyCall = "N0CALL";
-    MyLocation = "NoWhere";
-    MyEmail = "nobody@NoWhere.net";
-    TncBeacon = NULLCHR;
-    NetBeacon = NULLCHR;
-    TncBeaconInterval = 0;
-    NetBeaconInterval = 0;
-    tncPktSpacing = 1500000;            // 1.5 second default
-    LastNetBeacon = 0;
-    LastTncBeacon = 0;
-    igateMyCall = true;                 // To be compatible with previous versions set it TRUE
-    tncPresent = false;
-    logAllRF = false;
-    ConvertMicE = false;
-    tncMute = false;
-    MaxClients = MAXCLIENTS;            // Set default aprsd.conf file will override this
-    respondToIgateQueries = false;
-    respondToAprsdQueries = true;
-    broadcastJavaInfo = false;
-    logBadPackets = false;
-    checknogate = true;                  // Default is to honor NOGATE and RFONLY in ax25Path
+    try {
 
-    ackRepeats = 2;                     // Default extra acks to TNC
-    ackRepeatTime = 5;                  // Default time between extra acks to TNC in seconds.
-    msgsn = 0;                          // Clear message serial number
-    APRS_PASS_ALLOW = true;             // Default allow aprs style user passcodes
-    webCounter = 0;
-    queryCounter = 0;
-    error_cnt = 0;
-    frame_cnt = 0;
+        serverStartTime = Time;
 
-    spLinkServer.ServerPort = 0;        // Ports are set in aprsd.conf file
-    spMainServer.ServerPort = 0;
-    spMainServer_NH.ServerPort = 0;
-    spLocalServer.ServerPort = 0;
-    spRawTNCServer.ServerPort = 0;
-    spMsgServer.ServerPort = 0;
-    upUdpServer.ServerPort = 0;
+        TotalConnects = TotalTncChars = TotalLines = MaxConnects = TotalIgateChars = 0;
+        TotalUserChars = 0;
+        bytesSent = 0;
+        TotalTNCtxChars = 0;
+        msg_cnt = 0;
+        posit_cnt = 0;
+        MyCall = "N0CALL";
+        MyLocation = "NoWhere";
+        MyEmail = "nobody@NoWhere.net";
+        TncBeacon = NULLCHR;
+        NetBeacon = NULLCHR;
+        TncBeaconInterval = 0;
+        NetBeaconInterval = 0;
+        tncPktSpacing = 1500000;            // 1.5 second default
+        LastNetBeacon = 0;
+        LastTncBeacon = 0;
+        igateMyCall = true;                 // To be compatible with previous versions set it TRUE
+        tncPresent = false;
+        logAllRF = false;
+        ConvertMicE = false;
+        tncMute = false;
+        MaxClients = MAXCLIENTS;            // Set default aprsd.conf file will override this
+        respondToIgateQueries = false;
+        respondToAprsdQueries = true;
+        broadcastJavaInfo = false;
+        logBadPackets = false;
+        checknogate = true;                  // Default is to honor NOGATE and RFONLY in ax25Path
 
-    spHTTPServer.ServerPort = 14501;    // HTTP monitor port default
-    spHTTPServer.EchoMask = wantHTML;
+        ackRepeats = 2;                     // Default extra acks to TNC
+        ackRepeatTime = 5;                  // Default time between extra acks to TNC in seconds.
+        msgsn = 0;                          // Clear message serial number
+        APRS_PASS_ALLOW = true;             // Default allow aprs style user passcodes
+        webCounter = 0;
+        queryCounter = 0;
+        error_cnt = 0;
+        frame_cnt = 0;
 
-    spIPWatchServer.ServerPort = 14502; // IP Watch port default
-    spIPWatchServer.EchoMask = srcUSERVALID
-                              +  srcUSER
-                              +  srcIGATE
-                              +  srcTNC
-                              +  wantSRCHEADER;
-    struct sigaction sa;
+        spLinkServer.ServerPort = 0;        // Ports are set in aprsd.conf file
+        spMainServer.ServerPort = 0;
+        spMainServer_NH.ServerPort = 0;
+        spLocalServer.ServerPort = 0;
+        spRawTNCServer.ServerPort = 0;
+        spMsgServer.ServerPort = 0;
+        upUdpServer.ServerPort = 0;
+
+        spHTTPServer.ServerPort = 14501;    // HTTP monitor port default
+        spHTTPServer.EchoMask = wantHTML;
+
+        spIPWatchServer.ServerPort = 14502; // IP Watch port default
+        spIPWatchServer.EchoMask = srcUSERVALID
+                                +  srcUSER
+                                +  srcIGATE
+                                +  srcTNC
+                                +  wantSRCHEADER;
+        struct sigaction sa;
 
 
-    if (argc > 1)
-        if (strcmp("-d",argv[1]) == 0)
-            daemonInit();               // option -d means run as daemon
+        if (argc > 1)
+            if (strcmp("-d",argv[1]) == 0)
+                daemonInit();               // option -d means run as daemon
 
-    signal(SIGPIPE,SIG_IGN);
-    signal(SIGXCPU,SIG_IGN);
-    signal(SIGTSTP,SIG_IGN);
-    signal(SIGSTOP,SIG_IGN);
+        signal(SIGPIPE,SIG_IGN);
+        signal(SIGXCPU,SIG_IGN);
+        signal(SIGTSTP,SIG_IGN);
+        signal(SIGSTOP,SIG_IGN);
 
-    pidlist.main = getpid();
+        pidlist.main = getpid();
 
-#ifdef DEBUG
-    memset(&sa, NULLCHR, sizeof(sa));
-    sa.sa_handler = segvHandler;
-    if (sigaction(SIGSEGV, &sa, NULL))
-        perror("sigaction");
-#endif
+    //#ifdef DEBUG
+        memset(&sa, '\0', sizeof(sa));
+        sa.sa_handler = segvHandler;
+        if (sigaction(SIGSEGV, &sa, NULL))
+            perror("sigaction");
+    //#endif
 
-    configComplete = false;
-    szComPort = NULL;                   // null string for TNC com port
-    szAprsPath = NULL;
+        configComplete = false;
+        szComPort = NULL;                   // null string for TNC com port
+        szAprsPath = NULL;
 
-    szServerCall = "aprsd";             // default server FROM CALL used in system generated pkts.
-    szComBaud = "9600";                 // default to 9600 bps
+        szServerCall = "aprsd";             // default server FROM CALL used in system generated pkts.
+        szComBaud = "9600";                 // default to 9600 bps
 
-    szAPRSDPATH = new char[64];
-    memset(szAPRSDPATH, NULLCHR, 64);
-    strcpy(szAPRSDPATH,">");
-    strncat(szAPRSDPATH,APRSDTOCALL,64);
-    strncat(szAPRSDPATH,",TCPIP*:",64); // ">APD215,TCPIP*:"
+        szAPRSDPATH = new char[64];
+        memset(szAPRSDPATH, '\0', 64);
+        strcpy(szAPRSDPATH,">");
+        strncat(szAPRSDPATH, APRSDTOCALL, 64);
+        strncat(szAPRSDPATH, ",TCPIP*:", 64); // ">APD215,TCPIP*:"
 
-    ShutDownServer = false;
+        ShutDownServer = false;
 
-    szConfFile = CONFPATH;
-    szConfFile += CONFFILE;             // default server configuration file
+        szConfFile = CONFPATH;
+        szConfFile += CONFFILE;             // default server configuration file
 
-    CreateHistoryList();                // Make the history linked list structure
+        CreateHistoryList();                // Make the history linked list structure
 
-    cout << SIGNON << endl << flush;
+        cout << SIGNON << endl;
 
-    /*   //DEBUG & TEST CODE
-   //TAprsString mic_e("K4HG-9>RU4U9T,WIDE,WIDE,WIDE:`l'q#R>/\r\n");
-   TAprsString mic_e("K4HG-9>RU4W5S,WIDE,WIDE,WIDE:`l(XnUU>/Steve's RX-7/Mic-E\r\n");
-   TAprsString* posit = NULL;
-   TAprsString* telemetry = NULL;
-   if(mic_e.aprsType == APRSMIC_E) mic_e.mic_e_Reformat(&posit,&telemetry);
-   if(posit){ posit->print(cout); delete posit;}
-   if(telemetry) { telemetry->print(cout); delete telemetry;}
+        /*   //DEBUG & TEST CODE
+    //TAprsString mic_e("K4HG-9>RU4U9T,WIDE,WIDE,WIDE:`l'q#R>/\r\n");
+    TAprsString mic_e("K4HG-9>RU4W5S,WIDE,WIDE,WIDE:`l(XnUU>/Steve's RX-7/Mic-E\r\n");
+    TAprsString* posit = NULL;
+    TAprsString* telemetry = NULL;
+    if(mic_e.aprsType == APRSMIC_E) mic_e.mic_e_Reformat(&posit,&telemetry);
+    if(posit){ posit->print(cout); delete posit;}
+    if(telemetry) { telemetry->print(cout); delete telemetry;}
 
-   sleep(5);
-   */
-
-   //fdump = fopen("dump.txt","w+");  //debug
-
-    pSaveHistory = new char[strlen(VARPATH) + strlen(SAVE_HISTORY)+1];
-    strcpy(pSaveHistory,VARPATH);
-    strcat(pSaveHistory,SAVE_HISTORY);
-
-    ReadHistory(pSaveHistory);
-
-    if (argc > 1) {
-        if (strcmp("-d",argv[argc-1]) != 0) {
-            szConfFile = new char[MAX];
-            szConfFile = argv[argc-1];  // get optional 1st or 2nd arg which is configuration file name
-        }
-    }
-
-    for (i=0;i<maxIGATES;i++) {
-        cpIGATE[i].RemoteSocket = -1;
-        cpIGATE[i].RemoteName = NULL;
-    }
-
-    if (serverConfig(szConfFile) != 0)
-        exit(-1);                       // Read configuration file (aprsd.conf)
-
-    //Now add a ax25 path to the Internet beacon text string
-
-    if (!NetBeacon.empty()) {
-        string netbc(szServerCall);
-        netbc.reserve(256);
-        netbc.append(szAPRSDPATH);
-        netbc.append(NetBeacon);
-        netbc.append("\r\n");
-        NetBeacon = netbc;              // Internet beacon complete with ax25 path
-
-    }
-
-    if (!TncBeacon.empty()) {
-        string tncbc = TncBeacon;
-        tncbc.reserve(256);
-        tncbc.append("\r\n");
-        TncBeacon = tncbc;              // TNC beacon (no ax25 path)
-
-    }
-
-    // Make the semaphores
-    pmtxSendFile = new pthread_mutex_t;
-    pmtxSend = new pthread_mutex_t;
-    pmtxAddDelSess = new pthread_mutex_t;
-    pmtxCount = new pthread_mutex_t;
-    pmtxDNS = new pthread_mutex_t;
-
-    if ((rc = pthread_mutex_init(pmtxSendFile, NULL)) == -1) {
-        cerr << "pthread_mutex_init error: SendFile\n";
-        exit(2);
-    }
-
-    if ((rc = pthread_mutex_init(pmtxSend, NULL)) == -1) {
-        cerr << "pthread_mutex_init error: Send\n";
-        exit(2);
-    }
-
-    if ((rc = pthread_mutex_init(pmtxAddDelSess, NULL)) == -1) {
-        cerr << "pthread_mutex_init error: AddDelSess\n";
-        exit(2);
-    }
-
-    if ((rc = pthread_mutex_init(pmtxCount, NULL)) == -1) {
-        cerr << "pthread_mutex_init error: Count\n";
-        exit(2);
-    }
-
-    if ((rc = pthread_mutex_init(pmtxDNS, NULL)) == -1) {
-        cerr << "pthread_mutex_init error: DNS\n";
-        exit(2);
-    }
-
-    /*
-    rc = pthread_mutex_init(pmtxSendFile,NULL);
-    rc = pthread_mutex_init(pmtxSend,NULL);
-    rc = pthread_mutex_init(pmtxAddDelSess,NULL);
-    rc = pthread_mutex_init(pmtxCount,NULL);
-    rc = pthread_mutex_init(pmtxDNS,NULL);
+    //sleep(5);
+    usleep(5000000);
     */
 
-    sessions = new SessionParams[MaxClients];
+    //fdump = fopen("dump.txt","w+");  //debug
 
-    if (sessions == NULL) {
-        cerr << "Can't create sessions pointer\n" ;
-        return(-1);
-    }
+        pSaveHistory = new char[strlen(VARPATH) + strlen(SAVE_HISTORY)+1];
+        strcpy(pSaveHistory, VARPATH);
+        strcat(pSaveHistory, SAVE_HISTORY);
 
-    for (i = 0; i < MaxClients; i++) {
-        sessions[i].Socket = -1;
-        sessions[i].EchoMask = 0;
-        sessions[i].szPeer = new char[SZPEERSIZE];
-        sessions[i].userCall = new char[USERCALLSIZE];
-        sessions[i].pgmVers = new char[PGMVERSSIZE];
+        ReadHistory(pSaveHistory);
 
-        memset((void*)sessions[i].szPeer, NULLCHR, SZPEERSIZE);
-        memset((void*)sessions[i].userCall, NULLCHR, USERCALLSIZE);
-        memset((void*)sessions[i].pgmVers, NULLCHR, PGMVERSSIZE);
-    }
-
-    ConnectedClients = 0;
-
-    if (spMainServer.ServerPort > 0) {
-        //Create Main Server thread. (Provides Local data, Logged on users and IGATE data)
-        if (pthread_create(&spMainServer.tid, NULL,TCPServerThread,&spMainServer) == -1) {
-            cerr << "Error: Main TCPServerThread failed to start\n";
-            exit(2);
+        if (argc > 1) {
+            if (strcmp("-d",argv[argc-1]) != 0) {
+                szConfFile = new char[MAX];
+                szConfFile = argv[argc-1];  // get optional 1st or 2nd arg which is configuration file name
+            }
         }
-    }
 
-    if (spMainServer_NH.ServerPort > 0) {
-        // Create another Main Server thread .
-        // (Provides Local data, Logged on users and IGATE data but doesn't dump the 30 min. history)
-        if (pthread_create(&spMainServer_NH.tid, NULL,TCPServerThread,&spMainServer_NH) == -1) {
-            cerr << "Error: Main-NH TCPServerThread failed to start\n";
-            exit(2);
+        for (i = 0; i < maxIGATES; i++) {
+            cpIGATE[i].RemoteSocket = -1;
+            cpIGATE[i].RemoteName = NULL;
         }
-    }
 
-    if (spLinkServer.ServerPort > 0) {
-        // Create Link Server thread.  (Provides local TNC data plus logged on users data)
-        if (pthread_create(&spLinkServer.tid, NULL,TCPServerThread,&spLinkServer) == 1) {
-            cerr << "Error: Link TCPServerThread failed to start\n";
-            exit(2);
+        if (serverConfig(szConfFile) != 0)
+            exit(-1);                       // Read configuration file (aprsd.conf)
+
+        //Now add a ax25 path to the Internet beacon text string
+
+        if (!NetBeacon.empty()) {
+            string netbc(szServerCall);
+            netbc.reserve(256);
+            netbc.append(szAPRSDPATH);
+            netbc.append(NetBeacon);
+            netbc.append("\r\n");
+            NetBeacon = netbc;              // Internet beacon complete with ax25 path
+
         }
-    }
 
-    if (spLocalServer.ServerPort > 0) {
-        // Create Local Server thread  (Provides only local TNC data).
-        if (pthread_create(&spLocalServer.tid, NULL,TCPServerThread,&spLocalServer) == -1) {
-            cerr << "Error: Local TCPServerThread failed to start\n";
-            exit(2);
+        if (!TncBeacon.empty()) {
+            string tncbc = TncBeacon;
+            tncbc.reserve(256);
+            tncbc.append("\r\n");
+            TncBeacon = tncbc;              // TNC beacon (no ax25 path)
+
         }
-    }
 
-    if (spRawTNCServer.ServerPort > 0) {
-        // Create Local Server thread  (Provides only local TNC data).
-        if (pthread_create(&spRawTNCServer.tid, NULL,TCPServerThread,&spRawTNCServer) == -1) {
-            cerr << "Error: RAW TNC TCPServerThread failed to start\n";
-            exit(2);
-        }
-    }
+        // Make the semaphores
+        //pmtxSendFile = new pthread_mutex_t;
+        //pmtxSend = new pthread_mutex_t;
+        //pmtxAddDelSess = new pthread_mutex_t;
+        //pmtxCount = new pthread_mutex_t;
+        //pmtxDNS = new pthread_mutex_t;
 
-    if (spMsgServer.ServerPort > 0) {
-        // Create message Server thread  (Provides only 3rd party message data).
-        if (pthread_create(&spMsgServer.tid, NULL,TCPServerThread,&spMsgServer) == -1) {
-            cerr << "Error: 3rd party message TCPServerThread failed to start\n";
-            exit(2);
-        }
-    }
+        //if ((rc = pthread_mutex_init(pmtxSendFile, NULL)) == -1) {
+        //    cerr << "pthread_mutex_init error: SendFile\n";
+        //    exit(2);
+        //}
 
-    if (upUdpServer.ServerPort > 0) {
-        if (pthread_create(&upUdpServer.tid, NULL,UDPServerThread,&upUdpServer) == -1) {
-            cerr << "Error: UDP Server thread failed to start\n";
-            exit(2);
-        }
-    }
+        //if ((rc = pthread_mutex_init(pmtxSend, NULL)) == -1) {
+        //    cerr << "pthread_mutex_init error: Send\n";
+        //    exit(2);
+        //}
 
-    if (spHTTPServer.ServerPort > 0) {
-        // Create HTTP Server thread. (Provides server status in HTML format)
-        if (pthread_create(&spHTTPServer.tid, NULL,TCPServerThread,&spHTTPServer) == -1) {
-            cerr << "Error: HTTP server thread failed to start\n";
-            exit(2);
-        }
-    }
+        //if ((rc = pthread_mutex_init(pmtxAddDelSess, NULL)) == -1) {
+        //    cerr << "pthread_mutex_init error: AddDelSess\n";
+        //    exit(2);
+        //}
 
-    if (spIPWatchServer.ServerPort > 0) {
-        // Create IPWatch Server thread. (Provides prepended header with IP and User Call on aprs packets)
-        if (pthread_create(&spIPWatchServer.tid, NULL,TCPServerThread,&spIPWatchServer) == -1) {
-            cerr << "Error: IPWatch server thread failed to start\n";
-            exit(2);
-        }
-    }
+        //if ((rc = pthread_mutex_init(pmtxCount, NULL)) == -1) {
+        //    cerr << "pthread_mutex_init error: Count\n";
+        //    exit(2);
+        //}
 
-    pthread_t  tidDeQueuethread;
-    if (pthread_create(&tidDeQueuethread, NULL,DeQueue,NULL) == -1) {
-        cerr << "Error: DeQueue thread failed to start\n";
-        exit(2);
-    }
+        //if ((rc = pthread_mutex_init(pmtxDNS, NULL)) == -1) {
+        //    cerr << "pthread_mutex_init error: DNS\n";
+        //    exit(2);
+        //}
 
-    if (szAprsPath) {
-        cout << "APRS packet path = " << szAprsPath << endl;
-        rfSetPath(szAprsPath);
-    }
+        /*
+        rc = pthread_mutex_init(pmtxSendFile,NULL);
+        rc = pthread_mutex_init(pmtxSend,NULL);
+        rc = pthread_mutex_init(pmtxAddDelSess,NULL);
+        rc = pthread_mutex_init(pmtxCount,NULL);
+        rc = pthread_mutex_init(pmtxDNS,NULL);
+        */
 
-    rfSetBaud(szComBaud.c_str());
-    cout << "Serial port speed (where applicable) = " << szComBaud << endl;
-    
-    if (szComPort != NULL) {            // Initialize TNC Com port if specified in config file
-        cout  << "Opening device "
-            << szComPort
-            << endl
-            << flush;
+        sessions = new SessionParams[MaxClients];
 
-        if ((rc = rfOpen(szComPort)) != 0) {
-            sleep(2);
+        if (sessions == NULL) {
+            cerr << "Can't create sessions pointer\n" ;
             return(-1);
         }
 
-        cout << "Setting up TNC\n" << flush;
+        for (i = 0; i < MaxClients; i++) {
+            sessions[i].Socket = -1;
+            sessions[i].EchoMask = 0;
+            sessions[i].szPeer = new char[SZPEERSIZE];
+            sessions[i].userCall = new char[USERCALLSIZE];
+            sessions[i].pgmVers = new char[PGMVERSSIZE];
 
-        char *pInitTNC = new char[strlen(CONFPATH) + strlen(TNC_INIT) +1];
-        strcpy(pInitTNC,CONFPATH);
-        strcat(pInitTNC,TNC_INIT);
+            memset((void*)sessions[i].szPeer, NULLCHR, SZPEERSIZE);
+            memset((void*)sessions[i].userCall, NULLCHR, USERCALLSIZE);
+            memset((void*)sessions[i].pgmVers, NULLCHR, PGMVERSSIZE);
+        }
 
-        rfSendFiletoTNC(pInitTNC);      // Setup TNC from initialization file
-        tncPresent = true;
-        delete (char*)pInitTNC;
-        pInitTNC = NULL;
-    } else
-        cout << "TNC com port not defined.\n" << flush;
+        ConnectedClients = 0;
 
-    if (RF_ALLOW)
-        cout << "Internet to RF data flow is ENABLED\n" ;
-    else
-        cout << "Internet to RF data flow is DISABLED\n";
+        if (spMainServer.ServerPort > 0) {
+            //Create Main Server thread. (Provides Local data, Logged on users and IGATE data)
+            if (pthread_create(&spMainServer.tid, NULL,TCPServerThread,&spMainServer) == -1) {
+                cerr << "Error: Main TCPServerThread failed to start\n";
+                exit(2);
+            }
+        }
 
-    WriteLog("Server Start",MAINLOG);
-    cout << "Server Started\n" << flush;
+        if (spMainServer_NH.ServerPort > 0) {
+            // Create another Main Server thread .
+            // (Provides Local data, Logged on users and IGATE data but doesn't dump the 30 min. history)
+            if (pthread_create(&spMainServer_NH.tid, NULL,TCPServerThread,&spMainServer_NH) == -1) {
+                cerr << "Error: Main-NH TCPServerThread failed to start\n";
+                exit(2);
+            }
+        }
 
-    bool firstHub = false;
+        if (spLinkServer.ServerPort > 0) {
+            // Create Link Server thread.  (Provides local TNC data plus logged on users data)
+            if (pthread_create(&spLinkServer.tid, NULL,TCPServerThread,&spLinkServer) == 1) {
+                cerr << "Error: Link TCPServerThread failed to start\n";
+                exit(2);
+            }
+        }
 
-    if (nIGATES > 0)
-        cout << "Connecting to IGATEs and Hubs now..." << endl << flush;
+        if (spLocalServer.ServerPort > 0) {
+            // Create Local Server thread  (Provides only local TNC data).
+            if (pthread_create(&spLocalServer.tid, NULL,TCPServerThread,&spLocalServer) == -1) {
+                cerr << "Error: Local TCPServerThread failed to start\n";
+                exit(2);
+            }
+        }
 
-    for (i=0;i<nIGATES;i++) {
-        if (!firstHub) {
-            //rc = pthread_create(&cpIGATE[i].tid, NULL,TCPConnectThread,&cpIGATE[i]);
-            //if (rc == 0)
-            //    pthread_detach(cpIGATE[i].tid);
+        if (spRawTNCServer.ServerPort > 0) {
+            // Create Local Server thread  (Provides only local TNC data).
+            if (pthread_create(&spRawTNCServer.tid, NULL,TCPServerThread,&spRawTNCServer) == -1) {
+                cerr << "Error: RAW TNC TCPServerThread failed to start\n";
+                exit(2);
+            }
+        }
 
-            //if (cpIGATE[i].hub)
-            //    firstHub = true;
+        if (spMsgServer.ServerPort > 0) {
+            // Create message Server thread  (Provides only 3rd party message data).
+            if (pthread_create(&spMsgServer.tid, NULL,TCPServerThread,&spMsgServer) == -1) {
+                cerr << "Error: 3rd party message TCPServerThread failed to start\n";
+                exit(2);
+            }
+        }
 
-            if (pthread_create(&cpIGATE[i].tid, NULL, TCPConnectThread, &cpIGATE[i]) == 0)
-                pthread_detach(cpIGATE[i].tid);
+        if (upUdpServer.ServerPort > 0) {
+            if (pthread_create(&upUdpServer.tid, NULL,UDPServerThread,&upUdpServer) == -1) {
+                cerr << "Error: UDP Server thread failed to start\n";
+                exit(2);
+            }
+        }
 
-            if (cpIGATE[i].hub)
-                firstHub = true;
+        if (spHTTPServer.ServerPort > 0) {
+            // Create HTTP Server thread. (Provides server status in HTML format)
+            if (pthread_create(&spHTTPServer.tid, NULL,TCPServerThread,&spHTTPServer) == -1) {
+                cerr << "Error: HTTP server thread failed to start\n";
+                exit(2);
+            }
+        }
 
-        } else {
-            if (!cpIGATE[i].hub) {
+        if (spIPWatchServer.ServerPort > 0) {
+            // Create IPWatch Server thread. (Provides prepended header with IP and User Call on aprs packets)
+            if (pthread_create(&spIPWatchServer.tid, NULL,TCPServerThread,&spIPWatchServer) == -1) {
+                cerr << "Error: IPWatch server thread failed to start" << endl;
+                exit(2);
+            }
+        }
+
+        pthread_t  tidDeQueuethread;
+        if (pthread_create(&tidDeQueuethread, NULL,DeQueue,NULL) == -1) {
+            cerr << "Error: DeQueue thread failed to start" << endl;
+            exit(2);
+        }
+
+        if (szAprsPath) {
+            cout << "APRS packet path = " << szAprsPath << endl;
+            rfSetPath(szAprsPath);
+        }
+
+        rfSetBaud(szComBaud.c_str());
+        cout << "Serial port speed (where applicable) = " << szComBaud << endl;
+
+        if (szComPort != NULL) {            // Initialize TNC Com port if specified in config file
+            cout  << "Opening device "
+                << szComPort
+                << endl;
+
+            if ((rc = rfOpen(szComPort)) != 0) {
+                //sleep(2);
+                usleep(2000000);
+                return(-1);
+            }
+
+            cout << "Setting up TNC\n" << flush;
+
+            char *pInitTNC = new char[strlen(CONFPATH) + strlen(TNC_INIT) +1];
+            strcpy(pInitTNC, CONFPATH);
+            strcat(pInitTNC, TNC_INIT);
+
+            rfSendFiletoTNC(pInitTNC);      // Setup TNC from initialization file
+            tncPresent = true;
+            delete (char*)pInitTNC;
+            pInitTNC = NULL;
+        } else
+            cout << "TNC com port not defined.\n" << flush;
+
+        if (RF_ALLOW)
+            cout << "Internet to RF data flow is ENABLED\n" ;
+        else
+            cout << "Internet to RF data flow is DISABLED\n";
+
+        WriteLog("Server Start", MAINLOG);
+        cout << "Server Started" << endl;
+
+        bool firstHub = false;
+
+        if (nIGATES > 0)
+            cout << "Connecting to IGATEs and Hubs now..." << endl;
+
+        for (i = 0; i < nIGATES; i++) {
+            if (!firstHub) {
                 //rc = pthread_create(&cpIGATE[i].tid, NULL,TCPConnectThread,&cpIGATE[i]);
-
                 //if (rc == 0)
                 //    pthread_detach(cpIGATE[i].tid);
+
+                //if (cpIGATE[i].hub)
+                //    firstHub = true;
+
                 if (pthread_create(&cpIGATE[i].tid, NULL, TCPConnectThread, &cpIGATE[i]) == 0)
                     pthread_detach(cpIGATE[i].tid);
-            }
-        }
-    }
 
-    Time = time(NULL);
-    tNow = Time;
-    tLast = Time;
-    tLastDel = Time ;
-    tPstats = Time;
+                if (cpIGATE[i].hub)
+                    firstHub = true;
 
-    configComplete = true;
+            } else {
+                if (!cpIGATE[i].hub) {
+                    //rc = pthread_create(&cpIGATE[i].tid, NULL,TCPConnectThread,&cpIGATE[i]);
 
-    if (!TncBeacon.empty())
-        cout << "TncBeacon every " << TncBeaconInterval << " minutes: " << TncBeacon << endl;
-
-    if (!NetBeacon.empty())
-        cout << "NetBeacon every " << NetBeaconInterval << " minutes: " << NetBeacon << endl;
-
-    cout << "MYCALL set to: " << MyCall << endl;
-
-    struct termios initial_settings, new_settings;
-    tcgetattr(fileno(stdin),&initial_settings);
-    new_settings = initial_settings;
-    new_settings.c_lflag &= ~ICANON;
-    new_settings.c_lflag &= ~ISIG;
-    new_settings.c_cc[VMIN] = 0;
-    new_settings.c_cc[VTIME] = 1;		 //.1 second timeout for input chars
-
-    tcsetattr(fileno(stdin),TCSANOW,&new_settings);
-
-    do {
-        reliable_usleep(1000);
-
-        if (msgsn > 9999)
-            msgsn = 0;
-
-        while (conQueue.ready()) {      // Data for Console?
-            char *cp = (char*)conQueue.read(NULL);    //Yes, read and print it.
-
-            if (cp) {
-                //printf("%s",cp);
-                //strcat(cp,"\r");
-                cout << cp << ends << endl;
-                TAprsString* monStats = new TAprsString(cp,SRC_INTERNAL,srcSTATS);
-                sendQueue.write(monStats);
-
-                delete[] cp;
-                //cp = NULL;
-                //free(cp);
-            }
-        }
-
-        char ch = fgetc(stdin);         // stalls for 0.1 sec.
-
-        switch (ch) {
-            case  'r':
-                resetCounters();
-                break;
-
-            case 0x03:
-
-            case 'q' :
-                serverQuit(&initial_settings);
-                raise(SIGTERM);;
-        }
-
-        lastSec = Time;
-        Time = time(NULL);
-
-        if (tncPresent) {
-            if (difftime(Time,lastSec) > 0)
-                schedule_posit2RF(Time);    // Once per second
-        }
-
-        if (difftime(Time,LastNetBeacon) >= NetBeaconInterval * 60) {   //Send Internet Beacon text
-            LastNetBeacon = Time;
-
-            if ((!NetBeacon.empty()) && (NetBeaconInterval > 0)){
-                TAprsString* netbc = new TAprsString(NetBeacon,SRC_INTERNAL,srcSYSTEM);
-                sendQueue.write(netbc);
-            }
-        }
-
-
-        if (tncPresent) {
-            if (difftime(Time,LastTncBeacon) >= TncBeaconInterval * 60) {   // Send TNC Beacon text
-                LastTncBeacon = Time;
-
-                if ((!TncBeacon.empty()) && (TncBeaconInterval > 0)) {
-                    TAprsString* tncbc = new TAprsString(TncBeacon,SRC_INTERNAL,srcSYSTEM);
-                    tncQueue.write(tncbc);
+                    //if (rc == 0)
+                    //    pthread_detach(cpIGATE[i].tid);
+                    if (pthread_create(&cpIGATE[i].tid, NULL, TCPConnectThread, &cpIGATE[i]) == 0)
+                        pthread_detach(cpIGATE[i].tid);
                 }
             }
         }
 
-        /*debug*/
-   /*
-    if (Time != lastSec)	  //send the test message for debugging
-     {
-          char *test = "W4ZZ>APRS,TCPIP:!BOGUS PACKET ";
-            char testbuf[256];
-            ostrstream os(testbuf,255);
-            os << test << Time << "\r\n" << ends;
-            TAprsString* inetpacket = new TAprsString(testbuf,0,srcTNC);
-            inetpacket->changePath("TCPIP*","TCPIP") ;
-            tncQueue.write(inetpacket); //note: inetpacket is deleted in DeQueue
+        Time = time(NULL);
+        tNow = Time;
+        tLast = Time;
+        tLastDel = Time ;
+        tPstats = Time;
 
-     }
-    */
+        configComplete = true;
 
-        if ((Time - tPstats) > 60) {    // 1 minute
-            if (WatchDog < 2)
-                cerr << "** No data from TNC during previous 2 minutes **\n" << flush;
+        if (!TncBeacon.empty())
+            cout << "TncBeacon every " << TncBeaconInterval << " minutes: " << TncBeacon << endl;
 
-            /*       //# Tickle  has been commented out.
-            if(aprsStreamRate == 0){    //Send  tickle if nothing else is being sent.
-                TAprsString* tickle = new TAprsString("# Tickle\r\n",SRC_INTERNAL,srcSYSTEM);
-                sendQueue.write(tickle);
-            } */
+        if (!NetBeacon.empty())
+            cout << "NetBeacon every " << NetBeaconInterval << " minutes: " << NetBeacon << endl;
 
-            tPstats = Time;
-            WatchDog = 0;               // Serial port reader increments this with each rx line.
-            const char *stats = getStats();
-            cout << stats << flush;
-            //getProcStats();
-            TAprsString* monStats = new TAprsString(stats, SRC_INTERNAL, srcSTATS);
-            sendQueue.write(monStats);
-            //delete stats;
-            //stats = NULL;
+        cout << "MYCALL set to: " << MyCall << endl;
 
-          /*
-            for(int i=0;i<MaxClients;i++)
-             cout << setw(4) << sessions[i].Socket  ;
+        struct termios initial_settings, new_settings;
+        tcgetattr(fileno(stdin),&initial_settings);
+        new_settings = initial_settings;
+        new_settings.c_lflag &= ~ICANON;
+        new_settings.c_lflag &= ~ISIG;
+        new_settings.c_cc[VMIN] = 0;
+        new_settings.c_cc[VTIME] = 1;		 //.1 second timeout for input chars
 
-          cout << endl;
-          */
-        }
+        tcsetattr(fileno(stdin), TCSANOW, &new_settings);
 
-        if ((Time - tLastDel) > 300 ) { // do this every 5 minutes.
-                                        // Remove old entrys from history list
+        do {
+            //reliable_usleep(1000);
+            usleep(10000);
 
-            if(pthread_mutex_lock(pmtxCount) != 0)
-                cerr << "Unable to lock pmtxCount - main-DeleteOldItems.\n" << flush;
+            if (msgsn > 9999)
+                msgsn = 0;
 
-            int di = DeleteOldItems(5);
-            if(pthread_mutex_unlock(pmtxCount) != 0)
-                cerr << "Unable to unlock pmtxCount - main-DeleteOldItems.\n" << flush;
+            while (conQueue.ready()) {      // Data for Console?
+                char *cp = (char*)conQueue.read(NULL);    //Yes, read and print it.
 
-            if (di > 0)
-                cout << " Deleted " << di << " expired items from history list" << endl << flush;
+                if (cp) {
+                    //printf("%s",cp);
+                    //strcat(cp,"\r");
+                    cout << cp << endl;
+                    TAprsString* monStats = new TAprsString(cp, SRC_INTERNAL, srcSTATS);
+                    sendQueue.write(monStats);
 
-            tLastDel = Time;
-        }
+                    delete[] cp;
+                    //cp = NULL;
+                    //free(cp);
+                }
+            }
 
+            char ch = fgetc(stdin);         // stalls for 0.1 sec.
+
+            switch (ch) {
+                case  'r':
+                    resetCounters();
+                    break;
+
+                case 0x03:
+
+                case 'q' :
+                    serverQuit(&initial_settings);
+                    raise(SIGTERM);;
+            }
+
+            lastSec = Time;
+            Time = time(NULL);
+
+            if (tncPresent) {
+                if (difftime(Time,lastSec) > 0)
+                    schedule_posit2RF(Time);    // Once per second
+            }
+
+            if (difftime(Time,LastNetBeacon) >= NetBeaconInterval * 60) {   //Send Internet Beacon text
+                LastNetBeacon = Time;
+
+                if ((!NetBeacon.empty()) && (NetBeaconInterval > 0)){
+                    TAprsString* netbc = new TAprsString(NetBeacon, SRC_INTERNAL, srcSYSTEM);
+                    sendQueue.write(netbc);
+                }
+            }
+
+
+            if (tncPresent) {
+                if (difftime(Time,LastTncBeacon) >= TncBeaconInterval * 60) {   // Send TNC Beacon text
+                    LastTncBeacon = Time;
+
+                    if ((!TncBeacon.empty()) && (TncBeaconInterval > 0)) {
+                        TAprsString* tncbc = new TAprsString(TncBeacon, SRC_INTERNAL, srcSYSTEM);
+                        tncQueue.write(tncbc);
+                    }
+                }
+            }
+
+            /*debug*/
     /*
-    if ((Time - tLast) > 900)		//Save history list every 15 minutes
-    {
-      SaveHistory(pSaveHistory);
-      tLast = Time;
-    }
+        if (Time != lastSec)	  //send the test message for debugging
+        {
+            char *test = "W4ZZ>APRS,TCPIP:!BOGUS PACKET ";
+                char testbuf[256];
+                ostrstream os(testbuf,255);
+                os << test << Time << "\r\n" << ends;
+                TAprsString* inetpacket = new TAprsString(testbuf,0,srcTNC);
+                inetpacket->changePath("TCPIP*","TCPIP") ;
+                tncQueue.write(inetpacket); //note: inetpacket is deleted in DeQueue
+
+        }
+        */
+
+            if ((Time - tPstats) > 60) {    // 1 minute
+                if (WatchDog < 2)
+                    cerr << "** No data from TNC during previous 2 minutes **" << endl;
+
+                /*       //# Tickle  has been commented out.
+                if(aprsStreamRate == 0){    //Send  tickle if nothing else is being sent.
+                    TAprsString* tickle = new TAprsString("# Tickle\r\n",SRC_INTERNAL,srcSYSTEM);
+                    sendQueue.write(tickle);
+                } */
+
+                tPstats = Time;
+                WatchDog = 0;               // Serial port reader increments this with each rx line.
+                const char *stats = getStats();
+                cout << stats << endl;
+                //getProcStats();
+                TAprsString* monStats = new TAprsString(stats, SRC_INTERNAL, srcSTATS);
+                sendQueue.write(monStats);
+                //delete stats;
+                //stats = NULL;
+
+            /*
+                for(int i=0;i<MaxClients;i++)
+                cout << setw(4) << sessions[i].Socket  ;
+
+            cout << endl;
+            */
+            }
+
+            if ((Time - tLastDel) > 300 ) { // do this every 5 minutes.
+                                            // Remove old entrys from history list
+
+                //if(pthread_mutex_lock(pmtxCount) != 0)
+                //    cerr << "Unable to lock pmtxCount - main-DeleteOldItems.\n" << flush;
+                countLock.get();
+                int di = DeleteOldItems(5);
+                countLock.release();
+                //if(pthread_mutex_unlock(pmtxCount) != 0)
+                //    cerr << "Unable to unlock pmtxCount - main-DeleteOldItems.\n" << flush;
+
+                if (di > 0)
+                    cout << " Deleted " << di << " expired items from history list" << endl << flush;
+
+                tLastDel = Time;
+            }
+
+        /*
+        if ((Time - tLast) > 900)		//Save history list every 15 minutes
+        {
+        SaveHistory(pSaveHistory);
+        tLast = Time;
+        }
+        */
+
+        } while (1 == 1);                     // ctrl-C to quit
+
+        // Compiler burps on this (RH7.1)
+    /*
+        pthread_mutex_destroy(pmtxSendFile);    // destroy/delete the mutex's before exit
+        delete pmtxSendFile;
+        pthread_mutex_destroy(pmtxSend);
+        delete pmtxSend;
+        pthread_mutex_destroy(pmtxAddDelSess);
+        delete pmtxAddDelSess;
+        pthread_mutex_destroy(pmtxCount);
+        delete pmtxCount;
+        pthread_mutex_destroy(pmtxDNS);
+        delete pmtxDNS;
+        return(0);
     */
-
-    } while (1 == 1);                     // ctrl-C to quit
-
-    // Compiler burps on this (RH7.1)
-/*
-    pthread_mutex_destroy(pmtxSendFile);    // destroy/delete the mutex's before exit
-    delete pmtxSendFile;
-    pthread_mutex_destroy(pmtxSend);
-    delete pmtxSend;
-    pthread_mutex_destroy(pmtxAddDelSess);
-    delete pmtxAddDelSess;
-    pthread_mutex_destroy(pmtxCount);
-    delete pmtxCount;
-    pthread_mutex_destroy(pmtxDNS);
-    delete pmtxDNS;
-    return(0);
-*/
+    }
+    catch (Exception& e)
+    {
+        cout << e.toString() << endl;
+        return 1;
+    }
+    catch (exception& e)
+    {
+        cerr << e.what() << endl;
+        return 1;
+    }
     return(0);
 }
 

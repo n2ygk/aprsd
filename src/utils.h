@@ -34,6 +34,7 @@
 #define BADUSER -1
 #define BADGROUP -2
 #define BADPASSWD -3
+using namespace aprsd;
 
 int WriteLog(const char *cp, const char *LogFile);
 char* strupr(char *cp);
@@ -52,9 +53,7 @@ bool getMsgDestCall(char *data, char* cp, int n);
 bool getMsgSourceCall(char* data, char* cp, int n);
 char checkUserDeny(string& user);
 
-int stricmp(const char* szX, const char* szY);
-
-
+//int stricmp(const char* szX, const char* szY);
 int split(  string& s, string sa[],   int saSize,  const char* delim);
 int freq(string& s, char c);
 void upcase(string& s);
@@ -64,7 +63,6 @@ bool find_rfcall(const string& s, vector<string*>& rfcall);
 bool matchCallsign(const string& s1, const string& s2);
 
 void strElapsedTime(time_t starttime,  char* timeStr);
-extern void reliable_usleep (int usecs);
 
 #endif
 

@@ -41,53 +41,51 @@
 #include <string>
 #include <stdexcept>
 
+#include "osdep.h"
 #include "constant.h"
 #include "dupCheck.h"
+#include "mutex.h"
 
 using namespace std;
+using namespace aprsd;
 
 #define TABLESIZE  0x10000              // 64K hash table containing time_t values
 
 
-dupCheck::dupCheck()
+dupCheck::dupCheck() throw(AssertException, exception)
 {
-    pmtxdupCheck = new pthread_mutex_t;
-    pthread_mutex_init(pmtxdupCheck,NULL);
-
     hashtime = new time_t[TABLESIZE];
     hashhash = new INT16[TABLESIZE];
     clear();
 
-    if((hashtime == NULL) || (hashhash == NULL))
-        cerr << "Dup Filter failed to initialize\n";
+    if ((hashtime == NULL) || (hashhash == NULL))
+        cerr << "Dup Filter failed to initialize" << endl;
 }
 
 
-dupCheck::~dupCheck()
+dupCheck::~dupCheck() throw()
 {
     delete[] hashtime;
     hashtime = NULL;
-    pthread_mutex_destroy(pmtxdupCheck);
-    delete pmtxdupCheck;
-    pmtxdupCheck = NULL;
 }
 
 
-bool dupCheck::check(TAprsString* s, int t)
+bool dupCheck::check(TAprsString* s, int t) throw(AssertException, exception)
 {
     bool dup = false;
+    Lock lock(mutex);
 
     if ((hashtime == NULL) || (hashhash == NULL) || s->allowdup)
         return false;
 
-    pthread_mutex_lock(pmtxdupCheck);
-
+    // Get a mutex around this
+    lock.get();
     INT32 hash = s->gethash();
     INT16 hash_lo = hash & 0xffff;      // be sure we stay inside the table!
     INT16 hash_hi = hash >> 16;         // upper 16 bits of hash
     hash_hi &= 0xffff;
 
-    if(((s->timestamp - hashtime[hash_lo]) <= t )   // See if time difference is less than t seconds
+    if (((s->timestamp - hashtime[hash_lo]) <= t )   // See if time difference is less than t seconds
             && (hash_hi == hashhash[hash_lo])) {    // and hash_hi value is identical
         dup = true;
     }
@@ -95,14 +93,15 @@ bool dupCheck::check(TAprsString* s, int t)
     hashtime[hash_lo] = s->timestamp;   // put this new data in the tables
     hashhash[hash_lo] = hash_hi;
 
-    pthread_mutex_unlock(pmtxdupCheck);
+    // release the lock
+    lock.release();
     // printf("hash32= %08X  hash_hi= %04X  hash_lo= %04X %s",s->hash, hash_hi, hash_lo, s->raw.c_str()); //debug
     return(dup);
 }
 
-void dupCheck::clear()
+void dupCheck::clear() throw(AssertException, exception)
 {
-    for(int i=0;i<TABLESIZE;i++) {
+    for (int i = 0; i < TABLESIZE; i++) {
         if (hashtime)
             hashtime[i] = 0;            // Initialize tables
 

@@ -25,13 +25,16 @@
 #ifndef __CONSTANT_H
 #define __CONSTANT_H
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef HAVE_CONFIG_H
-#include "../config.h"
+#include "config.h"
 #endif
 
-const char SIGNON[] = "# APRSd " VERSION " (c) 2001, aprsd Dev Team http://sourceforge.net/projects/aprsd/ \r\n";
+
+/* update the next 3 lines with each version change */
+//#define SIGNON "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://aprsd.sourceforge.net \r\n"
+const char SIGNON[] = "# " PACKAGE " " VERSION " (c) 2001-2002, aprsd Dev Team http://sourceforge.net/projects/aprsd/ \r\n";
 #define VERS PACKAGE " " VERSION
 #define PGVERS APRSDTOCALL
 /*--------------------------------------------------*/
@@ -43,6 +46,9 @@ const char SIGNON[] = "# APRSd " VERSION " (c) 2001, aprsd Dev Team http://sourc
 #ifndef FALSE
 #define FALSE 0
 #endif
+
+// The following shortens all the type casts of pointer arguments
+#define SA struct sockaddr
 
 #ifndef ULONG
 typedef unsigned long ULONG;            // 4 bytes, unsigned
@@ -138,7 +144,7 @@ typedef int INT32;
 
 #define APRSGROUP "aprs"
 #define TNCGROUP "tnc"
-
+#define	stricmp(x, y) strcasecmp(x, y)
 
 /* this is not used in production code*/
 #define TEST "WA4DSY>APRS,WIDE:!3405.31N/08422.46WyWA4DSY APRS Internet Server running on Linux.\r\n"

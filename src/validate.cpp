@@ -43,9 +43,11 @@
 #include <shadow.h>
 #include <iostream>
 
+#include "osdep.h"
 #include "validate.h"
 
 using namespace std;
+using namespace aprsd;
 
 /* Steves servers response to a user logon:
 

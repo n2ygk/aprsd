@@ -23,52 +23,48 @@
  */
 
 
-#ifndef __CPQUEUE_H
-#define __CPQUEUE_H
+#ifndef CPQUEUE_H
+#define CPQUEUE_H
+
+#include <queue>
 
 #include "aprsString.h"
+#include "mutex.h"
+#include "exception.h"
 
-
-class  queueData
+namespace aprsd
 {
-public:
-    void* qcp;                          // Pointer to dynamically allocated TAprsString or char string.
-    int	qcmd;                           // Optional interger data command or info
-    bool rdy;
-};
+    using std::queue;
 
+    class cpQueue
+    {
+    public:
+        int overrun;                        // times queue has overrun
+        int itemsQueued;                    // number of items currently in queue
+        int HWItemsQueued;                  // HighWater mark for queue
+        cpQueue(int n, bool d) throw(AssertException, exception);             // fifo Queue constructor
+        ~cpQueue(void) throw();                     // destructor
 
-class cpQueue
-{
-public:
-    int overrun;			// times queue has overrun
-    int itemsQueued;			// number of items currently in queue
-    int HWItemsQueued;			// HighWater mark for queue
-    cpQueue(int n, bool d);             // fifo Queue constructor
-    ~cpQueue(void);                     // destructor
+        bool write(TAprsString* cs, int cmd) throw(AssertException, exception);
+        bool write(TAprsString* cs) throw(AssertException, exception);
+        bool write(char* cs, int cmd) throw(AssertException, exception);
+        bool write(const char* cs, int cmd) throw(AssertException, exception);
+        bool write(unsigned char* cs, int cmd) throw(AssertException, exception);
+        //bool write(string& sp, int cmd);
 
-    int write(TAprsString* cs, int cmd);
-    int write(TAprsString* cs);
-    int write(char* cs, int cmd);
-    int write(unsigned char* cs, int cmd);
-    int write(string& sp, int cmd);
+        void* read(int *cmd) throw(AssertException, exception);
+        bool ready(void) throw(AssertException, exception);                    // return non-zero when queue data is available
 
-    void* read(int *cmd);
-    int ready(void);                    // return non-zero when queue data is available
+        int getItemsQueued(void) throw(AssertException, exception);
+        int getHWItemsQueued(void) throw(AssertException, exception);
+        int getQueueSize(void) throw(AssertException, exception);
 
-    int getWritePtr(void);              // For debugging
-    int getReadPtr(void);
-    int getItemsQueued(void);
-    int getHWItemsQueued(void);
-    int getQueueSize(void);
-
-private:
-    queueData *base_p;
-    int  write_p;
-    int  read_p;
-    int size, lock, inRead, inWrite;
-    pthread_mutex_t* pmtxQ;
-    bool dyn;
-};
-
+    private:
+        int maxQueueSize, lock, inRead, inWrite;
+        pthread_mutex_t* pmtxQ;
+        bool dyn;
+        queue<void*> ls;
+        Mutex mutex;
+    };
+}
 #endif

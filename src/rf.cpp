@@ -32,6 +32,7 @@
 #include "serial.h"
 #include "sockets.h"
 
+#include "osdep.h"
 #include "constant.h"
 #include "utils.h"
 #include "cpqueue.h"
@@ -39,6 +40,7 @@
 #include "queryResp.h"
 
 using namespace std;
+using namespace aprsd;
 
 struct pidList {
     pid_t main;
@@ -73,7 +75,8 @@ extern string szServerCall;
 
 pthread_t tidReadCom;
 extern string MyCall;
-pthread_mutex_t *pmtxWriteTNC;
+//pthread_mutex_t *pmtxWriteTNC;
+Mutex mtxWriteTNC;
 
 char tx_buffer[260];
 int txrdy;
@@ -128,8 +131,8 @@ int rfOpen (const char *szPort)
     if (result != 0)
         return(result);
 
-    pmtxWriteTNC = new pthread_mutex_t;
-    pthread_mutex_init (pmtxWriteTNC, NULL);
+    //pmtxWriteTNC = new pthread_mutex_t;
+    //pthread_mutex_init (pmtxWriteTNC, NULL);
 
     CloseAsync = false;
     threadAck = false;
@@ -155,9 +158,9 @@ int rfClose(void)
     while (threadAck == false)
         reliable_usleep (1000);                  // wait till it does
 
-    pthread_mutex_destroy(pmtxWriteTNC);
-    delete pmtxWriteTNC;
-    pmtxWriteTNC = NULL;
+    //pthread_mutex_destroy(pmtxWriteTNC);
+    //delete pmtxWriteTNC;
+    //pmtxWriteTNC = NULL;
 
     if (AsyncPort)
         return(AsyncClose());
@@ -175,16 +178,19 @@ int rfClose(void)
 //
 int rfWrite (const char *cp)
 {
-    int rc;
+    int rc = 0;
+    Lock writeTNCLock(mtxWriteTNC, false);
 
-    rc = pthread_mutex_lock(pmtxWriteTNC);
+    //rc = pthread_mutex_lock(pmtxWriteTNC);
+    writeTNCLock.get();
     strncpy(tx_buffer, cp, 256);
 
     txrdy = 1;
     while (txrdy)
         reliable_usleep(10000);                  // The rfReadCom thread will clear txrdy when it takes data
 
-    rc = pthread_mutex_unlock(pmtxWriteTNC);
+    //rc = pthread_mutex_unlock(pmtxWriteTNC);
+    writeTNCLock.release();
     return(rc);
 }
 

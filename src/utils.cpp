@@ -34,11 +34,15 @@
 #include <grp.h>                        // getgrnam
 
 #include <fstream>                      // ifstream
+#include <cstdlib>
+
+#include "osdep.h"
 #include "constant.h"
 #include "utils.h"
 #include "cpqueue.h"
 
 using namespace std;
+using namespace aprsd;
 
 
 int ttlDefault = 30;                    // Default time to live of a history item (30 minutes)
@@ -117,7 +121,7 @@ char * strupr(char *cp)
     int i;
     int l = strlen(cp);
 
-    for (i=0;i<l;i++) {
+    for (i = 0; i < l; i++) {
         if ((cp[i] >= 'a') && (cp[i] <= 'z'))
             cp[i] = cp[i] - 32;
     }
@@ -388,7 +392,7 @@ bool find_rfcall(const string& s, string **cl)
 //
 //  Case insensitive c char string compare function
 //
-int stricmp(const char* szX, const char* szY)
+/*int stricmp(const char* szX, const char* szY)
 {
     int i;
     int len = strlen(szX);
@@ -413,7 +417,7 @@ int stricmp(const char* szX, const char* szY)
     b = NULL;
     return(rc);
 }
-
+*/
 //--------------------------------------------------------------------
 /* Returns the deny code if user found or "+" if user not in list
    Deny codes:  L = no login   R = No RF access
@@ -504,34 +508,6 @@ bool matchCallsign(const string& s1, const string& s2)
    else
        return false;
 }
-
-//---------------------------------------------------------------------
-void reliable_usleep (int usecs)
-{
-    timeval now, end;
-
-    gettimeofday (&now, NULL);
-    end = now;
-    end.tv_sec  += usecs / 1000000;
-    end.tv_usec += usecs % 1000000;
-
-    while ((now.tv_sec < end.tv_sec) || ((now.tv_sec == end.tv_sec) && (now.tv_usec < end.tv_usec))) {
-        timeval tv;
-        tv.tv_sec = end.tv_sec - now.tv_sec;
-
-        if (end.tv_usec >= now.tv_usec)
-            tv.tv_usec = end.tv_usec - now.tv_usec;
-        else {
-            tv.tv_sec--;
-            tv.tv_usec = 1000000 + end.tv_usec - now.tv_usec;
-        }
-
-        select(0, NULL, NULL, NULL, &tv);
-        gettimeofday (&now, NULL);
-    }
-}
-
-
 
 
 // eof: utils.cpp

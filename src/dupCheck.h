@@ -23,29 +23,30 @@
  */
 
 
-#ifndef __DUPCHECK_H
-#define __DUPCHECK_H
+#ifndef DUPCHECK_H
+#define DUPCHECK_H
 
 #include <string>
 #include "constant.h"
 #include "aprsString.h"
+#include "mutex.h"
+
 using namespace std;
+using namespace aprsd;
 
 
 class dupCheck
 {
-private:
-    pthread_mutex_t* pmtxdupCheck;      // mutex semaphore pointer
+public:
+    dupCheck() throw(AssertException, exception);
+    ~dupCheck() throw();
 
+    bool check(TAprsString* s, int t) throw(AssertException, exception);
+    void clear(void) throw(AssertException, exception);
+private:
+    Mutex mutex;
     time_t*  hashtime;
     INT16*   hashhash;
-
-public:
-    dupCheck();
-    ~dupCheck();
-
-    bool check(TAprsString* s, int t);
-    void clear(void);
 };
 
-#endif  // __DUPCHECK_H
+#endif  // DUPCHECK_H

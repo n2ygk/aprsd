@@ -26,20 +26,26 @@
 #include "config.h"
 #endif
 
+#include <cstdlib>
+#include <fstream>                      // ifstream
+
 #include <unistd.h>                     // write, read
 #include <stdio.h>                      // sys_errlist
 #include <errno.h>                      // errno
 #include <fcntl.h>
-#include <fstream>                      // ifstream
+
 #include <termios.h>
 
+#include "osdep.h"
 #include "constant.h"
 #include "serial.h"
 #include "utils.h"
 #include "rf.h"
 #include "cpqueue.h"
 
+
 using namespace std;
+using namespace aprsd;
 
 int ttySread;
 int ttySwrite;
@@ -271,7 +277,7 @@ int AsyncSendFiletoTNC(const char *szName)
     Line[0] = 0x03;                     // Control C to get TNC into command mode
     Line[1] = '\0';
     rfWrite (Line);
-    sleep (1);
+    reliable_usleep(1);
 
     while (file.good ()) {
         file.getline(Line, 256);       // Read each line in file and send to TNC

@@ -29,10 +29,14 @@
 #define MAXPATH 12
 #define MAXPKT 256
 
-using namespace std;
-
 #include <string>
+
 #include "constant.h"
+#include "mutex.h"
+
+using namespace std;
+using namespace aprsd;
+
 
 static const int APRSMSGACK = 31;       // These three are for the msgType variable
 static const int APRSMSGTEXT = 32;      // and indicate what kind of message it is.
@@ -57,12 +61,12 @@ static const int APRSERROR = -1;
 static const int MAXWORDS = 8;
 
 
-class TAprsString: public string
+class TAprsString: public std::string
 {
 public:
     static int NN;                      // Tells how many objects exist
     static long objCount;               // Total of objects created (used as ID)
-    static pthread_mutex_t* pmtxCounters;
+
     long ID;                            // Unique ID number for this object
     int instances ;                     // Number of pointers to this object that exist in user queues
     int tcpxx;                          // TRUE = TCPXX or TCPXX* was in the path
@@ -134,6 +138,8 @@ public:
 private:
     void constructorSetUp(const char *cp, int s, int e);
     void AEAtoTAPR(string& s, string& rs);
+    //static pthread_mutex_t pmtxCounters;
+    static Mutex mutex;
 };
 
 #endif  // __APRSSTRING_H

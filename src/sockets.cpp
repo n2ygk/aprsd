@@ -44,10 +44,13 @@
 #include <netax25/axconfig.h>
 
 #include <iostream>
+
+#include "osdep.h"
 #include "constant.h"
 #include "rf.h"
 
 using namespace std;
+using namespace aprsd;
 
 //---------------------------------------------------------------------
 // AX.25 constants
@@ -80,7 +83,6 @@ int tx_src_len, tx_dest_len;       // Length of addresses
 
 void fmt (const unsigned char*, int, unsigned char**);
 char* pax25 (char*, const unsigned char*);
-
 
 //---------------------------------------------------------------------
 // Open the AX.25 sockets

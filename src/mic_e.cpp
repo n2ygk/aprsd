@@ -53,6 +53,7 @@ extern "C" {
 #include <sys/types.h>
 }
 
+#include "osdep.h"
 #include "mic_e.h"
 
 using namespace std;
