@@ -233,7 +233,7 @@ void RemoveCtlCodes(char *cp)
     unsigned char *temp = new unsigned char[len+1];
 
     for (i=0, j=0; i<len; i++) {
-        ucp[i] &= 0x7f;                 // Clear 8th bit
+        //ucp[i] &= 0x7f;                 // Clear 8th bit
         if (ucp[i]  >= 0x1C)            // Check for printable plus the Mic-E codes
             temp[j++] = ucp[i];         // copy to temp if printable
 

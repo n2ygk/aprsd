@@ -61,7 +61,7 @@ extern bool checknogate;
 
 TAprsString::TAprsString(const char* cp, int s, int e, const char* szPeer, const char* userCall) : string(cp)
 {
-    constructorSetUp(cp,s,e);
+    constructorSetUp(cp, s, e);
     peer = szPeer;
     call = userCall;
     srcHeader = "!" + peer + ":" + call + "!";  // Build the source ip header
@@ -73,7 +73,7 @@ TAprsString::TAprsString(const char* cp, int s, int e) : string(cp)
     user = "";
     call = "";
     srcHeader = "!:!";
-    constructorSetUp(cp,s,e);
+    constructorSetUp(cp, s, e);
 }
 
 TAprsString::TAprsString(string& cp, int s, int e) : string(cp)
@@ -82,7 +82,7 @@ TAprsString::TAprsString(string& cp, int s, int e) : string(cp)
     user = "";
     call = "";
     srcHeader = "!:!";
-    constructorSetUp(cp.c_str(),s,e);
+    constructorSetUp(cp.c_str(), s, e);
 }
 
 TAprsString::TAprsString(const char* cp) : string(cp)
@@ -91,7 +91,7 @@ TAprsString::TAprsString(const char* cp) : string(cp)
     user = "";
     call = "";
     srcHeader = "!:!";
-    constructorSetUp(cp,0,0);
+    constructorSetUp(cp, 0, 0);
 }
 
 
@@ -101,7 +101,7 @@ TAprsString::TAprsString(string& cp) : string(cp)
     user = "";
     call = "";
     srcHeader = "!:!";
-    constructorSetUp(cp.c_str(),0,0);
+    constructorSetUp(cp.c_str(), 0, 0);
 }
 
 //
@@ -143,14 +143,16 @@ TAprsString::TAprsString(TAprsString& as) : string(as)
     lastPositTx = as.lastPositTx;
 
     if(pthread_mutex_lock(pmtxCounters) != 0)
-    	cerr << "Unable to lock pmtxCounters - CopyConstructors.\n" << flush;
+        cerr << "Unable to lock pmtxCounters - CopyConstructors.\n" << endl;
+
     NN++;                               // Increment counters
     objCount++;
     ID = objCount;                      // new serial number
     timestamp = time(NULL);             // User current time instead of time in original
     instances = 0;
+
     if(pthread_mutex_unlock(pmtxCounters) != 0)
-        cerr << "Unable to unlock pmtxCounters - CopyConstructors.\n" << flush;
+        cerr << "Unable to unlock pmtxCounters - CopyConstructors.\n" << endl;
 
 }
 
@@ -158,10 +160,12 @@ TAprsString::TAprsString(TAprsString& as) : string(as)
 TAprsString::~TAprsString(void)
 {
     if(pthread_mutex_lock(pmtxCounters) != 0)
-    	cerr << "Unable to lock pmtxCounters - ItemDestructor.\n" << flush;
+        cerr << "Unable to lock pmtxCounters - ItemDestructor.\n" << endl;
+
     NN--;
+
     if(pthread_mutex_unlock(pmtxCounters) != 0)
-    	cerr << "Unable to unlock pmtxCounters - ItemDestructor.\n" << flush;
+        cerr << "Unable to unlock pmtxCounters - ItemDestructor.\n" << endl;
 }
 
 
@@ -192,17 +196,17 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
         if (pmtxCounters == NULL) {     // Create mutex semaphore to protect counters if it doesn't exist...
             pmtxCounters = new pthread_mutex_t; // ...This semaphore is common to all instances of TAprsString.
             if (pthread_mutex_init(pmtxCounters,NULL) == -1)
-                cerr << "Unable to initialize pmtxCounters.\n" << flush;
+                cerr << "Unable to initialize pmtxCounters." << endl;
         }
 
         if(pthread_mutex_lock(pmtxCounters) != 0)
-            cerr << "Unable to lock pmtxCounters - ConstructorSetup.\n" << flush;
+            cerr << "Unable to lock pmtxCounters - ConstructorSetup." << endl;
 
         objCount++;
         ID = objCount;                  // set unique ID number for this new object
         NN++;
         if(pthread_mutex_unlock(pmtxCounters) != 0)
-            cerr << "Unable to unlock pmtxCounters - ConstructorSetup.\n" << flush;
+            cerr << "Unable to unlock pmtxCounters - ConstructorSetup." << endl;
 
         timestamp = time(NULL);
 
@@ -220,7 +224,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
         pathSize = 0;
 
         if (length() <= 0) {
-            cerr << "Zero or neg string Length\n" << flush;
+            cerr << "Zero or neg string Length" << endl;
             return;
         }
 
@@ -272,6 +276,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 string rs;
                 AEAtoTAPR(*this, rs);
 
+
                 // Replace AEA path with TAPR path
                 pIdx = rs.find(":");
                 string rsPath = rs.substr(0, pIdx);
@@ -280,6 +285,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
 
                 AEA = true;
             }
+
 
             if ((sourceSock != SRC_INTERNAL) && (path.find(">") == npos)) {
                 // If there isn't a ">" in the packet
@@ -292,22 +298,25 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 data = substr(pIdx+1, MAXPKT);  //The data portion of the packet
 
             pathSize = split(path, ax25Path, MAXPATH, pathDelm);
+
             if (pathSize >= 2)
                 ax25Dest = ax25Path[1]; // AX25 destination
 
             if (pathSize >= 1) {
                 ax25Source = ax25Path[0];           //AX25 Source
 
-                if (ax25Source.find_first_of("}") <= ax25Source.length()) {
-                    int nfind = ax25Source.find_first_of("}");
+                while (find_first_of("}") <= ax25Source.length()) {
+                    int nfind = find_first_of("}");
                     //cerr << "Found } in source at position: " << nfind << endl;
-                    ax25Source.erase(nfind,1);
+                    replace(nfind, nfind+1, "");
+                    //cerr << "After } removal: " << ax25Source << endl;
                 }
 
-                if (ax25Source.find_first_of("*") <= ax25Source.length()) {
-                    int nfind = ax25Source.find_first_of("*");
+                while (find_first_of("*") <= ax25Source.length()) {
+                    int nfind = find_first_of("*");
                     //cerr << "Found * in source at position: " << nfind << endl;
-                    ax25Source.erase(nfind,1);
+                    replace(nfind, nfind+1, "");
+                    //cerr << "After * removal: " << ax25Source << endl;
                 }
 
                 if (checknogate) {
@@ -333,8 +342,8 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
             }
 
             if ((data.find('\r') > data.length()) || (data.find('\n') > data.length())) {
-                cerr << "added CRLF to packet " << data << endl << flush;
-                data.append("\n\r");
+                //cerr << "added CRLF to packet " << data << endl;
+                append("\n\r");
                 //data.append('\r');
             }
 
@@ -344,7 +353,7 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                 aprsType = APRSID;
                 return;
             }
-
+            int mlen = data.length();
             switch (data[0]) {
                 case ':' :
                     // Message Packet
@@ -353,6 +362,11 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     // Message Text may contain any printable data except "|~{"
                     //
                     //msgdata = "";
+
+                    if (mlen < MAXPKT-5) {
+                        aprsType = APRSERROR;
+                        break;
+                    }
 
                     stsmDest = data.substr(1, MAXPKT);
                     idx = stsmDest.find(":");
@@ -418,10 +432,10 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
 
                 case '_' :              // positionless weather
                                         // _ (1) Time MDHM (8) data(36) aprs software (1) wx unit (2-4)
-                    if (data.length() > 52) {
+                    if (mlen > MAXPKT-5) {
                         aprsType = APRSERROR;
-                        cerr << "Bad weather packet length = " << data.length() << endl << flush;
-                        cerr << data << endl << flush;
+                        //cerr << "Bad weather packet length = " << data.length() << endl << flush;
+                        //cerr << data << endl << flush;
                     }
                     else
                         aprsType = APRSWX ;
@@ -435,62 +449,75 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                                         // Compressed
                                         // @ (1), Time DHM/HMS (7), Sym ID (1), Lat (4), Lon (4), Sym Code (1), ;
                                         //      Speed/Crs/PHG/DF (2), Comp Type (1), Comment (0-40)
-                    if (data.length() > 71) {
+                    if (mlen > MAXPKT-5) {
                         aprsType = APRSERROR;
-                        cerr << "Bad @ packet; length = " << data.length() << endl << flush;
-                        cerr << data << endl << flush;
-                    }
+                        //cerr << "Bad @ packet; length = " << data.length() << endl << flush;
+                        //cerr << data << endl << flush;
+                    } else
+                        aprsType = APRSPOS;
+
                     break;
 
                 case '=' :              // APRS fixed station
-                    if (data.length() > 63) {
+                    if (mlen > MAXPKT-5) {
                         aprsType = APRSERROR;
-                        cerr << "Bad = packet; length = " << data.length() << endl << flush;
-                        cerr << data << endl << flush;
-                    }
+                        //cerr << "Bad = packet; length = " << data.length() << endl << flush;
+                        //cerr << data << endl << flush;
+                    } else
+                        aprsType = APRSPOS;
+
                     break;
 
                 case '!' :              // APRS not runing, fixed short format
-                    if (data.length() > 63) {
+                    if (mlen > MAXPKT-5) {
                         aprsType = APRSERROR;
-                        cerr << "Bad ! packet; length = " << data.length() << endl << flush;
-                        cerr << data << endl << flush;
-                    }
+                        //cerr << "Bad ! packet; length = " << data.length() << endl << flush;
+                        //cerr << data << endl << flush;
+                    } else
+                        aprsType = APRSPOS;
+
                     break;
 
                 case '/' :              // APRS not running, fade to gray in 2 hrs
-                    if (data.length() > 71) {
+                    if (mlen > MAXPKT-5) {
                         aprsType = APRSERROR;
-                        cerr << "Bad / packet; length = " << data.length() << endl << flush;
-                        cerr << data << endl << flush;
+                        //cerr << "Bad / packet; length = " << data.length() << endl << flush;
+                        //cerr << data << endl << flush;
                     } else
                         aprsType = APRSPOS;
+
                     break;
 
                 case '>' :
-                    if (data.length() > 70) {
+                    if (mlen > MAXPKT-5) {
                         aprsType = APRSERROR;
-                        cerr << "Bad Status packet; length = " << data.length() << endl << flush;
-                        cerr << data << endl << flush;
+                        //cerr << "Bad Status packet; length = " << data.length() << endl << flush;
+                        //cerr << data << endl << flush;
                     } else
-                    aprsType = APRSSTATUS;
+                        aprsType = APRSSTATUS;
+
                     break;
 
                 case '?' :
-                    qidx = data.find('?',1);
-                    if (qidx != string::npos) {
-                        query = data.substr(1,qidx-1);
-                        aprsType = APRSQUERY;
+                    if (mlen > MAXPKT-5) {
+                        aprsType = APRSERROR;
+                    } else {
+                        qidx = data.find('?',1);
+                        if (qidx != string::npos) {
+                            query = data.substr(1,qidx-1);
+                            aprsType = APRSQUERY;
+                        }
                     }
                     break;
 
                 case ';' :
-                    if (data.length() > 87) {
+                    if (mlen > MAXPKT-5) {
                         aprsType = APRSERROR;
-                        cerr << "Bad Object packet; length = " << data.length() << endl << flush;
-                        cerr << data << endl << flush;
+                        //cerr << "Bad Object packet; length = " << data.length() << endl << flush;
+                        //cerr << data << endl << flush;
                     } else
                         aprsType = APRSOBJECT;
+
                     break;
 
                 case 0x60:              // These indicate it's a Mic-E packet
@@ -514,16 +541,17 @@ void TAprsString::constructorSetUp(const char* cp, int s, int e)
                     }
 
                 case '$' :
-                    if (data.length() < 26 || data.length() > 210) {
+                    if (mlen < MAXPKT-5) {
                         aprsType = APRSERROR;
-                        cerr << "Bad NMEA sentence packet; length = " << data.length() << endl << flush;
-                        cerr << data << endl << flush;
+                        //cerr << "Bad NMEA sentence packet; length = " << data.length() << endl << flush;
+                        //cerr << data << endl << flush;
                     } else
                         aprsType = NMEA;
-                        break;
+
+                    break;
 
                 default:                // check for messages in the old format
-                    if (data.length() >= 10) {
+                    if (mlen >= 10) {
                         if((data.at(9) == ':') && isalnum(data.at(0))) {
                             idx = data.find(":");
                             stsmDest = data.substr(0,idx);  //Old format
@@ -602,10 +630,10 @@ void TAprsString::AEAtoTAPR(string& s, string& rs)
     size_type pIdx = find(":");
     dataPart = s.substr(pIdx+1,MAXPKT);
     pathPart = s.substr(0,pIdx+1);
-    int n = split(pathPart,pathElem,MAXPATH+2,pathDelm);
+    int n = split(pathPart, pathElem, MAXPATH+2, pathDelm);
     rs  = pathElem[0] + '>' + pathElem[n-1];
 
-    for (int i=1;i<n-1;++i)
+    for (int i = 1; i < n-1; ++i)
         rs = rs + ',' + pathElem[i];    // corrected version
 
     rs = rs + ':' + dataPart;

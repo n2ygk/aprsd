@@ -31,10 +31,7 @@
 #include "../config.h"
 #endif
 
-/* update the next 3 lines with each version change */
-//#define SIGNON "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://aprsd.sourceforge.net \r\n"
-//const char SIGNON[] = "# " PACKAGE " " VERSION " (c) 2001, aprsd Dev Team http://sourceforge.net/projects/aprsd/ \r\n";
-const char SIGNON[] = "# APRSD 2.2.0 (c) 2001, aprsd Dev Team \r\n";
+const char SIGNON[] = "# APRSd " VERSION " (c) 2001, aprsd Dev Team http://sourceforge.net/projects/aprsd/ \r\n";
 #define VERS PACKAGE " " VERSION
 #define PGVERS APRSDTOCALL
 /*--------------------------------------------------*/
@@ -46,10 +43,6 @@ const char SIGNON[] = "# APRSD 2.2.0 (c) 2001, aprsd Dev Team \r\n";
 #ifndef FALSE
 #define FALSE 0
 #endif
-
-//#ifndef HAVE_BOOL
-//typedef bool int;
-//#endif
 
 #ifndef ULONG
 typedef unsigned long ULONG;            // 4 bytes, unsigned

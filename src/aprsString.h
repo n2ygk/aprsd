@@ -59,10 +59,6 @@ static const int MAXWORDS = 8;
 
 class TAprsString: public string
 {
-private:
-    void constructorSetUp(const char *cp, int s, int e);
-    void AEAtoTAPR(string& s, string& rs);
-
 public:
     static int NN;                      // Tells how many objects exist
     static long objCount;               // Total of objects created (used as ID)
@@ -135,6 +131,9 @@ public:
     INT32 gethash(void);
 
     static int getObjCount(void);
+private:
+    void constructorSetUp(const char *cp, int s, int e);
+    void AEAtoTAPR(string& s, string& rs);
 };
 
 #endif  // __APRSSTRING_H
