@@ -522,8 +522,8 @@ void SendToAllClients(TAprsString* p)
     if ((p->aprsType == APRSERROR) || (p->length() < 3)  )
         return;                         // Reject runts and error pkts
 
-    pthread_mutex_lock(pmtxSend);
     pthread_mutex_lock(pmtxAddDelSess);
+    pthread_mutex_lock(pmtxSend);
 
     n = p->length();
     nraw = p->raw.length();
@@ -590,8 +590,9 @@ void SendToAllClients(TAprsString* p)
         }
     }
 
-    pthread_mutex_unlock(pmtxAddDelSess);
     pthread_mutex_unlock(pmtxSend);
+    pthread_mutex_unlock(pmtxAddDelSess);
+
 
     if ((ccount > 0) && ((p->EchoMask & srcSTATS) == 0)) {
         char *cp = new char[256];
@@ -2288,7 +2289,8 @@ void *TCPConnectThread(void *p)
                                 if ((Time - posit->timeRF) >= 60*10) {  // posit every 10 minutes only
                                     timestamp(posit->ID,Time);      // Time stamp the original in hist. list
                                     posit->stsmReformat(MyCall);    // Reformat it for RF delivery
-                                    tncQueue.write(posit);          // posit will be deleted elsewhere
+                                    tncQueue.write(posit);          // posit will be deleted elsewhere?
+                                    delete posit;                   // Can't find where they are being deleted N5VFF
                                 } else
                                     delete posit;
                             } /*else  cout << "Can't find matching posit for "
@@ -4024,6 +4026,17 @@ int main(int argc, char *argv[])
 
     } while (1==1);                     // ctrl-C to quit
 
+    // Compiler burps on this (RH7.1)
+    /*pthread_mutex_destroy(pmtxSendFile);        // destroy/delete the mutex's before exit
+    delete pmtxSendFile;
+    pthread_mutex_destroy(pmtxSend);
+    delete pmtxSend;
+    pthread_mutex_destroy(pmtxAddDelSess);
+    delete pmtxAddDelSess;
+    pthread_mutex_destroy(pmtxCount);
+    delete pmtxCount;
+    pthread_mutex_destroy(pmtxDNS);
+    delete pmtxDNS;*/
     return(0);
 }
 
