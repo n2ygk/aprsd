@@ -29,7 +29,6 @@
 #include <unistd.h>                     // write, read
 #include <stdio.h>                      // sys_errlist
 #include <errno.h>                      // errno
-#include <termios.h>
 #include <fcntl.h>
 #include <fstream>                      // ifstream
 #include <termios.h>
